@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("sales")
+  outletId  String?
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  outlet         Outlet?          @relation(fields: [outletId], references: [id])
+  inputs         CustomerInput[]
+  salesReports   SalesReport[]
+  creatorContent CreatorContent[]
+  rewardPoints   RewardPoint[]
+  feedback       SystemFeedback[]
+}
+
+model Outlet {
+  id         String   @id @default(cuid())
+  name       String
+  city       String
+  type       String   @default("physical")
+  channelKey String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  staff        User[]
+  inputs       CustomerInput[]
+  salesReports SalesReport[]
+}
+
+model CustomerInput {
+  id          String   @id @default(cuid())
+  userId      String
+  outletId    String
+  lookingFor  String   @default("[]")
+  nobuReasons String   @default("[]")
+  suggestions String   @default("[]")
+  quote       String?
+  createdAt   DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+  outlet Outlet @relation(fields: [outletId], references: [id])
+}
+
+model SalesReport {
+  id           String   @id @default(cuid())
+  userId       String
+  outletId     String
+  week         String
+  revenue      Float    @default(0)
+  topProducts  String   @default("[]")
+  slowProducts String   @default("[]")
+  quote        String?
+  objection    String?
+  createdAt    DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+  outlet Outlet @relation(fields: [outletId], references: [id])
+}
+
+model CreatorContent {
+  id            String   @id @default(cuid())
+  userId        String
+  platform      String
+  title         String
+  views         Int      @default(0)
+  likes         Int      @default(0)
+  comments      Int      @default(0)
+  linkedSales   Int      @default(0)
+  topComment    String?
+  productSignal String?
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  name         String
+  category     String
+  status       String   @default("Watchlist")
+  stage        String   @default("Bullet")
+  hitRate      Float    @default(0)
+  signalSource String?
+  notes        String?
+  decisionDate String?
+  tasks        String   @default("[]")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ExecutionTask {
+  id        String   @id @default(cuid())
+  title     String
+  type      String
+  assignee  String
+  due       String
+  status    String   @default("Not Started")
+  result    String?
+  productId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RewardPoint {
+  id        String   @id @default(cuid())
+  userId    String
+  category  String
+  points    Int
+  reason    String
+  weekRef   String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model SystemFeedback {
+  id        String   @id @default(cuid())
+  userId    String
+  week      String
+  outlet    String?
+  insight   String
+  action    String?
+  status    String   @default("pending")
+  productId String?
+  bonus     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}

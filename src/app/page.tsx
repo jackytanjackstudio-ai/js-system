@@ -1,0 +1,150 @@
+"use client";
+import { useLang } from "@/context/LangContext";
+import { useData } from "@/hooks/useData";
+import SystemFeedback from "@/components/SystemFeedback";
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar,
+} from "recharts";
+import {
+  TrendingUp, AlertTriangle, Users, ShoppingBag, RefreshCw, Target, ArrowUpRight, Loader2,
+} from "lucide-react";
+
+type DashData = {
+  topRequests: { item: string; count: number }[];
+  topProducts: { name: string; count: number }[];
+  weeklyRevenue: { week: string; revenue: number }[];
+  stats: {
+    totalInputs: number; pendingTasks: number; overdueTasks: number;
+    activeProducts: number; watchlistProducts: number; testingProducts: number; scaleProducts: number;
+  };
+};
+
+export default function Dashboard() {
+  const { t } = useLang();
+  const { data, loading } = useData<DashData>("/api/dashboard");
+
+  const stats = data?.stats;
+
+  const kpis = [
+    { labelKey: "dash_weekly_rev",   value: `${data?.weeklyRevenue?.reduce((s, r) => s + r.revenue, 0)?.toLocaleString("en-MY", { style: "currency", currency: "MYR", maximumFractionDigits: 0 }) ?? "–"}`, icon: TrendingUp  },
+    { labelKey: "dash_testing",      value: stats ? `${stats.testingProducts}` : "–",  icon: ShoppingBag },
+    { labelKey: "nav_product_war_room", value: stats ? `${stats.scaleProducts} Scale` : "–", icon: Target },
+    { labelKey: "dash_active_cust",  value: stats ? `${stats.totalInputs} inputs` : "–", icon: Users },
+    { labelKey: "nav_execution",     value: stats ? `${stats.pendingTasks} pending` : "–", icon: RefreshCw },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="page-title">{t("dash_title")}</h1>
+          <p className="text-sm text-gray-400 mt-0.5">{t("dash_subtitle")}</p>
+        </div>
+        <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 text-xs font-semibold px-3 py-1.5 rounded-full">
+          <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+          {t("dash_live")}
+        </span>
+      </div>
+
+      {(stats?.overdueTasks ?? 0) > 0 && (
+        <div className="alert-warning">
+          <AlertTriangle size={16} className="text-amber-500 mt-0.5 flex-shrink-0" />
+          <span className="text-sm text-gray-700">
+            {stats?.overdueTasks} overdue task{(stats?.overdueTasks ?? 0) > 1 ? "s" : ""} — check Execution board
+          </span>
+        </div>
+      )}
+
+      {/* KPI Row */}
+      <div className="grid grid-cols-5 gap-4">
+        {kpis.map((k) => (
+          <div key={k.labelKey} className="stat-card">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-gray-400">{t(k.labelKey as Parameters<typeof t>[0])}</span>
+              <k.icon size={14} className="text-gray-300" />
+            </div>
+            {loading
+              ? <Loader2 size={20} className="animate-spin text-gray-300 my-1" />
+              : <div className="text-xl font-bold text-gray-900">{k.value}</div>
+            }
+            <div className="flex items-center gap-1 text-xs font-medium text-green-600">
+              <ArrowUpRight size={12} />
+              Live data
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Charts row */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="card col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-gray-800">{t("dash_rev_chart")}</h2>
+            <span className="text-xs text-gray-400">{t("dash_last_7")}</span>
+          </div>
+          {loading ? (
+            <div className="h-[200px] flex items-center justify-center">
+              <Loader2 className="animate-spin text-gray-300" />
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={data?.weeklyRevenue ?? []} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
+                <defs>
+                  <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#c8811f" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#c8811f" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0ede8" />
+                <XAxis dataKey="week" tick={{ fontSize: 11, fill: "#9ca3af" }} />
+                <YAxis tickFormatter={(v) => `${v / 1000}K`} tick={{ fontSize: 11, fill: "#9ca3af" }} />
+                <Tooltip formatter={(v: number) => `RM ${v.toLocaleString()}`} />
+                <Area type="monotone" dataKey="revenue" stroke="#c8811f" strokeWidth={2} fill="url(#rev)" name="Revenue" />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div className="card">
+          <h2 className="font-semibold text-gray-800 mb-4">{t("dash_top_products")}</h2>
+          {loading ? (
+            <div className="flex items-center justify-center h-32"><Loader2 className="animate-spin text-gray-300" /></div>
+          ) : (
+            <div className="space-y-3">
+              {(data?.topProducts ?? []).slice(0, 5).map((p, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <span className="w-6 h-6 rounded-full bg-brand-100 text-brand-600 text-xs font-bold flex items-center justify-center flex-shrink-0">
+                    {i + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-800 truncate">{p.name}</div>
+                    <div className="text-xs text-gray-400">{p.count}× in reports</div>
+                  </div>
+                </div>
+              ))}
+              {!data?.topProducts?.length && <p className="text-sm text-gray-400">No sales reports yet</p>}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Top requests bar chart */}
+      {(data?.topRequests?.length ?? 0) > 0 && (
+        <div className="card">
+          <h2 className="font-semibold text-gray-800 mb-4">{t("dash_top_requests")}</h2>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={data!.topRequests.map(r => ({ label: r.item, count: r.count }))} layout="vertical" margin={{ left: 0, right: 30, top: 0, bottom: 0 }}>
+              <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} />
+              <YAxis type="category" dataKey="label" tick={{ fontSize: 11, fill: "#374151" }} width={155} />
+              <Tooltip />
+              <Bar dataKey="count" fill="#c8811f" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* System Feedback */}
+      <SystemFeedback />
+    </div>
+  );
+}
