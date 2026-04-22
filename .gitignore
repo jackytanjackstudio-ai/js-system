@@ -19,3 +19,5 @@ tsconfig.tsbuildinfo
 
 # Claude internal
 .claude
+
+.vercel
