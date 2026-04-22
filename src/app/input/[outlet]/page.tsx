@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, use } from "react";
+import { useState, useEffect } from "react";
 import { CheckCircle, ChevronDown, Loader2 } from "lucide-react";
 
 const lookingForOpts = ["Wallet", "Card Holder", "Tote Bag", "Backpack", "Luggage", "Belt", "Accessories", "Gift"];
@@ -31,8 +31,8 @@ function ChipGroup({ options, selected, onChange, color }: {
   );
 }
 
-export default function MobileInputPage({ params }: { params: Promise<{ outlet: string }> }) {
-  const { outlet: outletId } = use(params);
+export default function MobileInputPage({ params }: { params: { outlet: string } }) {
+  const { outlet: outletId } = params;
 
   const [outletName, setOutletName] = useState("Loading…");
   const [staffList, setStaffList] = useState<{ id: string; name: string }[]>([]);
