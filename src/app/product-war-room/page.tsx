@@ -85,7 +85,7 @@ export default function ProductWarRoom() {
         </button>
       </div>
 
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {statCounts.map((s) => {
           const Icon = s.icon;
           return (
@@ -107,7 +107,7 @@ export default function ProductWarRoom() {
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="animate-spin text-gray-300" /></div>
       ) : (
-        <div className="card overflow-hidden p-0">
+        <div className="card overflow-hidden p-0 overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">

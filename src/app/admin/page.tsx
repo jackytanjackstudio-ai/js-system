@@ -35,7 +35,7 @@ export default function AdminOverview() {
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-stone-800 border border-stone-700 rounded-xl p-5">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-9 h-9 rounded-lg bg-brand-600/20 flex items-center justify-center">
@@ -71,7 +71,7 @@ export default function AdminOverview() {
       </div>
 
       {/* Quick links */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Link href="/admin/outlets" className="bg-stone-800 border border-stone-700 hover:border-brand-600 rounded-xl p-5 group transition-all">
           <div className="flex items-center gap-3 mb-2">
             <Store size={18} className="text-brand-400" />

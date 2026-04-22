@@ -56,7 +56,7 @@ export default function Dashboard() {
       )}
 
       {/* KPI Row */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
         {kpis.map((k) => (
           <div key={k.labelKey} className="stat-card">
             <div className="flex items-center justify-between mb-1">
@@ -76,8 +76,8 @@ export default function Dashboard() {
       </div>
 
       {/* Charts row */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="card col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="card lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-800">{t("dash_rev_chart")}</h2>
             <span className="text-xs text-gray-400">{t("dash_last_7")}</span>

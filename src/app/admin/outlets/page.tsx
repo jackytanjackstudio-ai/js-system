@@ -65,7 +65,7 @@ export default function AdminOutlets() {
       {showAdd && (
         <div className="bg-stone-800 border border-brand-600 rounded-xl p-5 space-y-4">
           <h3 className="text-white font-semibold">New Outlet</h3>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs text-stone-400 mb-1.5">Name</label>
               <input className="w-full bg-stone-700 border border-stone-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-brand-500"
@@ -133,8 +133,8 @@ function OutletTable({ title, outlets, editingId, editForm, saving, setEditForm,
   return (
     <div>
       <h2 className="text-stone-400 text-xs font-semibold uppercase tracking-wider mb-3">{title} ({outlets.length})</h2>
-      <div className="bg-stone-800 border border-stone-700 rounded-xl overflow-hidden">
-        <table className="w-full">
+      <div className="bg-stone-800 border border-stone-700 rounded-xl overflow-hidden overflow-x-auto">
+        <table className="w-full min-w-[600px]">
           <thead>
             <tr className="border-b border-stone-700">
               <th className="text-left text-xs text-stone-500 font-semibold px-5 py-3">Name</th>

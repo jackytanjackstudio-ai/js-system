@@ -88,7 +88,7 @@ export default function AdminStaff() {
       {showAdd && (
         <div className="bg-stone-800 border border-brand-600 rounded-xl p-5 space-y-4">
           <h3 className="text-white font-semibold">New User Account</h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-stone-400 mb-1.5">Full Name</label>
               <input className={inputCls} placeholder="e.g. Ahmad Fariz"
@@ -141,8 +141,8 @@ export default function AdminStaff() {
       {sl || ol ? (
         <div className="flex justify-center py-12"><Loader2 className="animate-spin text-stone-600" /></div>
       ) : (
-        <div className="bg-stone-800 border border-stone-700 rounded-xl overflow-hidden">
-          <table className="w-full">
+        <div className="bg-stone-800 border border-stone-700 rounded-xl overflow-hidden overflow-x-auto">
+          <table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-stone-700">
                 <th className="text-left text-xs text-stone-500 font-semibold px-5 py-3">User</th>

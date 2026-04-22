@@ -95,7 +95,7 @@ export default function DataHub() {
       ) : (
         <>
           {/* 3-column */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Top Demand */}
             <div className="card">
               <div className="flex items-center gap-2 mb-3">
@@ -179,7 +179,7 @@ export default function DataHub() {
           </div>
 
           {/* Charts */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="card">
               <h2 className="font-semibold text-gray-800 mb-4">{t("dh_demand_chart")}</h2>
               {topRequests.length > 0 ? (

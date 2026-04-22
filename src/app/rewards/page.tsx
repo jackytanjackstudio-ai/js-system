@@ -49,7 +49,7 @@ export default function Rewards() {
       ) : (
         <>
           {/* Top 3 podium */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {top3.map((p, i) => (
               <div key={p.userId} className={`card text-center relative overflow-hidden ${i === 0 ? "border-2 border-amber-400 shadow-lg" : ""}`}>
                 {i === 0 && <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 to-yellow-300" />}
@@ -77,7 +77,7 @@ export default function Rewards() {
             ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="card">
               <h2 className="font-semibold text-gray-800 mb-3">{t("rw_full_lb")}</h2>
               <div className="space-y-2">
@@ -131,7 +131,7 @@ export default function Rewards() {
           {/* How to earn */}
           <div className="card">
             <h2 className="font-semibold text-gray-800 mb-4">{t("rw_how")}</h2>
-            <div className="grid grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {categories.map((cat) => {
                 const Icon = cat.icon;
                 return (

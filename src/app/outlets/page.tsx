@@ -107,7 +107,7 @@ export default function OutletsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="page-title">{t("oc_title")}</h1>
           <p className="text-sm text-gray-400 mt-0.5">{t("oc_subtitle")}</p>
@@ -129,7 +129,7 @@ export default function OutletsPage() {
       {tab === "outlets" && (
         <>
           {/* Summary KPIs */}
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="stat-card">
               <span className="text-xs text-gray-400">{t("oc_total_outlets")}</span>
               <span className="text-xl font-bold text-gray-900">{outLoading ? "…" : physical.length}</span>
@@ -163,7 +163,7 @@ export default function OutletsPage() {
               <h2 className="font-semibold text-gray-800">{t("oc_online")} ({online.length})</h2>
             </div>
             {outLoading ? <div className="flex justify-center py-6"><Loader2 className="animate-spin text-gray-300" /></div> : (
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {online.map((ch) => (
                   <div key={ch.id} className="card space-y-3 hover:shadow-md transition-shadow group">
                     <div className="flex items-center justify-between">
@@ -228,8 +228,8 @@ export default function OutletsPage() {
             </div>
 
             {outLoading ? <div className="flex justify-center py-6"><Loader2 className="animate-spin text-gray-300" /></div> : (
-              <div className="card overflow-hidden p-0">
-                <table className="w-full">
+              <div className="card overflow-hidden p-0 overflow-x-auto">
+                <table className="w-full min-w-[600px]">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-100">
                       <th className="text-left text-xs text-gray-400 font-semibold px-4 py-3">{t("oc_physical")}</th>
@@ -354,8 +354,8 @@ export default function OutletsPage() {
           )}
 
           {staffLoading ? <div className="flex justify-center py-6"><Loader2 className="animate-spin text-gray-300" /></div> : (
-            <div className="card overflow-hidden p-0">
-              <table className="w-full">
+            <div className="card overflow-hidden p-0 overflow-x-auto">
+              <table className="w-full min-w-[600px]">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
                     <th className="text-left text-xs text-gray-400 font-semibold px-4 py-3">Name</th>

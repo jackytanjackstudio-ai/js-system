@@ -59,7 +59,7 @@ export default function CreatorInsight() {
       {!submitted ? (
         <div className="card space-y-4">
           <h2 className="font-semibold text-gray-800">{t("cr_log_title")}</h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t("cr_platform")}</label>
               <select className="select" value={form.platform} onChange={e => setForm(f => ({ ...f, platform: e.target.value }))}>
@@ -72,7 +72,7 @@ export default function CreatorInsight() {
                 value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
               <label className="block text-xs text-gray-500 mb-1">{t("cr_views")}</label>
               <input type="number" className="input" placeholder="0"
@@ -138,7 +138,7 @@ export default function CreatorInsight() {
                     <div className="text-xs text-gray-400 mt-0.5">{t("cr_by")} {v.user.name}</div>
                   </div>
                 </div>
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="bg-gray-50 rounded-xl p-3 text-center">
                     <div className="text-sm font-bold text-gray-900">{fmt(v.views)}</div>
                     <div className="text-[10px] text-gray-400 mt-0.5 flex items-center justify-center gap-1">
@@ -163,7 +163,7 @@ export default function CreatorInsight() {
                   </div>
                 </div>
                 {(v.topComment || v.productSignal) && (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {v.topComment && (
                       <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
                         <div className="text-[10px] text-blue-400 font-semibold mb-1">{t("cr_top_comment_tag")}</div>
