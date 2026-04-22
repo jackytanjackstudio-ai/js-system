@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, MessageSquare, BarChart2, Video,
-  Database, Sword, CheckSquare, Trophy, Settings, Zap, Store,
+  Database, Sword, CheckSquare, Trophy, Settings, Zap, Store, ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/context/LangContext";
@@ -33,6 +33,7 @@ export default function Sidebar() {
     { href: "/execution",         icon: CheckSquare,     labelKey: "nav_execution",          group: "output"   },
     { href: "/rewards",           icon: Trophy,          labelKey: "nav_rewards",            group: "output"   },
     { href: "/settings",          icon: Settings,        labelKey: "nav_settings",           group: "system"   },
+    { href: "/admin",             icon: ShieldCheck,     labelKey: "nav_admin",              group: "system"   },
   ] as const;
 
   const groups = [
@@ -61,7 +62,8 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
         {groups.map((g) => {
-          const items = nav.filter((n) => n.group === g.key);
+          const items = nav.filter((n) => n.group === g.key)
+            .filter((n) => n.href !== "/admin" || ["admin", "manager"].includes(user?.role ?? ""));
           if (!items.length) return null;
           return (
             <div key={g.key}>
