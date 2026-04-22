@@ -1,6 +1,6 @@
 "use client";
 import { useData } from "@/hooks/useData";
-import { Trophy, Star, TrendingUp, Users, Zap, Heart, ArrowRight, Loader2 } from "lucide-react";
+import { Trophy, Star, TrendingUp, Users, Zap, Heart, ArrowRight, Loader2, MessageSquare } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useLang } from "@/context/LangContext";
 
@@ -15,11 +15,12 @@ export default function Rewards() {
   const { data, loading } = useData<RewardsData>("/api/rewards");
 
   const categories = [
-    { key: "sales",     labelKey: "nav_sales_report",     icon: TrendingUp, color: "text-green-600",  bg: "bg-green-100",  descKey: "rw_sales_desc"   },
-    { key: "creator",   labelKey: "nav_creator_insight",  icon: Star,       color: "text-purple-600", bg: "bg-purple-100", descKey: "rw_creator_desc" },
-    { key: "product",   labelKey: "nav_product_war_room", icon: Zap,        color: "text-brand-600",  bg: "bg-brand-100",  descKey: "rw_product_desc" },
-    { key: "execution", labelKey: "nav_execution",        icon: Users,      color: "text-blue-600",   bg: "bg-blue-100",   descKey: "rw_exec_desc"    },
-    { key: "culture",   labelKey: "nav_rewards",          icon: Heart,      color: "text-red-600",    bg: "bg-red-100",    descKey: "rw_culture_desc" },
+    { key: "customer_input", labelKey: "nav_customer_input",   icon: MessageSquare, color: "text-amber-600",  bg: "bg-amber-100",  descKey: "rw_ci_desc"      },
+    { key: "sales",          labelKey: "nav_sales_report",     icon: TrendingUp,    color: "text-green-600",  bg: "bg-green-100",  descKey: "rw_sales_desc"   },
+    { key: "creator",        labelKey: "nav_creator_insight",  icon: Star,          color: "text-purple-600", bg: "bg-purple-100", descKey: "rw_creator_desc" },
+    { key: "product",        labelKey: "nav_product_war_room", icon: Zap,           color: "text-brand-600",  bg: "bg-brand-100",  descKey: "rw_product_desc" },
+    { key: "execution",      labelKey: "nav_execution",        icon: Users,         color: "text-blue-600",   bg: "bg-blue-100",   descKey: "rw_exec_desc"    },
+    { key: "culture",        labelKey: "nav_rewards",          icon: Heart,         color: "text-red-600",    bg: "bg-red-100",    descKey: "rw_culture_desc" },
   ] as const;
 
   const lb = data?.leaderboard ?? [];
@@ -131,7 +132,7 @@ export default function Rewards() {
           {/* How to earn */}
           <div className="card">
             <h2 className="font-semibold text-gray-800 mb-4">{t("rw_how")}</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               {categories.map((cat) => {
                 const Icon = cat.icon;
                 return (

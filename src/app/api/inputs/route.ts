@@ -32,16 +32,29 @@ export async function POST(req: Request) {
   if (!user) user = await prisma.user.findFirst({ where: { role: "admin" } });
   if (!user) return apiError("No user found", 500);
 
-  const input = await prisma.customerInput.create({
-    data: {
-      userId: user.id,
-      outletId,
-      lookingFor: JSON.stringify(lookingFor ?? []),
-      nobuReasons: JSON.stringify(nobuReasons ?? []),
-      suggestions: JSON.stringify(suggestions ?? []),
-      quote: quote ?? null,
-    },
-  });
+  const week = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+  const [input] = await prisma.$transaction([
+    prisma.customerInput.create({
+      data: {
+        userId: user.id,
+        outletId,
+        lookingFor: JSON.stringify(lookingFor ?? []),
+        nobuReasons: JSON.stringify(nobuReasons ?? []),
+        suggestions: JSON.stringify(suggestions ?? []),
+        quote: quote ?? null,
+      },
+    }),
+    prisma.rewardPoint.create({
+      data: {
+        userId: user.id,
+        category: "customer_input",
+        points: 5,
+        reason: "Submitted customer input",
+        weekRef: week,
+      },
+    }),
+  ]);
 
   return apiOk(input, 201);
 }
