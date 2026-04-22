@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useLang } from "@/context/LangContext";
 import {
   MapPin, Wifi, Users, Copy, Check, ExternalLink,
-  Search, Plus, Trash2, Loader2,
+  Search, Plus, Trash2, Loader2, Pencil, X,
 } from "lucide-react";
 
 type Outlet = {
@@ -48,6 +48,27 @@ export default function OutletsPage() {
   const [showAddStaff, setShowAddStaff] = useState(false);
   const [newStaff, setNewStaff] = useState({ name: "", email: "", role: "sales", outletId: "", phone: "" });
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", city: "" });
+
+  async function saveOutlet(id: string) {
+    setSaving(true);
+    try {
+      await apiFetch("/api/outlets", {
+        method: "PATCH",
+        body: JSON.stringify({ id, name: editForm.name, city: editForm.city }),
+      });
+      setEditingId(null);
+      refetchOutlets();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function startEdit(o: Outlet) {
+    setEditingId(o.id);
+    setEditForm({ name: o.name, city: o.city });
+  }
 
   const base = typeof window !== "undefined" ? window.location.origin : "";
 
@@ -144,12 +165,30 @@ export default function OutletsPage() {
             {outLoading ? <div className="flex justify-center py-6"><Loader2 className="animate-spin text-gray-300" /></div> : (
               <div className="grid grid-cols-4 gap-3">
                 {online.map((ch) => (
-                  <div key={ch.id} className="card space-y-3 hover:shadow-md transition-shadow">
+                  <div key={ch.id} className="card space-y-3 hover:shadow-md transition-shadow group">
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-sm text-gray-900">{ch.name}</span>
-                      <span className={cn("status-pill text-xs", ch.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400")}>
-                        {ch.isActive ? "Active" : "Inactive"}
-                      </span>
+                      {editingId === ch.id ? (
+                        <input className="input py-1 text-sm flex-1 mr-2" autoFocus
+                          value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveOutlet(ch.id); if (e.key === "Escape") setEditingId(null); }} />
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-sm text-gray-900">{ch.name}</span>
+                          <button onClick={() => startEdit(ch)} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-brand-500 transition-all">
+                            <Pencil size={11} />
+                          </button>
+                        </div>
+                      )}
+                      {editingId === ch.id ? (
+                        <div className="flex gap-1">
+                          <button onClick={() => saveOutlet(ch.id)} className="text-xs px-2 py-1 rounded bg-brand-500 text-white"><Check size={10} /></button>
+                          <button onClick={() => setEditingId(null)} className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-500"><X size={10} /></button>
+                        </div>
+                      ) : (
+                        <span className={cn("status-pill text-xs", ch.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400")}>
+                          {ch.isActive ? "Active" : "Inactive"}
+                        </span>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-center">
                       <div className="bg-brand-50 rounded-lg p-2">
@@ -202,21 +241,55 @@ export default function OutletsPage() {
                   </thead>
                   <tbody>
                     {filteredPhysical.map((o) => (
-                      <tr key={o.id} className="table-row hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3"><span className="font-semibold text-sm text-gray-900">{o.name}</span></td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{o.city}</td>
+                      <tr key={o.id} className="table-row hover:bg-gray-50 transition-colors group">
+                        <td className="px-4 py-3">
+                          {editingId === o.id ? (
+                            <input className="input py-1 text-sm w-40" autoFocus
+                              value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                              onKeyDown={(e) => { if (e.key === "Enter") saveOutlet(o.id); if (e.key === "Escape") setEditingId(null); }} />
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-sm text-gray-900">{o.name}</span>
+                              <button onClick={() => startEdit(o)} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-brand-500 transition-all">
+                                <Pencil size={12} />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {editingId === o.id ? (
+                            <input className="input py-1 text-sm w-28"
+                              value={editForm.city} onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                              onKeyDown={(e) => { if (e.key === "Enter") saveOutlet(o.id); if (e.key === "Escape") setEditingId(null); }} />
+                          ) : (
+                            <span className="text-sm text-gray-500">{o.city}</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-right">
                           <span className={cn("text-sm font-bold", inputColor(o._count.inputs))}>{o._count.inputs}</span>
                         </td>
                         <td className="px-4 py-3 text-right text-sm text-gray-600">{o._count.salesReports}</td>
                         <td className="px-4 py-3">
-                          <div className="flex gap-1.5">
-                            <CopyBtn text={`${base}/input/${o.id}`} label={t("oc_copy")} copied={t("oc_copied")} />
-                            <a href={`/input/${o.id}`} target="_blank"
-                              className="flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg bg-brand-50 text-brand-600 hover:bg-brand-100 transition-colors font-semibold">
-                              <ExternalLink size={10} />
-                            </a>
-                          </div>
+                          {editingId === o.id ? (
+                            <div className="flex gap-1.5">
+                              <button onClick={() => saveOutlet(o.id)} disabled={saving}
+                                className="text-xs px-2.5 py-1.5 rounded-lg bg-brand-500 text-white hover:bg-brand-600 transition-colors font-semibold flex items-center gap-1">
+                                {saving ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />} Save
+                              </button>
+                              <button onClick={() => setEditingId(null)}
+                                className="text-xs px-2 py-1.5 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors">
+                                <X size={11} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex gap-1.5">
+                              <CopyBtn text={`${base}/input/${o.id}`} label={t("oc_copy")} copied={t("oc_copied")} />
+                              <a href={`/input/${o.id}`} target="_blank"
+                                className="flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg bg-brand-50 text-brand-600 hover:bg-brand-100 transition-colors font-semibold">
+                                <ExternalLink size={10} />
+                              </a>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}

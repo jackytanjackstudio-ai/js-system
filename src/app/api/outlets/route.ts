@@ -15,6 +15,27 @@ export async function GET() {
   return apiOk(outlets);
 }
 
+export async function PATCH(req: Request) {
+  const session = await getSession();
+  if (!session) return apiError("Unauthorized", 401);
+  if (session.role !== "admin" && session.role !== "manager") return apiError("Forbidden", 403);
+
+  const body = await req.json();
+  if (!body.id) return apiError("id required");
+
+  const outlet = await prisma.outlet.update({
+    where: { id: body.id },
+    data: {
+      ...(body.name && { name: body.name }),
+      ...(body.city && { city: body.city }),
+      ...(body.type && { type: body.type }),
+      ...(body.isActive !== undefined && { isActive: body.isActive }),
+    },
+  });
+
+  return apiOk(outlet);
+}
+
 export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return apiError("Unauthorized", 401);
