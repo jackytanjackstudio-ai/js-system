@@ -14,6 +14,7 @@ export async function GET(req: Request) {
     include: { outlet: { select: { name: true } }, user: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
     take: limit,
+    // staffName is included automatically as it's a scalar field
   });
 
   return apiOk(inputs);
@@ -39,6 +40,7 @@ export async function POST(req: Request) {
       data: {
         userId: user.id,
         outletId,
+        staffName: staffName ?? null,
         lookingFor: JSON.stringify(lookingFor ?? []),
         nobuReasons: JSON.stringify(nobuReasons ?? []),
         suggestions: JSON.stringify(suggestions ?? []),

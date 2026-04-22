@@ -12,7 +12,7 @@ const suggestions = ["Bigger size", "More colours", "Lower price", "Bundle deal"
 type Outlet = { id: string; name: string; type: string; isActive: boolean };
 type Input  = {
   id: string; createdAt: string; quote: string | null;
-  lookingFor: string; nobuReasons: string;
+  staffName: string | null; lookingFor: string; nobuReasons: string;
   outlet: { name: string }; user: { name: string };
 };
 
@@ -183,11 +183,11 @@ export default function CustomerInput() {
               return (
                 <div key={r.id} className="card py-3 px-4 flex gap-3 items-start">
                   <div className="w-7 h-7 rounded-full bg-brand-100 text-brand-600 text-xs font-bold flex items-center justify-center flex-shrink-0">
-                    {r.user.name[0]}
+                    {(r.staffName ?? r.user.name)[0]}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-semibold text-gray-800">{r.user.name}</span>
+                      <span className="text-sm font-semibold text-gray-800">{r.staffName ?? r.user.name}</span>
                       <span className="text-xs text-gray-400">{r.outlet.name}</span>
                       {items.map(i => <span key={i} className="badge bg-brand-100 text-brand-700">{i}</span>)}
                       {rs.map(reason => <span key={reason} className="badge bg-red-100 text-red-700">{reason}</span>)}
