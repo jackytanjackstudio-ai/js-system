@@ -43,15 +43,19 @@ model Outlet {
 }
 
 model CustomerInput {
-  id          String   @id @default(cuid())
-  userId      String
-  outletId    String
-  staffName   String?
-  lookingFor  String   @default("[]")
-  nobuReasons String   @default("[]")
-  suggestions String   @default("[]")
-  quote       String?
-  createdAt   DateTime @default(now())
+  id            String   @id @default(cuid())
+  userId        String
+  outletId      String
+  staffName     String?
+  lookingFor    String   @default("[]")
+  nobuReasons   String   @default("[]")
+  suggestions   String   @default("[]")
+  quote         String?
+  week          String?
+  month         Int?
+  customerName  String?
+  customerPhone String?
+  createdAt     DateTime @default(now())
 
   user   User   @relation(fields: [userId], references: [id])
   outlet Outlet @relation(fields: [outletId], references: [id])
@@ -84,6 +88,8 @@ model CreatorContent {
   linkedSales   Int      @default(0)
   topComment    String?
   productSignal String?
+  week          String?
+  month         Int?
   createdAt     DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
@@ -97,6 +103,7 @@ model Product {
   stage        String   @default("Bullet")
   hitRate      Float    @default(0)
   signalSource String?
+  source       String   @default("customer")
   notes        String?
   decisionDate String?
   tasks        String   @default("[]")
