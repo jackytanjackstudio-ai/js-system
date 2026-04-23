@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { CheckCircle, Clock, Loader2, ChevronDown, ChevronUp, Zap } from "lucide-react";
+import { useState, useRef } from "react";
+import { CheckCircle, Clock, Loader2, ChevronDown, ChevronUp, Zap, Camera, X, ImageIcon } from "lucide-react";
 import { useLang } from "@/context/LangContext";
 import { useData, apiFetch } from "@/hooks/useData";
 import { useAuth } from "@/context/AuthContext";
@@ -23,6 +23,12 @@ const nobuReasons = [
 ];
 
 const suggestions = ["Bigger size", "More colours", "Lower price", "More compartments", "Personalization"];
+
+const styleTagGroups = [
+  { group: "Style",    tags: ["Formal", "Casual", "Travel", "Sporty", "Luxury"] },
+  { group: "Size",     tags: ["Compact", "Medium", "Large"] },
+  { group: "Features", tags: ["Multi-compartment", "RFID", "Laptop slot", "Anti-theft", "Waterproof"] },
+];
 
 type Outlet = { id: string; name: string; type: string; isActive: boolean };
 type Input  = {
@@ -48,10 +54,40 @@ export default function CustomerInput() {
   const [looking,  setLooking]      = useState<string[]>([]);
   const [reasons,  setReasons]      = useState<string[]>([]);
   const [sug,      setSug]          = useState<string[]>([]);
+
+  // Image state
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageUrl,     setImageUrl]     = useState<string | null>(null);
+  const [imageTags,    setImageTags]    = useState<string[]>([]);
+  const [uploading,    setUploading]    = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [quote,    setQuote]        = useState("");
   const [showContact, setShowContact] = useState(false);
   const [custName,  setCustName]    = useState("");
   const [custPhone, setCustPhone]   = useState("");
+
+  async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImagePreview(URL.createObjectURL(file));
+    setImageUrl(null);
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res  = await fetch("/api/upload", { method: "POST", body: form });
+      const data = await res.json();
+      if (res.ok) setImageUrl(data.url);
+      else setImagePreview(null);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function removeImage() {
+    setImagePreview(null); setImageUrl(null); setImageTags([]);
+    if (fileRef.current) fileRef.current.value = "";
+  }
 
   async function handleSubmit() {
     if (!outletId || !user || !looking.length) return;
@@ -68,6 +104,8 @@ export default function CustomerInput() {
           quote:         quote || null,
           customerName:  custName  || null,
           customerPhone: custPhone || null,
+          imageUrl:      imageUrl  || null,
+          imageTags,
         }),
       });
       setResult({ weekCount: data.weekCount ?? 1, topDemand: data.topDemand ?? null });
@@ -81,6 +119,7 @@ export default function CustomerInput() {
     setResult(null);
     setOutletId(""); setLooking([]); setReasons([]); setSug([]); setQuote("");
     setCustName(""); setCustPhone(""); setShowContact(false);
+    removeImage();
   }
 
   const activeOutlets    = (outlets ?? []).filter(o => o.isActive);
@@ -199,7 +238,66 @@ export default function CustomerInput() {
           </div>
         )}
 
-        {/* Step 4 — Quote */}
+        {/* Step 4 — Image upload */}
+        <div>
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            Customer showed a photo? <span className="text-gray-400 normal-case font-normal text-xs">(optional)</span>
+          </label>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+          {!imagePreview ? (
+            <button onClick={() => fileRef.current?.click()}
+              className="w-full py-4 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center gap-2 text-gray-400 hover:border-brand-300 hover:text-brand-500 transition-all">
+              <Camera size={18} />
+              <span className="text-sm font-medium">Upload photo</span>
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <div className="relative rounded-xl overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imagePreview} alt="Customer photo" className="w-full max-h-40 object-cover" />
+                {uploading && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <Loader2 size={20} className="animate-spin text-white" />
+                  </div>
+                )}
+                <button onClick={removeImage}
+                  className="absolute top-2 right-2 w-6 h-6 bg-black/50 rounded-full flex items-center justify-center text-white">
+                  <X size={12} />
+                </button>
+                {imageUrl && !uploading && (
+                  <div className="absolute bottom-2 left-2 bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                    <ImageIcon size={9} /> Uploaded
+                  </div>
+                )}
+              </div>
+              {imageUrl && (
+                <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+                  <p className="text-xs font-bold text-gray-500">Tag the style / features</p>
+                  {styleTagGroups.map(group => (
+                    <div key={group.group}>
+                      <p className="text-[10px] font-semibold text-gray-400 mb-1">{group.group}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {group.tags.map(tag => {
+                          const on = imageTags.includes(tag);
+                          return (
+                            <button key={tag} onClick={() => setImageTags(toggle(imageTags, tag))}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                                on ? "bg-purple-500 text-white border-purple-500" : "bg-white text-gray-600 border-gray-200 hover:border-purple-300"
+                              }`}>
+                              {tag}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Step 5 — Quote */}
         <div>
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
             {t("ci_quote_label")} <span className="text-red-400 normal-case font-normal text-xs">{t("ci_quote_warn")}</span>

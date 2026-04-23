@@ -55,6 +55,8 @@ model CustomerInput {
   month         Int?
   customerName  String?
   customerPhone String?
+  imageUrl      String?
+  imageTags     String   @default("[]")
   createdAt     DateTime @default(now())
 
   user   User   @relation(fields: [userId], references: [id])

@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
-import { CheckCircle, ChevronDown, ChevronUp, Loader2, Zap } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { CheckCircle, ChevronDown, ChevronUp, Loader2, Zap, Camera, X, ImageIcon } from "lucide-react";
 
 const categories = [
   { label: "Wallet",      emoji: "👜" },
@@ -12,19 +12,20 @@ const categories = [
 ];
 
 const nobuReasons = [
-  { label: "Price",       emoji: "💰" },
-  { label: "Size",        emoji: "📏" },
-  { label: "Design",      emoji: "🎨" },
-  { label: "Quality",     emoji: "🔍" },
-  { label: "Not urgent",  emoji: "⏳" },
+  { label: "Price",      emoji: "💰" },
+  { label: "Size",       emoji: "📏" },
+  { label: "Design",     emoji: "🎨" },
+  { label: "Quality",    emoji: "🔍" },
+  { label: "Not urgent", emoji: "⏳" },
 ];
 
-const suggestions = [
-  "Bigger size",
-  "More colours",
-  "Lower price",
-  "More compartments",
-  "Personalization",
+const suggestions = ["Bigger size", "More colours", "Lower price", "More compartments", "Personalization"];
+
+// Image feature tags
+const styleTagGroups = [
+  { group: "Style",    tags: ["Formal", "Casual", "Travel", "Sporty", "Luxury"] },
+  { group: "Size",     tags: ["Compact", "Medium", "Large"] },
+  { group: "Features", tags: ["Multi-compartment", "RFID", "Laptop slot", "Anti-theft", "Waterproof"] },
 ];
 
 function toggle(arr: string[], val: string) {
@@ -41,14 +42,21 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult]         = useState<SubmitResult | null>(null);
 
-  const [staffName, setStaffName] = useState("");
-  const [looking,   setLooking]   = useState<string[]>([]);
-  const [reasons,   setReasons]   = useState<string[]>([]);
-  const [sug,       setSug]       = useState<string[]>([]);
-  const [quote,     setQuote]     = useState("");
-  const [showContact, setShowContact] = useState(false);
-  const [custName,  setCustName]  = useState("");
-  const [custPhone, setCustPhone] = useState("");
+  const [staffName,    setStaffName]    = useState("");
+  const [looking,      setLooking]      = useState<string[]>([]);
+  const [reasons,      setReasons]      = useState<string[]>([]);
+  const [sug,          setSug]          = useState<string[]>([]);
+  const [quote,        setQuote]        = useState("");
+  const [showContact,  setShowContact]  = useState(false);
+  const [custName,     setCustName]     = useState("");
+  const [custPhone,    setCustPhone]    = useState("");
+
+  // Image state
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageUrl,     setImageUrl]     = useState<string | null>(null);
+  const [imageTags,    setImageTags]    = useState<string[]>([]);
+  const [uploading,    setUploading]    = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch(`/api/outlets/${outletId}/staff`)
@@ -62,6 +70,32 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
         }
       });
   }, [outletId]);
+
+  async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // local preview immediately
+    setImagePreview(URL.createObjectURL(file));
+    setImageUrl(null);
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: form });
+      const data = await res.json();
+      if (res.ok) setImageUrl(data.url);
+      else setImagePreview(null); // upload failed, clear preview
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function removeImage() {
+    setImagePreview(null);
+    setImageUrl(null);
+    setImageTags([]);
+    if (fileRef.current) fileRef.current.value = "";
+  }
 
   async function handleSubmit() {
     if (!staffName || !looking.length) return;
@@ -79,6 +113,8 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
           quote:         quote || null,
           customerName:  custName  || null,
           customerPhone: custPhone || null,
+          imageUrl:      imageUrl  || null,
+          imageTags:     imageTags,
         }),
       });
       if (res.ok) {
@@ -94,6 +130,7 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
     setResult(null);
     setLooking([]); setReasons([]); setSug([]); setQuote("");
     setStaffName(""); setCustName(""); setCustPhone(""); setShowContact(false);
+    removeImage();
   }
 
   const showSuggestions = looking.length > 0 || reasons.length > 0;
@@ -113,7 +150,6 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
         <div className="bg-white rounded-2xl px-6 py-4 shadow-sm border border-gray-100 w-full max-w-sm">
           <div className="text-3xl font-black text-brand-600">#{result.weekCount}</div>
           <div className="text-sm text-gray-500">本周第 {result.weekCount} 条客户需求</div>
-          <div className="text-xs text-gray-400">This week&apos;s {result.weekCount}{result.weekCount === 1 ? "st" : result.weekCount === 2 ? "nd" : result.weekCount === 3 ? "rd" : "th"} input</div>
         </div>
         {result.topDemand && (
           <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 w-full max-w-sm">
@@ -124,10 +160,8 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
             </div>
           </div>
         )}
-        <button
-          className="w-full max-w-sm bg-brand-500 text-white py-4 rounded-2xl font-bold text-lg active:bg-brand-600 transition-colors"
-          onClick={reset}
-        >
+        <button className="w-full max-w-sm bg-brand-500 text-white py-4 rounded-2xl font-bold text-lg active:bg-brand-600 transition-colors"
+          onClick={reset}>
           + 新建记录
         </button>
       </div>
@@ -136,7 +170,6 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
 
   return (
     <div className="fixed inset-0 z-[9999] bg-[#f8f7f4] overflow-y-auto">
-      {/* Header */}
       <div className="bg-brand-500 text-white px-5 pt-10 pb-5">
         <div className="text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">JackStudio OS</div>
         <h1 className="text-xl font-bold">{outletName}</h1>
@@ -145,7 +178,7 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
 
       <div className="px-4 py-5 space-y-6 max-w-lg mx-auto">
 
-        {/* Step 0 — Who are you */}
+        {/* Who are you */}
         <div>
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Who are you?</label>
           <div className="relative">
@@ -158,7 +191,7 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
           </div>
         </div>
 
-        {/* Step 1 — What were they looking for */}
+        {/* Looking for */}
         <div>
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
             Customer looking for? <span className="text-red-400 normal-case font-normal">(required)</span>
@@ -179,7 +212,7 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
           </div>
         </div>
 
-        {/* Step 2 — Why didn't buy */}
+        {/* Why didn't buy */}
         <div>
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
             Why didn&apos;t they buy? <span className="text-gray-400 normal-case font-normal">(optional)</span>
@@ -192,20 +225,17 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
                   className={`px-4 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all flex items-center gap-1.5 ${
                     on ? "bg-red-500 text-white border-red-500 shadow-md" : "bg-white text-gray-600 border-gray-100 active:border-red-300"
                   }`}>
-                  <span>{r.emoji}</span>
-                  <span>{r.label}</span>
+                  <span>{r.emoji}</span><span>{r.label}</span>
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* Step 3 — Suggestions (auto-appear) */}
+        {/* Suggestions (auto-appear) */}
         {showSuggestions && (
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-              Customer suggested?
-            </label>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Customer suggested?</label>
             <div className="flex flex-wrap gap-2">
               {suggestions.map(s => {
                 const on = sug.includes(s);
@@ -222,23 +252,83 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
           </div>
         )}
 
-        {/* Step 4 — Quote */}
+        {/* Image upload */}
+        <div>
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            Customer showed you a photo? <span className="text-gray-400 normal-case font-normal">(optional)</span>
+          </label>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+
+          {!imagePreview ? (
+            <button onClick={() => fileRef.current?.click()}
+              className="w-full py-5 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center gap-2 text-gray-400 active:border-brand-300 active:text-brand-500 transition-all">
+              <Camera size={24} />
+              <span className="text-sm font-medium">Upload photo</span>
+              <span className="text-xs">JPEG · PNG · up to 8MB</span>
+            </button>
+          ) : (
+            <div className="space-y-3">
+              {/* Preview */}
+              <div className="relative rounded-2xl overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imagePreview} alt="Customer photo" className="w-full max-h-48 object-cover" />
+                {uploading && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <Loader2 size={24} className="animate-spin text-white" />
+                  </div>
+                )}
+                <button onClick={removeImage}
+                  className="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full flex items-center justify-center text-white">
+                  <X size={14} />
+                </button>
+                {imageUrl && !uploading && (
+                  <div className="absolute bottom-2 left-2 bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                    <ImageIcon size={9} /> Uploaded
+                  </div>
+                )}
+              </div>
+
+              {/* Feature tags (appear after image upload) */}
+              {imageUrl && (
+                <div className="bg-gray-50 rounded-2xl p-3 space-y-3">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">What style / features? (helps us track trends)</p>
+                  {styleTagGroups.map(group => (
+                    <div key={group.group}>
+                      <p className="text-[10px] font-semibold text-gray-400 mb-1.5">{group.group}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {group.tags.map(tag => {
+                          const on = imageTags.includes(tag);
+                          return (
+                            <button key={tag} onClick={() => setImageTags(toggle(imageTags, tag))}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                                on ? "bg-purple-500 text-white border-purple-500" : "bg-white text-gray-600 border-gray-200 active:border-purple-300"
+                              }`}>
+                              {tag}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Quote */}
         <div>
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
             Customer&apos;s exact words <span className="text-red-400 normal-case font-normal">(write what they SAID)</span>
           </label>
-          <textarea
-            className="textarea text-base py-3 min-h-[70px]"
+          <textarea className="textarea text-base py-3 min-h-[70px]"
             placeholder='"Can this come in brown?" / "Need bigger for travel"'
-            value={quote}
-            onChange={e => setQuote(e.target.value)}
-          />
+            value={quote} onChange={e => setQuote(e.target.value)} />
         </div>
 
-        {/* Step 5 — Contact (collapsed) */}
+        {/* Contact (collapsed) */}
         <div>
-          <button
-            onClick={() => setShowContact(!showContact)}
+          <button onClick={() => setShowContact(!showContact)}
             className="flex items-center gap-2 text-xs font-semibold text-gray-400 hover:text-gray-600 transition-colors">
             {showContact ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             {showContact ? "Hide customer info" : "+ Add customer name / phone (optional)"}
@@ -253,12 +343,10 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
           )}
         </div>
 
-        {/* Submit */}
         <button
           className="w-full bg-brand-500 text-white py-4 rounded-2xl font-bold text-lg active:bg-brand-600 transition-colors shadow-lg shadow-brand-200 disabled:opacity-40 flex items-center justify-center gap-2"
           disabled={!canSubmit}
-          onClick={handleSubmit}
-        >
+          onClick={handleSubmit}>
           {submitting ? <><Loader2 size={20} className="animate-spin" /> Recording…</> : "Submit →"}
         </button>
 

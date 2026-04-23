@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useData } from "@/hooks/useData";
-import { Database, TrendingUp, AlertTriangle, Lightbulb, MessageSquare, Store, Loader2, ArrowRight } from "lucide-react";
+import { Database, TrendingUp, AlertTriangle, Lightbulb, MessageSquare, Store, Loader2, ArrowRight, ImageIcon } from "lucide-react";
 import { useLang } from "@/context/LangContext";
 import { cn } from "@/lib/utils";
 import {
@@ -9,15 +9,27 @@ import {
   LineChart, Line, CartesianGrid,
 } from "recharts";
 
+type VisualTrend = {
+  tagKey: string;
+  tags: string[];
+  count: number;
+  imageUrls: string[];
+  categories: string[];
+  score: number;
+  signal: string;
+};
+
 type HubData = {
   period: string;
   week: string;
   month: number;
   totalInputs: number;
+  imageInputsCount: number;
   topDemands:      { label: string; count: number }[];
   topReasons:      { label: string; count: number }[];
   topSuggestions:  { label: string; count: number }[];
   weeklyTrend:     { week: string; count: number }[];
+  visualTrends:    VisualTrend[];
   outletBreakdown: { outlet: string; total: number; top: { tag: string; count: number }[] }[];
   revenueTrend:    { week: string; revenue: number }[];
   creatorSignals:  { id: string; title: string; views: number; signal: string; creator: string; platform: string }[];
@@ -252,6 +264,86 @@ export default function DataHub() {
               </div>
             </div>
           )}
+
+          {/* Visual Demand Trends */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                  <ImageIcon size={14} className="text-purple-600" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-gray-800 text-sm">Visual Demand Trends</h2>
+                  <p className="text-[10px] text-gray-400">Based on photos customers showed your staff</p>
+                </div>
+              </div>
+              {data.imageInputsCount > 0 && (
+                <span className="text-[10px] font-semibold bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                  {data.imageInputsCount} photos
+                </span>
+              )}
+            </div>
+
+            {!data.visualTrends.length ? (
+              <div className="text-center py-8 space-y-2">
+                <div className="w-12 h-12 bg-gray-100 rounded-2xl mx-auto flex items-center justify-center">
+                  <ImageIcon size={20} className="text-gray-300" />
+                </div>
+                <p className="text-sm font-semibold text-gray-400">No visual data yet</p>
+                <p className="text-xs text-gray-400">When staff upload customer photos in Customer Input, trends appear here</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {data.visualTrends.map(trend => (
+                  <div key={trend.tagKey} className="rounded-2xl border border-gray-100 overflow-hidden">
+                    {/* Image previews */}
+                    <div className="h-24 bg-gray-100 flex overflow-hidden">
+                      {trend.imageUrls.length > 0 ? (
+                        trend.imageUrls.slice(0, 2).map((url, i) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img key={i} src={url} alt="trend" className="flex-1 object-cover"
+                            style={{ width: `${100 / Math.min(trend.imageUrls.length, 2)}%` }} />
+                        ))
+                      ) : (
+                        <div className="flex-1 flex items-center justify-center">
+                          <ImageIcon size={20} className="text-gray-300" />
+                        </div>
+                      )}
+                    </div>
+                    {/* Info */}
+                    <div className="p-3">
+                      <div className="flex items-center gap-1 mb-1.5">
+                        <span className="text-[10px] font-bold text-purple-600">{trend.signal}</span>
+                        <span className="ml-auto text-[10px] font-black text-gray-700">{trend.score}</span>
+                        <span className="text-[9px] text-gray-400">pts</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {trend.tags.map(tag => (
+                          <span key={tag} className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded-md font-medium">{tag}</span>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          {trend.categories.slice(0, 2).map(c => (
+                            <span key={c} className="text-[9px] bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded font-medium">{c}</span>
+                          ))}
+                        </div>
+                        <span className="text-[10px] text-gray-400 font-semibold">{trend.count}×</span>
+                      </div>
+                      {/* Score bar */}
+                      <div className="mt-2 h-1 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${trend.score}%`,
+                            background: trend.score >= 85 ? "#f59e0b" : trend.score >= 70 ? "#8b5cf6" : "#9ca3af"
+                          }} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>
