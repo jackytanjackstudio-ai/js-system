@@ -56,36 +56,47 @@ export default function CustomerInput() {
   const [sug,      setSug]          = useState<string[]>([]);
 
   // Image state
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageUrl,     setImageUrl]     = useState<string | null>(null);
-  const [imageTags,    setImageTags]    = useState<string[]>([]);
-  const [uploading,    setUploading]    = useState(false);
+  const [imageData,   setImageData]   = useState<string | null>(null);
+  const [imageTags,   setImageTags]   = useState<string[]>([]);
+  const [processing,  setProcessing]  = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [quote,    setQuote]        = useState("");
   const [showContact, setShowContact] = useState(false);
   const [custName,  setCustName]    = useState("");
   const [custPhone, setCustPhone]   = useState("");
 
+  function resizeImage(file: File): Promise<string> {
+    return new Promise(resolve => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const MAX = 480;
+        const scale = Math.min(MAX / img.width, MAX / img.height, 1);
+        const canvas = document.createElement("canvas");
+        canvas.width  = Math.round(img.width  * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL("image/jpeg", 0.72));
+      };
+      img.src = url;
+    });
+  }
+
   async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setImagePreview(URL.createObjectURL(file));
-    setImageUrl(null);
-    setUploading(true);
+    setProcessing(true);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res  = await fetch("/api/upload", { method: "POST", body: form });
-      const data = await res.json();
-      if (res.ok) setImageUrl(data.url);
-      else setImagePreview(null);
+      const data = await resizeImage(file);
+      setImageData(data);
     } finally {
-      setUploading(false);
+      setProcessing(false);
     }
   }
 
   function removeImage() {
-    setImagePreview(null); setImageUrl(null); setImageTags([]);
+    setImageData(null); setImageTags([]);
     if (fileRef.current) fileRef.current.value = "";
   }
 
@@ -104,7 +115,7 @@ export default function CustomerInput() {
           quote:         quote || null,
           customerName:  custName  || null,
           customerPhone: custPhone || null,
-          imageUrl:      imageUrl  || null,
+          imageUrl:      imageData || null,
           imageTags,
         }),
       });
@@ -124,7 +135,7 @@ export default function CustomerInput() {
 
   const activeOutlets    = (outlets ?? []).filter(o => o.isActive);
   const showSuggestions  = looking.length > 0 || reasons.length > 0;
-  const canSubmit        = outletId && looking.length > 0 && !submitting;
+  const canSubmit        = outletId && looking.length > 0 && !submitting && !processing;
 
   // Success screen
   if (result) {
@@ -244,33 +255,27 @@ export default function CustomerInput() {
             Customer showed a photo? <span className="text-gray-400 normal-case font-normal text-xs">(optional)</span>
           </label>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
-          {!imagePreview ? (
+          {!imageData ? (
             <button onClick={() => fileRef.current?.click()}
-              className="w-full py-4 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center gap-2 text-gray-400 hover:border-brand-300 hover:text-brand-500 transition-all">
-              <Camera size={18} />
-              <span className="text-sm font-medium">Upload photo</span>
+              disabled={processing}
+              className="w-full py-4 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center gap-2 text-gray-400 hover:border-brand-300 hover:text-brand-500 transition-all disabled:opacity-50">
+              {processing ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
+              <span className="text-sm font-medium">{processing ? "Processing…" : "Upload photo"}</span>
             </button>
           ) : (
             <div className="space-y-3">
               <div className="relative rounded-xl overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imagePreview} alt="Customer photo" className="w-full max-h-40 object-cover" />
-                {uploading && (
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                    <Loader2 size={20} className="animate-spin text-white" />
-                  </div>
-                )}
+                <img src={imageData} alt="Customer photo" className="w-full max-h-40 object-cover" />
                 <button onClick={removeImage}
                   className="absolute top-2 right-2 w-6 h-6 bg-black/50 rounded-full flex items-center justify-center text-white">
                   <X size={12} />
                 </button>
-                {imageUrl && !uploading && (
-                  <div className="absolute bottom-2 left-2 bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                    <ImageIcon size={9} /> Uploaded
-                  </div>
-                )}
+                <div className="absolute bottom-2 left-2 bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                  <ImageIcon size={9} /> Ready
+                </div>
               </div>
-              {imageUrl && (
+              {imageData && (
                 <div className="bg-gray-50 rounded-xl p-3 space-y-2">
                   <p className="text-xs font-bold text-gray-500">Tag the style / features</p>
                   {styleTagGroups.map(group => (

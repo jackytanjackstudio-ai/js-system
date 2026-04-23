@@ -52,11 +52,28 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
   const [custPhone,    setCustPhone]    = useState("");
 
   // Image state
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageUrl,     setImageUrl]     = useState<string | null>(null);
-  const [imageTags,    setImageTags]    = useState<string[]>([]);
-  const [uploading,    setUploading]    = useState(false);
+  const [imageData,  setImageData]  = useState<string | null>(null); // base64 data URL
+  const [imageTags,  setImageTags]  = useState<string[]>([]);
+  const [processing, setProcessing] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  function resizeImage(file: File): Promise<string> {
+    return new Promise(resolve => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const MAX = 480;
+        const scale = Math.min(MAX / img.width, MAX / img.height, 1);
+        const canvas = document.createElement("canvas");
+        canvas.width  = Math.round(img.width  * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL("image/jpeg", 0.72));
+      };
+      img.src = url;
+    });
+  }
 
   useEffect(() => {
     fetch(`/api/outlets/${outletId}/staff`)
@@ -74,25 +91,17 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
   async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    // local preview immediately
-    setImagePreview(URL.createObjectURL(file));
-    setImageUrl(null);
-    setUploading(true);
+    setProcessing(true);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: form });
-      const data = await res.json();
-      if (res.ok) setImageUrl(data.url);
-      else setImagePreview(null); // upload failed, clear preview
+      const data = await resizeImage(file);
+      setImageData(data);
     } finally {
-      setUploading(false);
+      setProcessing(false);
     }
   }
 
   function removeImage() {
-    setImagePreview(null);
-    setImageUrl(null);
+    setImageData(null);
     setImageTags([]);
     if (fileRef.current) fileRef.current.value = "";
   }
@@ -113,8 +122,8 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
           quote:         quote || null,
           customerName:  custName  || null,
           customerPhone: custPhone || null,
-          imageUrl:      imageUrl  || null,
-          imageTags:     imageTags,
+          imageUrl:      imageData || null,
+          imageTags,
         }),
       });
       if (res.ok) {
@@ -134,7 +143,7 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
   }
 
   const showSuggestions = looking.length > 0 || reasons.length > 0;
-  const canSubmit = staffName && looking.length > 0 && !submitting;
+  const canSubmit = staffName && looking.length > 0 && !submitting && !processing;
 
   // Success screen
   if (result) {
@@ -259,37 +268,31 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
           </label>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
 
-          {!imagePreview ? (
+          {!imageData ? (
             <button onClick={() => fileRef.current?.click()}
-              className="w-full py-5 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center gap-2 text-gray-400 active:border-brand-300 active:text-brand-500 transition-all">
-              <Camera size={24} />
-              <span className="text-sm font-medium">Upload photo</span>
-              <span className="text-xs">JPEG · PNG · up to 8MB</span>
+              disabled={processing}
+              className="w-full py-5 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center gap-2 text-gray-400 active:border-brand-300 active:text-brand-500 transition-all disabled:opacity-50">
+              {processing ? <Loader2 size={24} className="animate-spin" /> : <Camera size={24} />}
+              <span className="text-sm font-medium">{processing ? "Processing…" : "Take / upload photo"}</span>
+              <span className="text-xs">Photo will be resized automatically</span>
             </button>
           ) : (
             <div className="space-y-3">
               {/* Preview */}
               <div className="relative rounded-2xl overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imagePreview} alt="Customer photo" className="w-full max-h-48 object-cover" />
-                {uploading && (
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                    <Loader2 size={24} className="animate-spin text-white" />
-                  </div>
-                )}
+                <img src={imageData} alt="Customer photo" className="w-full max-h-48 object-cover" />
                 <button onClick={removeImage}
                   className="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full flex items-center justify-center text-white">
                   <X size={14} />
                 </button>
-                {imageUrl && !uploading && (
-                  <div className="absolute bottom-2 left-2 bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                    <ImageIcon size={9} /> Uploaded
-                  </div>
-                )}
+                <div className="absolute bottom-2 left-2 bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                  <ImageIcon size={9} /> Ready
+                </div>
               </div>
 
-              {/* Feature tags (appear after image upload) */}
-              {imageUrl && (
+              {/* Feature tags */}
+              {imageData && (
                 <div className="bg-gray-50 rounded-2xl p-3 space-y-3">
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">What style / features? (helps us track trends)</p>
                   {styleTagGroups.map(group => (
