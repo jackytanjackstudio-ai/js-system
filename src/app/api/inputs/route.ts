@@ -77,5 +77,21 @@ export async function POST(req: Request) {
     }),
   ]);
 
-  return apiOk(input, 201);
+  // Return stats for success screen
+  const weekCount = await prisma.customerInput.count({ where: { week } });
+
+  const allThisWeek = await prisma.customerInput.findMany({
+    where: { week },
+    select: { lookingFor: true },
+  });
+  const tagCounts: Record<string, number> = {};
+  for (const inp of allThisWeek) {
+    try {
+      const tags: string[] = JSON.parse(inp.lookingFor || "[]");
+      for (const tag of tags) tagCounts[tag] = (tagCounts[tag] ?? 0) + 1;
+    } catch { /* skip */ }
+  }
+  const topDemand = Object.entries(tagCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
+  return apiOk({ input, weekCount, topDemand }, 201);
 }
