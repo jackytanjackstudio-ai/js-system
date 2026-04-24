@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import Link from "next/link";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -92,7 +93,13 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-stone-600 text-xs mt-6">
+        <p className="text-center text-stone-500 text-sm mt-5">
+          New staff?{" "}
+          <Link href="/register" className="text-brand-400 hover:text-brand-300 font-medium">
+            Create an account
+          </Link>
+        </p>
+        <p className="text-center text-stone-600 text-xs mt-3">
           JackStudio OS · Internal Use Only
         </p>
       </div>
