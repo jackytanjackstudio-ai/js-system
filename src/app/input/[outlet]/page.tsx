@@ -58,31 +58,35 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
   const [processing, setProcessing] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  function resizeImage(file: File): Promise<string> {
+  function resizeToBlob(file: File): Promise<Blob> {
     return new Promise(resolve => {
       const img = new Image();
       const url = URL.createObjectURL(file);
       img.onload = () => {
-        const MAX = 800;
+        const MAX = 600;
         const scale = Math.min(MAX / img.width, MAX / img.height, 1);
         const canvas = document.createElement("canvas");
         canvas.width  = Math.round(img.width  * scale);
         canvas.height = Math.round(img.height * scale);
         canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
         URL.revokeObjectURL(url);
-        resolve(canvas.toDataURL("image/jpeg", 0.82));
+        canvas.toBlob(blob => resolve(blob!), "image/jpeg", 0.75);
       };
       img.src = url;
     });
   }
 
-  async function uploadToCloudinary(base64: string): Promise<string> {
+  async function uploadToCloudinary(file: File): Promise<string> {
+    const blob = await resizeToBlob(file);
     const fd = new FormData();
-    fd.append("base64", base64);
-    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    fd.append("file", blob, "photo.jpg");
+    fd.append("upload_preset", "jackstudio_upload");
+    const res = await fetch("https://api.cloudinary.com/v1_1/ds0ka66z1/image/upload", {
+      method: "POST", body: fd,
+    });
     if (!res.ok) throw new Error("Upload failed");
     const data = await res.json();
-    return data.url as string;
+    return data.secure_url as string;
   }
 
   useEffect(() => {
@@ -102,13 +106,16 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
     const file = e.target.files?.[0];
     if (!file) return;
     setProcessing(true);
+    // Show local preview instantly before upload finishes
+    const localUrl = URL.createObjectURL(file);
+    setImageThumb(localUrl);
     try {
-      const base64 = await resizeImage(file);
-      setImageThumb(base64); // show preview immediately
-      const url = await uploadToCloudinary(base64);
-      setImageData(url); // store Cloudinary URL
+      const url = await uploadToCloudinary(file);
+      setImageData(url);
+      URL.revokeObjectURL(localUrl);
     } catch {
       setImageThumb(null);
+      setImageData(null);
     } finally {
       setProcessing(false);
     }
