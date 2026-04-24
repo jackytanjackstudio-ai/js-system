@@ -39,6 +39,10 @@ function toggle(arr: string[], val: string) {
   return arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val];
 }
 
+function cleanInput(text: string): string {
+  return text.replace(/\\\s/g, " ").replace(/\s+/g, " ").trim();
+}
+
 type SubmitResult = { weekCount: number; topDemand: string | null };
 
 export default function MobileInputPage({ params }: { params: { outlet: string } }) {
@@ -150,9 +154,9 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
           useCase,
           nobuReasons:   reasons,
           suggestions:   sug,
-          quote:         quote || null,
-          customerName:  custName  || null,
-          customerPhone: custPhone || null,
+          quote:         cleanInput(quote) || null,
+          customerName:  cleanInput(custName)  || null,
+          customerPhone: cleanInput(custPhone) || null,
           imageUrl:      imageData || null,
           imageTags,
         }),
