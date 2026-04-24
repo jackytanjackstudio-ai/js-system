@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useData } from "@/hooks/useData";
-import { Database, TrendingUp, AlertTriangle, Lightbulb, MessageSquare, Store, Loader2, ArrowRight, ImageIcon } from "lucide-react";
+import { Database, TrendingUp, AlertTriangle, Lightbulb, MessageSquare, Store, Loader2, ArrowRight, ImageIcon, X, ChevronLeft, ChevronRight, ZoomIn } from "lucide-react";
 import { useLang } from "@/context/LangContext";
 import { cn } from "@/lib/utils";
 import {
@@ -66,10 +66,13 @@ function RankBar({ items, colorClass, empty }: {
   );
 }
 
+type LightboxState = { urls: string[]; index: number; trend: VisualTrend } | null;
+
 export default function DataHub() {
   const { t } = useLang();
   const [period, setPeriod] = useState<Period>("month");
   const { data, loading } = useData<HubData>(`/api/data-hub?period=${period}`, [period]);
+  const [lightbox, setLightbox] = useState<LightboxState>(null);
 
   const periods: { key: Period; label: string }[] = [
     { key: "week",  label: t("dh_this_week")  },
@@ -293,46 +296,68 @@ export default function DataHub() {
                 <p className="text-xs text-gray-400">When staff upload customer photos in Customer Input, trends appear here</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {data.visualTrends.map(trend => (
-                  <div key={trend.tagKey} className="rounded-2xl border border-gray-100 overflow-hidden">
-                    {/* Image previews */}
-                    <div className="h-24 bg-gray-100 flex overflow-hidden">
+                  <div key={trend.tagKey}
+                    className="rounded-2xl border border-gray-100 overflow-hidden cursor-pointer hover:shadow-md hover:border-purple-200 transition-all group"
+                    onClick={() => trend.imageUrls.length > 0 && setLightbox({ urls: trend.imageUrls, index: 0, trend })}>
+                    {/* Photo grid */}
+                    <div className="relative h-36 bg-gray-100 flex overflow-hidden">
                       {trend.imageUrls.length > 0 ? (
-                        trend.imageUrls.slice(0, 2).map((url, i) => (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img key={i} src={url} alt="trend" className="flex-1 object-cover"
-                            style={{ width: `${100 / Math.min(trend.imageUrls.length, 2)}%` }} />
-                        ))
+                        <>
+                          {trend.imageUrls.slice(0, 3).map((url, i) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img key={i} src={url} alt="customer trend photo"
+                              className="flex-1 object-cover"
+                              style={{ width: `${100 / Math.min(trend.imageUrls.length, 3)}%` }} />
+                          ))}
+                          {/* Tap to view overlay */}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
+                            <div className="opacity-0 group-hover:opacity-100 bg-white/90 rounded-full px-3 py-1.5 flex items-center gap-1.5 text-xs font-bold text-gray-800 transition-all">
+                              <ZoomIn size={12} /> Tap to view
+                            </div>
+                          </div>
+                          {/* Count badge */}
+                          {trend.imageUrls.length > 1 && (
+                            <div className="absolute top-2 right-2 bg-black/60 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                              {trend.imageUrls.length} photos
+                            </div>
+                          )}
+                        </>
                       ) : (
                         <div className="flex-1 flex items-center justify-center">
                           <ImageIcon size={20} className="text-gray-300" />
                         </div>
                       )}
                     </div>
+
                     {/* Info */}
                     <div className="p-3">
-                      <div className="flex items-center gap-1 mb-1.5">
-                        <span className="text-[10px] font-bold text-purple-600">{trend.signal}</span>
-                        <span className="ml-auto text-[10px] font-black text-gray-700">{trend.score}</span>
-                        <span className="text-[9px] text-gray-400">pts</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        {trend.tags.map(tag => (
-                          <span key={tag} className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded-md font-medium">{tag}</span>
+                      {/* Signal */}
+                      <div className="text-[10px] font-bold text-purple-600 mb-1.5">{trend.signal}</div>
+
+                      {/* What they want — categories (most important) */}
+                      <div className="flex flex-wrap gap-1 mb-1.5">
+                        {trend.categories.map(c => (
+                          <span key={c} className="text-[11px] bg-brand-50 text-brand-700 px-2 py-0.5 rounded-lg font-bold">{c}</span>
                         ))}
                       </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1">
-                          {trend.categories.slice(0, 2).map(c => (
-                            <span key={c} className="text-[9px] bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded font-medium">{c}</span>
-                          ))}
-                        </div>
-                        <span className="text-[10px] text-gray-400 font-semibold">{trend.count}×</span>
+
+                      {/* Style tags */}
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {trend.tags.slice(0, 3).map(tag => (
+                          <span key={tag} className="text-[10px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded font-medium">{tag}</span>
+                        ))}
                       </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-gray-400">{trend.count} customer{trend.count > 1 ? "s" : ""}</span>
+                        <span className="text-[10px] font-black text-gray-600">{trend.score} pts</span>
+                      </div>
+
                       {/* Score bar */}
-                      <div className="mt-2 h-1 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all"
+                      <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full"
                           style={{
                             width: `${trend.score}%`,
                             background: trend.score >= 85 ? "#f59e0b" : trend.score >= 70 ? "#8b5cf6" : "#9ca3af"
@@ -341,6 +366,85 @@ export default function DataHub() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* ── LIGHTBOX ── */}
+            {lightbox && (
+              <div className="fixed inset-0 z-[9999] bg-black/95 flex flex-col"
+                onClick={() => setLightbox(null)}>
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-3 flex-shrink-0"
+                  onClick={e => e.stopPropagation()}>
+                  <div>
+                    <div className="flex flex-wrap gap-1.5 mb-1">
+                      {lightbox.trend.categories.map(c => (
+                        <span key={c} className="text-sm font-black text-white bg-brand-500 px-3 py-1 rounded-full">{c}</span>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {lightbox.trend.tags.map(t => (
+                        <span key={t} className="text-xs text-purple-300 bg-purple-900/50 px-2 py-0.5 rounded-full">{t}</span>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {lightbox.trend.count} customer{lightbox.trend.count > 1 ? "s" : ""} showed this · {lightbox.trend.signal}
+                    </p>
+                  </div>
+                  <button className="w-9 h-9 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20 ml-4"
+                    onClick={() => setLightbox(null)}>
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Main image */}
+                <div className="flex-1 flex items-center justify-center relative px-12 min-h-0"
+                  onClick={e => e.stopPropagation()}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={lightbox.urls[lightbox.index]}
+                    alt="Customer photo"
+                    className="max-h-full max-w-full object-contain rounded-xl"
+                  />
+
+                  {/* Prev */}
+                  {lightbox.urls.length > 1 && lightbox.index > 0 && (
+                    <button
+                      className="absolute left-2 w-10 h-10 bg-white/10 hover:bg-white/25 rounded-full flex items-center justify-center text-white"
+                      onClick={() => setLightbox({ ...lightbox, index: lightbox.index - 1 })}>
+                      <ChevronLeft size={20} />
+                    </button>
+                  )}
+
+                  {/* Next */}
+                  {lightbox.urls.length > 1 && lightbox.index < lightbox.urls.length - 1 && (
+                    <button
+                      className="absolute right-2 w-10 h-10 bg-white/10 hover:bg-white/25 rounded-full flex items-center justify-center text-white"
+                      onClick={() => setLightbox({ ...lightbox, index: lightbox.index + 1 })}>
+                      <ChevronRight size={20} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Thumbnail strip */}
+                {lightbox.urls.length > 1 && (
+                  <div className="flex gap-2 justify-center px-4 py-3 flex-shrink-0"
+                    onClick={e => e.stopPropagation()}>
+                    {lightbox.urls.map((url, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={i} src={url} alt=""
+                        onClick={() => setLightbox({ ...lightbox, index: i })}
+                        className={`w-14 h-14 object-cover rounded-lg cursor-pointer transition-all ${
+                          i === lightbox.index ? "ring-2 ring-brand-400 opacity-100" : "opacity-50 hover:opacity-80"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                <p className="text-center text-xs text-gray-600 pb-3">
+                  {lightbox.index + 1} / {lightbox.urls.length} · Tap outside to close
+                </p>
               </div>
             )}
           </div>
