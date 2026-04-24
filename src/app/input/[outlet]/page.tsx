@@ -52,7 +52,8 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
   const [custPhone,    setCustPhone]    = useState("");
 
   // Image state
-  const [imageData,  setImageData]  = useState<string | null>(null); // base64 data URL
+  const [imageData,  setImageData]  = useState<string | null>(null); // Cloudinary URL after upload
+  const [imageThumb, setImageThumb] = useState<string | null>(null); // local preview before upload
   const [imageTags,  setImageTags]  = useState<string[]>([]);
   const [processing, setProcessing] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -62,17 +63,26 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
       const img = new Image();
       const url = URL.createObjectURL(file);
       img.onload = () => {
-        const MAX = 480;
+        const MAX = 800;
         const scale = Math.min(MAX / img.width, MAX / img.height, 1);
         const canvas = document.createElement("canvas");
         canvas.width  = Math.round(img.width  * scale);
         canvas.height = Math.round(img.height * scale);
         canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
         URL.revokeObjectURL(url);
-        resolve(canvas.toDataURL("image/jpeg", 0.72));
+        resolve(canvas.toDataURL("image/jpeg", 0.82));
       };
       img.src = url;
     });
+  }
+
+  async function uploadToCloudinary(base64: string): Promise<string> {
+    const fd = new FormData();
+    fd.append("base64", base64);
+    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    if (!res.ok) throw new Error("Upload failed");
+    const data = await res.json();
+    return data.url as string;
   }
 
   useEffect(() => {
@@ -93,8 +103,12 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
     if (!file) return;
     setProcessing(true);
     try {
-      const data = await resizeImage(file);
-      setImageData(data);
+      const base64 = await resizeImage(file);
+      setImageThumb(base64); // show preview immediately
+      const url = await uploadToCloudinary(base64);
+      setImageData(url); // store Cloudinary URL
+    } catch {
+      setImageThumb(null);
     } finally {
       setProcessing(false);
     }
@@ -102,6 +116,7 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
 
   function removeImage() {
     setImageData(null);
+    setImageThumb(null);
     setImageTags([]);
     if (fileRef.current) fileRef.current.value = "";
   }
@@ -268,31 +283,31 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
           </label>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
 
-          {!imageData ? (
+          {!imageThumb && !imageData ? (
             <button onClick={() => fileRef.current?.click()}
               disabled={processing}
               className="w-full py-5 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center gap-2 text-gray-400 active:border-brand-300 active:text-brand-500 transition-all disabled:opacity-50">
               {processing ? <Loader2 size={24} className="animate-spin" /> : <Camera size={24} />}
-              <span className="text-sm font-medium">{processing ? "Processing…" : "Take / upload photo"}</span>
-              <span className="text-xs">Photo will be resized automatically</span>
+              <span className="text-sm font-medium">{processing ? "Uploading…" : "Take / upload photo"}</span>
+              <span className="text-xs">Saved to cloud automatically</span>
             </button>
           ) : (
             <div className="space-y-3">
               {/* Preview */}
               <div className="relative rounded-2xl overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imageData} alt="Customer photo" className="w-full max-h-48 object-cover" />
+                <img src={imageThumb ?? imageData ?? ""} alt="Customer photo" className="w-full max-h-48 object-cover" />
                 <button onClick={removeImage}
                   className="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full flex items-center justify-center text-white">
                   <X size={14} />
                 </button>
-                <div className="absolute bottom-2 left-2 bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                  <ImageIcon size={9} /> Ready
+                <div className={`absolute bottom-2 left-2 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 ${imageData ? "bg-green-500" : "bg-amber-500"}`}>
+                  {imageData ? <><ImageIcon size={9} /> Saved to cloud</> : <><Loader2 size={9} className="animate-spin" /> Uploading…</>}
                 </div>
               </div>
 
               {/* Feature tags */}
-              {imageData && (
+              {(imageThumb || imageData) && (
                 <div className="bg-gray-50 rounded-2xl p-3 space-y-3">
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">What style / features? (helps us track trends)</p>
                   {styleTagGroups.map(group => (

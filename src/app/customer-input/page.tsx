@@ -56,7 +56,8 @@ export default function CustomerInput() {
   const [sug,      setSug]          = useState<string[]>([]);
 
   // Image state
-  const [imageData,   setImageData]   = useState<string | null>(null);
+  const [imageData,   setImageData]   = useState<string | null>(null); // Cloudinary URL
+  const [imageThumb,  setImageThumb]  = useState<string | null>(null); // local preview
   const [imageTags,   setImageTags]   = useState<string[]>([]);
   const [processing,  setProcessing]  = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -70,17 +71,26 @@ export default function CustomerInput() {
       const img = new Image();
       const url = URL.createObjectURL(file);
       img.onload = () => {
-        const MAX = 480;
+        const MAX = 800;
         const scale = Math.min(MAX / img.width, MAX / img.height, 1);
         const canvas = document.createElement("canvas");
         canvas.width  = Math.round(img.width  * scale);
         canvas.height = Math.round(img.height * scale);
         canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
         URL.revokeObjectURL(url);
-        resolve(canvas.toDataURL("image/jpeg", 0.72));
+        resolve(canvas.toDataURL("image/jpeg", 0.82));
       };
       img.src = url;
     });
+  }
+
+  async function uploadToCloudinary(base64: string): Promise<string> {
+    const fd = new FormData();
+    fd.append("base64", base64);
+    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    if (!res.ok) throw new Error("Upload failed");
+    const data = await res.json();
+    return data.url as string;
   }
 
   async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -88,15 +98,19 @@ export default function CustomerInput() {
     if (!file) return;
     setProcessing(true);
     try {
-      const data = await resizeImage(file);
-      setImageData(data);
+      const base64 = await resizeImage(file);
+      setImageThumb(base64);
+      const url = await uploadToCloudinary(base64);
+      setImageData(url);
+    } catch {
+      setImageThumb(null);
     } finally {
       setProcessing(false);
     }
   }
 
   function removeImage() {
-    setImageData(null); setImageTags([]);
+    setImageData(null); setImageThumb(null); setImageTags([]);
     if (fileRef.current) fileRef.current.value = "";
   }
 
@@ -255,7 +269,7 @@ export default function CustomerInput() {
             Customer showed a photo? <span className="text-gray-400 normal-case font-normal text-xs">(optional)</span>
           </label>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
-          {!imageData ? (
+          {!imageThumb && !imageData ? (
             <button onClick={() => fileRef.current?.click()}
               disabled={processing}
               className="w-full py-4 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center gap-2 text-gray-400 hover:border-brand-300 hover:text-brand-500 transition-all disabled:opacity-50">
@@ -266,7 +280,7 @@ export default function CustomerInput() {
             <div className="space-y-3">
               <div className="relative rounded-xl overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imageData} alt="Customer photo" className="w-full max-h-40 object-cover" />
+                <img src={imageThumb ?? imageData ?? ""} alt="Customer photo" className="w-full max-h-40 object-cover" />
                 <button onClick={removeImage}
                   className="absolute top-2 right-2 w-6 h-6 bg-black/50 rounded-full flex items-center justify-center text-white">
                   <X size={12} />
@@ -275,7 +289,7 @@ export default function CustomerInput() {
                   <ImageIcon size={9} /> Ready
                 </div>
               </div>
-              {imageData && (
+              {(imageThumb || imageData) && (
                 <div className="bg-gray-50 rounded-xl p-3 space-y-2">
                   <p className="text-xs font-bold text-gray-500">Tag the style / features</p>
                   {styleTagGroups.map(group => (
