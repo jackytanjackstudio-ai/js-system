@@ -22,6 +22,13 @@ const nobuReasons = [
   { label: "Not urgent", emoji: "⏳" },
 ];
 
+const useCases = [
+  { label: "Work",   emoji: "💼" },
+  { label: "Travel", emoji: "✈️" },
+  { label: "Daily",  emoji: "☀️" },
+  { label: "Gift",   emoji: "🎁" },
+];
+
 const suggestions = ["Bigger size", "More colours", "Lower price", "More compartments", "Personalization"];
 
 const styleTagGroups = [
@@ -52,6 +59,7 @@ export default function CustomerInput() {
   const [submitting, setSubmitting] = useState(false);
   const [outletId, setOutletId]     = useState("");
   const [looking,  setLooking]      = useState<string[]>([]);
+  const [useCase,  setUseCase]      = useState<string[]>([]);
   const [reasons,  setReasons]      = useState<string[]>([]);
   const [sug,      setSug]          = useState<string[]>([]);
 
@@ -130,6 +138,7 @@ export default function CustomerInput() {
           outletId,
           staffName:     user.name,
           lookingFor:    looking,
+          useCase,
           nobuReasons:   reasons,
           suggestions:   sug,
           quote:         quote || null,
@@ -148,7 +157,7 @@ export default function CustomerInput() {
 
   function reset() {
     setResult(null);
-    setOutletId(""); setLooking([]); setReasons([]); setSug([]); setQuote("");
+    setOutletId(""); setLooking([]); setUseCase([]); setReasons([]); setSug([]); setQuote("");
     setCustName(""); setCustPhone(""); setShowContact(false);
     removeImage();
   }
@@ -228,7 +237,28 @@ export default function CustomerInput() {
           </div>
         </div>
 
-        {/* Step 2 — No-buy reasons */}
+        {/* Step 2 — Use case */}
+        <div>
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            Use case <span className="text-gray-400 normal-case font-normal text-xs">(optional)</span>
+          </label>
+          <div className="grid grid-cols-4 gap-2">
+            {useCases.map(c => {
+              const on = useCase.includes(c.label);
+              return (
+                <button key={c.label} onClick={() => setUseCase(toggle(useCase, c.label))}
+                  className={`py-2.5 rounded-xl text-sm font-semibold border-2 transition-all flex flex-col items-center gap-1 ${
+                    on ? "bg-purple-500 text-white border-purple-500 shadow-md" : "bg-white text-gray-600 border-gray-100 hover:border-purple-200"
+                  }`}>
+                  <span className="text-lg">{c.emoji}</span>
+                  <span className="text-xs">{c.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Step 3 — No-buy reasons */}
         <div>
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
             {t("ci_reason")} <span className="text-gray-400 normal-case font-normal text-xs">{t("ci_reason_sub")}</span>

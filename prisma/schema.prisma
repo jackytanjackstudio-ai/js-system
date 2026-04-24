@@ -57,6 +57,7 @@ model CustomerInput {
   customerPhone String?
   imageUrl      String?
   imageTags     String   @default("[]")
+  useCase       String   @default("[]")
   createdAt     DateTime @default(now())
 
   user   User   @relation(fields: [userId], references: [id])

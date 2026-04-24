@@ -19,6 +19,13 @@ const nobuReasons = [
   { label: "Not urgent", emoji: "⏳" },
 ];
 
+const useCases = [
+  { label: "Work",   emoji: "💼" },
+  { label: "Travel", emoji: "✈️" },
+  { label: "Daily",  emoji: "☀️" },
+  { label: "Gift",   emoji: "🎁" },
+];
+
 const suggestions = ["Bigger size", "More colours", "Lower price", "More compartments", "Personalization"];
 
 // Image feature tags
@@ -44,6 +51,7 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
 
   const [staffName,    setStaffName]    = useState("");
   const [looking,      setLooking]      = useState<string[]>([]);
+  const [useCase,      setUseCase]      = useState<string[]>([]);
   const [reasons,      setReasons]      = useState<string[]>([]);
   const [sug,          setSug]          = useState<string[]>([]);
   const [quote,        setQuote]        = useState("");
@@ -139,6 +147,7 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
           outletId,
           staffName,
           lookingFor:    looking,
+          useCase,
           nobuReasons:   reasons,
           suggestions:   sug,
           quote:         quote || null,
@@ -159,7 +168,7 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
 
   function reset() {
     setResult(null);
-    setLooking([]); setReasons([]); setSug([]); setQuote("");
+    setLooking([]); setUseCase([]); setReasons([]); setSug([]); setQuote("");
     setStaffName(""); setCustName(""); setCustPhone(""); setShowContact(false);
     removeImage();
   }
@@ -236,6 +245,27 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
                     on ? "bg-brand-500 text-white border-brand-500 shadow-md" : "bg-white text-gray-600 border-gray-100 active:border-brand-300"
                   }`}>
                   <span className="text-xl">{c.emoji}</span>
+                  <span className="text-xs">{c.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Use case */}
+        <div>
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            Use case <span className="text-gray-400 normal-case font-normal">(optional)</span>
+          </label>
+          <div className="grid grid-cols-4 gap-2">
+            {useCases.map(c => {
+              const on = useCase.includes(c.label);
+              return (
+                <button key={c.label} onClick={() => setUseCase(toggle(useCase, c.label))}
+                  className={`py-3 rounded-xl text-sm font-semibold border-2 transition-all flex flex-col items-center gap-1 ${
+                    on ? "bg-purple-500 text-white border-purple-500 shadow-md" : "bg-white text-gray-600 border-gray-100 active:border-purple-300"
+                  }`}>
+                  <span className="text-lg">{c.emoji}</span>
                   <span className="text-xs">{c.label}</span>
                 </button>
               );

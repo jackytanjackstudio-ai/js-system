@@ -37,7 +37,7 @@ export async function GET(req: Request) {
 // POST is public — used from /input/[outlet] by staff without accounts
 export async function POST(req: Request) {
   const body = await req.json();
-  const { outletId, staffName, lookingFor, nobuReasons, suggestions, quote, customerName, customerPhone, imageUrl, imageTags } = body;
+  const { outletId, staffName, lookingFor, nobuReasons, suggestions, quote, customerName, customerPhone, imageUrl, imageTags, useCase } = body;
 
   if (!outletId || !staffName) return apiError("outletId and staffName required");
 
@@ -66,6 +66,7 @@ export async function POST(req: Request) {
         customerPhone: customerPhone ?? null,
         imageUrl:      imageUrl ?? null,
         imageTags:     JSON.stringify(imageTags ?? []),
+        useCase:       JSON.stringify(useCase ?? []),
       },
     }),
     prisma.rewardPoint.create({
