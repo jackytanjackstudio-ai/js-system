@@ -114,18 +114,19 @@ export async function GET(req: Request) {
   // Inputs that have an image attached
   const imageInputs = inputs.filter(i => i.imageUrl);
 
-  // Group by imageTags combination → count + collect sample images
+  // Group by imageTags combination (fallback to lookingFor categories when no tags selected)
   const imageTagMap: Record<string, { count: number; imageUrls: string[]; categoryHints: string[] }> = {};
   for (const inp of imageInputs) {
     try {
       const tags: string[] = JSON.parse(inp.imageTags || "[]");
-      if (!tags.length) continue;
-      const key = [...tags].sort().join(" · ");
+      const cats: string[] = JSON.parse(inp.lookingFor || "[]");
+      // Use feature tags if present, otherwise fall back to product categories
+      const key = tags.length
+        ? [...tags].sort().join(" · ")
+        : cats.length ? [...cats].sort().join(" · ") : "Untagged";
       if (!imageTagMap[key]) imageTagMap[key] = { count: 0, imageUrls: [], categoryHints: [] };
       imageTagMap[key].count++;
       if (imageTagMap[key].imageUrls.length < 3) imageTagMap[key].imageUrls.push(inp.imageUrl!);
-      // collect the lookingFor categories as hints
-      const cats: string[] = JSON.parse(inp.lookingFor || "[]");
       for (const c of cats) {
         if (!imageTagMap[key].categoryHints.includes(c)) imageTagMap[key].categoryHints.push(c);
       }

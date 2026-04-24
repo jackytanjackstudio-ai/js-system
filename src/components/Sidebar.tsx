@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, MessageSquare, BarChart2, Video,
-  Database, Sword, CheckSquare, Trophy, Settings, Zap, Store, ShieldCheck, Menu, X,
+  Database, Sword, CheckSquare, Trophy, Settings, Zap, Store, ShieldCheck, Menu, X, Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/context/LangContext";
@@ -33,6 +33,7 @@ export default function Sidebar() {
     { href: "/sales-report",      icon: BarChart2,       labelKey: "nav_sales_report",      group: "input"    },
     { href: "/creator-insight",   icon: Video,           labelKey: "nav_creator_insight",   group: "input"    },
     { href: "/data-hub",          icon: Database,        labelKey: "nav_data_hub",           group: "core"     },
+    { href: "/leads",             icon: Users,           labelKey: "nav_leads",              group: "core"     },
     { href: "/product-war-room",  icon: Sword,           labelKey: "nav_product_war_room",  group: "core"     },
     { href: "/outlets",           icon: Store,           labelKey: "oc_title",              group: "output"   },
     { href: "/execution",         icon: CheckSquare,     labelKey: "nav_execution",          group: "output"   },

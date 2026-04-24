@@ -64,16 +64,22 @@ model CustomerInput {
 }
 
 model SalesReport {
-  id           String   @id @default(cuid())
-  userId       String
-  outletId     String
-  week         String
-  revenue      Float    @default(0)
-  topProducts  String   @default("[]")
-  slowProducts String   @default("[]")
-  quote        String?
-  objection    String?
-  createdAt    DateTime @default(now())
+  id            String   @id @default(cuid())
+  userId        String
+  outletId      String
+  week          String
+  salesDate     String?
+  revenue       Float    @default(0)
+  totalProfit   Float    @default(0)
+  totalCogs     Float    @default(0)
+  totalQty      Int      @default(0)
+  topProducts   String   @default("[]")
+  slowProducts  String   @default("[]")
+  lineItems     String   @default("[]")
+  warehouseName String?
+  quote         String?
+  objection     String?
+  createdAt     DateTime @default(now())
 
   user   User   @relation(fields: [userId], references: [id])
   outlet Outlet @relation(fields: [outletId], references: [id])
