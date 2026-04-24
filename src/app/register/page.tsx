@@ -18,7 +18,7 @@ export default function RegisterPage() {
   const [outlets,    setOutlets]    = useState<Outlet[]>([]);
 
   useEffect(() => {
-    fetch("/api/outlets")
+    fetch("/api/outlets/public")
       .then(r => r.json())
       .then(d => setOutlets(Array.isArray(d) ? d : []))
       .catch(() => {});
