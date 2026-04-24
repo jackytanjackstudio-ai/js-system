@@ -11,16 +11,23 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const product = await prisma.product.update({
     where: { id: params.id },
     data: {
-      ...(body.name !== undefined ? { name: body.name } : {}),
-      ...(body.category !== undefined ? { category: body.category } : {}),
-      ...(body.status !== undefined ? { status: body.status } : {}),
-      ...(body.stage !== undefined ? { stage: body.stage } : {}),
-      ...(body.hitRate !== undefined ? { hitRate: body.hitRate } : {}),
-      ...(body.signalSource !== undefined ? { signalSource: body.signalSource } : {}),
-      ...(body.notes !== undefined ? { notes: body.notes } : {}),
-      ...(body.decisionDate !== undefined ? { decisionDate: body.decisionDate } : {}),
-      ...(body.tasks !== undefined ? { tasks: JSON.stringify(body.tasks) } : {}),
+      ...(body.name         !== undefined ? { name: body.name }                           : {}),
+      ...(body.category     !== undefined ? { category: body.category }                   : {}),
+      ...(body.status       !== undefined ? { status: body.status }                       : {}),
+      ...(body.stage        !== undefined ? { stage: body.stage }                         : {}),
+      ...(body.hitRate      !== undefined ? { hitRate: body.hitRate }                     : {}),
+      ...(body.signalSource !== undefined ? { signalSource: body.signalSource }           : {}),
+      ...(body.notes        !== undefined ? { notes: body.notes }                         : {}),
+      ...(body.decisionDate !== undefined ? { decisionDate: body.decisionDate }           : {}),
+      ...(body.tasks        !== undefined ? { tasks: JSON.stringify(body.tasks) }         : {}),
+      ...(body.targetPrice  !== undefined ? { targetPrice: body.targetPrice }             : {}),
+      ...(body.cost         !== undefined ? { cost: body.cost }                           : {}),
+      ...(body.imageUrl     !== undefined ? { imageUrl: body.imageUrl }                   : {}),
+      ...(body.useCase      !== undefined ? { useCase: JSON.stringify(body.useCase) }     : {}),
+      ...(body.style        !== undefined ? { style: body.style }                         : {}),
+      ...(body.demandScore  !== undefined ? { demandScore: body.demandScore }             : {}),
     },
+    include: { validations: true, reservations: true },
   });
 
   return apiOk(product);

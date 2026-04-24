@@ -108,7 +108,7 @@ model Product {
   id           String   @id @default(cuid())
   name         String
   category     String
-  status       String   @default("Watchlist")
+  status       String   @default("Sourcing")
   stage        String   @default("Bullet")
   hitRate      Float    @default(0)
   signalSource String?
@@ -116,8 +116,49 @@ model Product {
   notes        String?
   decisionDate String?
   tasks        String   @default("[]")
+  targetPrice  Float?
+  cost         Float?
+  imageUrl     String?
+  useCase      String   @default("[]")
+  style        String?
+  demandScore  Float    @default(50)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  validations  SalesValidation[]
+  reservations Reservation[]
+}
+
+model SalesValidation {
+  id              String   @id @default(cuid())
+  productId       String
+  outletId        String
+  outletName      String
+  confidenceScore Int      @default(0)
+  wouldSell       Boolean  @default(true)
+  expectedSales   Int      @default(0)
+  reason          String?
+  staffName       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, outletId])
+}
+
+model Reservation {
+  id         String   @id @default(cuid())
+  productId  String
+  outletId   String
+  outletName String
+  quantity   Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, outletId])
 }
 
 model ExecutionTask {
