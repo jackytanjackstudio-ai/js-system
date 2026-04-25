@@ -25,6 +25,7 @@ export async function POST(req: Request) {
       email: user.email,
       name: user.name,
       role: user.role,
+      outletId: user.outletId ?? null,
     });
 
     const res = NextResponse.json({

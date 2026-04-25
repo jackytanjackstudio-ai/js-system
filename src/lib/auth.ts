@@ -10,6 +10,7 @@ export type JWTPayload = {
   email: string;
   name: string;
   role: string;
+  outletId?: string | null;
 };
 
 export async function signToken(payload: JWTPayload): Promise<string> {

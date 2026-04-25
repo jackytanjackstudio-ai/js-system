@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, MessageSquare, BarChart2, Video,
-  Database, Sword, CheckSquare, Trophy, Settings, Zap, Store, ShieldCheck, Menu, X, Users,
+  Database, Sword, CheckSquare, Trophy, Settings, Zap, Store, ShieldCheck, Menu, X, Users, ThumbsUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/context/LangContext";
@@ -27,20 +27,23 @@ export default function Sidebar() {
   // Close drawer on route change
   useEffect(() => { setOpen(false); }, [pathname]);
 
+  const isSales = user?.role === "sales";
+
   const nav = [
-    { href: "/",                  icon: LayoutDashboard, labelKey: "nav_dashboard",        group: "overview" },
-    { href: "/customer-input",    icon: MessageSquare,   labelKey: "nav_customer_input",    group: "input"    },
-    { href: "/sales-report",      icon: BarChart2,       labelKey: "nav_sales_report",      group: "input"    },
-    { href: "/creator-insight",   icon: Video,           labelKey: "nav_creator_insight",   group: "input"    },
-    { href: "/data-hub",          icon: Database,        labelKey: "nav_data_hub",           group: "core"     },
-    { href: "/leads",             icon: Users,           labelKey: "nav_leads",              group: "core"     },
-    { href: "/product-war-room",  icon: Sword,           labelKey: "nav_product_war_room",  group: "core"     },
-    { href: "/outlets",           icon: Store,           labelKey: "oc_title",              group: "output"   },
-    { href: "/execution",         icon: CheckSquare,     labelKey: "nav_execution",          group: "output"   },
-    { href: "/rewards",           icon: Trophy,          labelKey: "nav_rewards",            group: "output"   },
-    { href: "/settings",          icon: Settings,        labelKey: "nav_settings",           group: "system"   },
-    { href: "/admin",             icon: ShieldCheck,     labelKey: "nav_admin",              group: "system"   },
-  ] as const;
+    { href: "/",                   icon: LayoutDashboard, labelKey: "nav_dashboard",        group: "overview", hide: false          },
+    { href: "/customer-input",     icon: MessageSquare,   labelKey: "nav_customer_input",   group: "input",    hide: false          },
+    { href: "/sales-report",       icon: BarChart2,       labelKey: "nav_sales_report",     group: "input",    hide: false          },
+    { href: "/creator-insight",    icon: Video,           labelKey: "nav_creator_insight",  group: "input",    hide: isSales        },
+    { href: "/data-hub",           icon: Database,        labelKey: "nav_data_hub",          group: "core",     hide: isSales        },
+    { href: "/leads",              icon: Users,           labelKey: "nav_leads",             group: "core",     hide: isSales        },
+    { href: "/product-war-room",   icon: Sword,           labelKey: "nav_product_war_room", group: "core",     hide: isSales        },
+    { href: "/product-feedback",   icon: ThumbsUp,        labelKey: "nav_product_feedback", group: "core",     hide: !isSales       },
+    { href: "/outlets",            icon: Store,           labelKey: "oc_title",             group: "output",   hide: isSales        },
+    { href: "/execution",          icon: CheckSquare,     labelKey: "nav_execution",         group: "output",   hide: false          },
+    { href: "/rewards",            icon: Trophy,          labelKey: "nav_rewards",           group: "output",   hide: false          },
+    { href: "/settings",           icon: Settings,        labelKey: "nav_settings",          group: "system",   hide: false          },
+    { href: "/admin",              icon: ShieldCheck,     labelKey: "nav_admin",             group: "system",   hide: false          },
+  ] satisfies { href: string; icon: React.ElementType; labelKey: import("@/lib/i18n").TKey; group: string; hide: boolean }[];
 
   const groups = [
     { key: "overview", labelKey: "nav_group_overview" },
@@ -72,7 +75,9 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
         {groups.map((g) => {
-          const items = nav.filter((n) => n.group === g.key)
+          const items = nav
+            .filter((n) => n.group === g.key)
+            .filter((n) => !n.hide)
             .filter((n) => n.href !== "/admin" || ["admin", "manager"].includes(user?.role ?? ""));
           if (!items.length) return null;
           return (

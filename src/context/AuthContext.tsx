@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
-type User = { id: string; email: string; name: string; role: string };
+type User = { id: string; email: string; name: string; role: string; outletId?: string | null };
 
 type AuthCtx = {
   user: User | null;
