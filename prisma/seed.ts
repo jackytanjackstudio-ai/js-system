@@ -2,6 +2,12 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
+// Safety guard — never seed production
+if (!process.env.ALLOW_SEED) {
+  console.error("❌ Seed blocked. Set ALLOW_SEED=true in .env.local to run this on a dev database only.");
+  process.exit(1);
+}
+
 const prisma = new PrismaClient();
 
 async function main() {
