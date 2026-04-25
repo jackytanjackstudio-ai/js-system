@@ -2,11 +2,13 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 
-// One-time endpoint to seed the admin user in production.
-// Protected by INIT_SECRET env var — delete this file after first use.
+const HARDCODED_SECRET = "js-init-jackstudio-2026";
+
+// One-time endpoint to seed production DB. Delete this file after first use.
 export async function GET(req: Request) {
   const secret = new URL(req.url).searchParams.get("secret");
-  if (!process.env.INIT_SECRET || secret !== process.env.INIT_SECRET) {
+  const allowed = process.env.INIT_SECRET ?? HARDCODED_SECRET;
+  if (secret !== allowed) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
