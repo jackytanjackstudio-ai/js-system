@@ -26,7 +26,8 @@ type Product = {
   targetPrice: number | null; cost: number | null; imageUrl: string | null;
   imageUrls: string;
   useCase: string; style: string | null; material: string | null;
-  colours: string; targetQty: number | null; demandScore: number;
+  colours: string; targetQty: number | null;
+  brand: string | null; promotions: string; demandScore: number;
   validations: ValidationEntry[];
   reservations: ReservationEntry[];
 };
@@ -44,6 +45,12 @@ type Tab = "sourcing" | "validation" | "reservation" | "decision" | "tracking";
 const CATEGORIES   = ["Wallet", "Card Holder", "Bag", "Luggage", "Accessories", "Gift", "Other"];
 const USE_CASES    = ["Work", "Travel", "Daily", "Gift"];
 const SALES_OPTIONS = [5, 10, 20, 30, 50, 100];
+const PROMOTIONS   = [
+  { value: "Discount",   emoji: "🏷️" },
+  { value: "Free Gift",  emoji: "🎁" },
+  { value: "Add On",     emoji: "➕" },
+  { value: "Best Buy",   emoji: "⭐" },
+];
 
 // ─── Cloudinary helpers ─────────────────────────────────────────────────────
 function resizeToBlob(file: File): Promise<Blob> {
@@ -182,6 +189,7 @@ function SourcingPool({ products, onAdvance, onDelete, onUploadImage, canEdit }:
         const m = margin(p.targetPrice, p.cost);
         const uc: string[] = (() => { try { return JSON.parse(p.useCase); } catch { return []; } })();
         const colours: string[] = (() => { try { return JSON.parse(p.colours || "[]"); } catch { return []; } })();
+        const promos: string[] = (() => { try { return JSON.parse(p.promotions || "[]"); } catch { return []; } })();
         const images = getImages(p);
         const hasImage = images.length > 0;
 
@@ -213,12 +221,27 @@ function SourcingPool({ products, onAdvance, onDelete, onUploadImage, canEdit }:
             )}
 
             <div>
-              <div className="font-bold text-gray-900 text-sm">{p.name}</div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-gray-900 text-sm">{p.name}</span>
+                {p.brand && <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{p.brand}</span>}
+              </div>
               <div className="flex flex-wrap gap-1 mt-1">
                 <span className="badge bg-gray-100 text-gray-600">{p.category}</span>
                 {p.style && <span className="badge bg-purple-50 text-purple-600">{p.style}</span>}
                 {uc.map(u => <span key={u} className="badge bg-blue-50 text-blue-600">{u}</span>)}
               </div>
+              {promos.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {promos.map(promo => {
+                    const p2 = PROMOTIONS.find(p => p.value === promo);
+                    return (
+                      <span key={promo} className="text-[10px] font-bold px-2 py-0.5 bg-orange-50 text-orange-600 border border-orange-200 rounded-full">
+                        {p2?.emoji} {promo}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Pricing + Target Qty */}
@@ -835,6 +858,7 @@ function AddProductModal({ onClose, onSave }: {
   const [form, setForm] = useState({
     name: "", category: "Bag", targetPrice: "", cost: "", targetQty: "",
     useCase: [] as string[], style: "", material: "", colours: [] as string[],
+    brand: "", promotions: [] as string[],
     signalSource: "", notes: "", demandScore: "50",
   });
   const [colourInput, setColourInput] = useState("");
@@ -871,6 +895,8 @@ function AddProductModal({ onClose, onSave }: {
       useCase: form.useCase, style: form.style || null,
       material: form.material || null,
       colours: form.colours,
+      brand: form.brand || null,
+      promotions: form.promotions,
       signalSource: form.signalSource || null, notes: form.notes || null,
       demandScore: parseFloat(form.demandScore) || 50,
       imageUrl: imageUrls[0] ?? null,
@@ -973,14 +999,43 @@ function AddProductModal({ onClose, onSave }: {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Style</label>
-            <input className="input" placeholder="e.g. Functional, Formal" value={form.style}
-              onChange={e => setForm(f => ({ ...f, style: e.target.value }))} />
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Brand</label>
+            <input className="input" placeholder="e.g. Lovart, Balenciaga" value={form.brand}
+              onChange={e => setForm(f => ({ ...f, brand: e.target.value }))} />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Material</label>
-            <input className="input" placeholder="e.g. PU Leather, Canvas" value={form.material}
-              onChange={e => setForm(f => ({ ...f, material: e.target.value }))} />
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Style</label>
+            <input className="input" placeholder="e.g. Formal, Casual" value={form.style}
+              onChange={e => setForm(f => ({ ...f, style: e.target.value }))} />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Material</label>
+          <input className="input" placeholder="e.g. PU Leather, Canvas, Nylon" value={form.material}
+            onChange={e => setForm(f => ({ ...f, material: e.target.value }))} />
+        </div>
+
+        {/* Promotion */}
+        <div>
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Promotion</label>
+          <div className="grid grid-cols-2 gap-2">
+            {PROMOTIONS.map(promo => {
+              const on = form.promotions.includes(promo.value);
+              return (
+                <button key={promo.value} type="button"
+                  onClick={() => setForm(f => ({
+                    ...f,
+                    promotions: on ? f.promotions.filter(p => p !== promo.value) : [...f.promotions, promo.value],
+                  }))}
+                  className={`py-2.5 px-3 rounded-xl text-sm font-semibold border-2 transition-all flex items-center gap-2 ${
+                    on ? "bg-orange-500 text-white border-orange-500 shadow-md" : "bg-white text-gray-600 border-gray-200 hover:border-orange-300"
+                  }`}>
+                  <span className="text-base">{promo.emoji}</span>
+                  {promo.value}
+                </button>
+              );
+            })}
           </div>
         </div>
 

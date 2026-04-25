@@ -38,6 +38,8 @@ export async function POST(req: Request) {
       material:     body.material ?? null,
       colours:      JSON.stringify(body.colours ?? []),
       targetQty:    body.targetQty ?? null,
+      brand:        body.brand ?? null,
+      promotions:   JSON.stringify(body.promotions ?? []),
       demandScore:  body.demandScore ?? 50,
     },
     include: { validations: true, reservations: true },
