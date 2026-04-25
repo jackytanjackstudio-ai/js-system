@@ -37,7 +37,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session) return apiError("Unauthorized", 401);
-  if (session.role !== "admin") return apiError("Forbidden", 403);
+  if (!["admin", "product", "manager"].includes(session.role)) return apiError("Forbidden", 403);
 
   await prisma.product.delete({ where: { id: params.id } });
   return apiOk({ deleted: true });

@@ -169,6 +169,7 @@ function SourcingPool({ products, onAdvance, onDelete, onUploadImage, canEdit }:
   canEdit: boolean;
 }) {
   const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   if (!products.length)
     return <EmptyState icon={<PackagePlus size={28} className="text-gray-300" />} title="Sourcing pool is empty" sub="Add products you're considering to evaluate them through the system." />;
@@ -266,10 +267,23 @@ function SourcingPool({ products, onAdvance, onDelete, onUploadImage, canEdit }:
                       </div>
                     )}
                   </div>
-                  <button onClick={() => onDelete(p.id)}
-                    className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-xl text-xs font-semibold transition-colors">
-                    ✕
-                  </button>
+                  {confirmDelete === p.id ? (
+                    <div className="flex gap-1">
+                      <button onClick={() => { onDelete(p.id); setConfirmDelete(null); }}
+                        className="px-2 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-[10px] font-bold transition-colors">
+                        Yes
+                      </button>
+                      <button onClick={() => setConfirmDelete(null)}
+                        className="px-2 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-[10px] font-bold transition-colors">
+                        No
+                      </button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setConfirmDelete(p.id)}
+                      className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-xl text-xs font-semibold transition-colors">
+                      ✕
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -1007,7 +1021,6 @@ export default function ProductWarRoom() {
   }
 
   async function deleteProduct(id: string) {
-    if (!confirm("Remove this product from the sourcing pool?")) return;
     await apiFetch(`/api/products/${id}`, { method: "DELETE" });
     refetch();
   }
