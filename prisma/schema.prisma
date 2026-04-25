@@ -87,19 +87,25 @@ model SalesReport {
 }
 
 model CreatorContent {
-  id            String   @id @default(cuid())
-  userId        String
-  platform      String
-  title         String
-  views         Int      @default(0)
-  likes         Int      @default(0)
-  comments      Int      @default(0)
-  linkedSales   Int      @default(0)
-  topComment    String?
-  productSignal String?
-  week          String?
-  month         Int?
-  createdAt     DateTime @default(now())
+  id              String   @id @default(cuid())
+  userId          String
+  platform        String
+  title           String
+  contentUrl      String?
+  contentType     String?
+  productTags     String   @default("[]")
+  views           Int      @default(0)
+  likes           Int      @default(0)
+  comments        Int      @default(0)
+  linkedSales     Int      @default(0)
+  topComment      String?
+  productSignal   String?
+  signalScore     Float    @default(0)
+  aiSignals       String   @default("[]")
+  pushedToWarRoom Boolean  @default(false)
+  week            String?
+  month           Int?
+  createdAt       DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
 }
