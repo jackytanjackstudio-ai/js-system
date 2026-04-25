@@ -11,7 +11,7 @@ async function main() {
     users, outlets, products, customerInputs, salesReports,
     executionTasks, rewardPoints, systemFeedback, creatorContent,
   ] = await Promise.all([
-    prisma.user.findMany({ omit: { password: true } }),
+    prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, outletId: true, phone: true, isActive: true, createdAt: true, updatedAt: true } }),
     prisma.outlet.findMany(),
     prisma.product.findMany(),
     prisma.customerInput.findMany(),
