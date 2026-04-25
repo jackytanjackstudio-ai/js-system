@@ -8,6 +8,8 @@ type Product = {
   id: string; name: string; category: string; status: string;
   targetPrice: number | null; useCase: string;
   imageUrl: string | null; imageUrls: string;
+  style: string | null; material: string | null;
+  colours: string; notes: string | null; targetQty: number | null;
 };
 type Outlet = { id: string; name: string; isActive: boolean };
 
@@ -178,12 +180,58 @@ export default function ProductFeedback() {
                 )}
 
                 {/* Product info */}
-                <div>
-                  <div className="text-xl font-black text-gray-900">{p.name}</div>
-                  {p.targetPrice && <div className="text-lg font-bold text-brand-600 mt-0.5">RM{p.targetPrice}</div>}
-                  {uc.length > 0 && (
-                    <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-xl font-black text-gray-900">{p.name}</div>
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      <span className="badge bg-gray-100 text-gray-600">{p.category}</span>
+                      {p.style && <span className="badge bg-purple-50 text-purple-600">{p.style}</span>}
                       {uc.map(u => <span key={u} className="badge bg-blue-50 text-blue-600">{u}</span>)}
+                    </div>
+                  </div>
+
+                  {/* Price + Qty */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {p.targetPrice && (
+                      <div className="text-lg font-bold text-brand-600">RM{p.targetPrice}</div>
+                    )}
+                    {p.targetQty && (
+                      <div className="text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">
+                        Target: {p.targetQty} units
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Material */}
+                  {p.material && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Material</span>
+                      <span className="text-sm font-semibold text-gray-700">{p.material}</span>
+                    </div>
+                  )}
+
+                  {/* Colours */}
+                  {(() => {
+                    const cols: string[] = (() => { try { return JSON.parse(p.colours || "[]"); } catch { return []; } })();
+                    return cols.length > 0 ? (
+                      <div>
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Colours Available</span>
+                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                          {cols.map(c => (
+                            <span key={c} className="px-3 py-1 bg-white border border-gray-200 rounded-full text-sm font-semibold text-gray-700 shadow-sm">
+                              {c}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
+
+                  {/* Notes from product team */}
+                  {p.notes && (
+                    <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
+                      <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">Product Team Notes</div>
+                      <p className="text-sm text-amber-900 italic">"{p.notes}"</p>
                     </div>
                   )}
                 </div>
