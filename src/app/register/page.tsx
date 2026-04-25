@@ -15,13 +15,15 @@ export default function RegisterPage() {
   const [showPw,     setShowPw]     = useState(false);
   const [error,      setError]      = useState("");
   const [loading,    setLoading]    = useState(false);
-  const [outlets,    setOutlets]    = useState<Outlet[]>([]);
+  const [outlets,       setOutlets]       = useState<Outlet[]>([]);
+  const [outletsLoading, setOutletsLoading] = useState(true);
+  const [outletsError,   setOutletsError]   = useState(false);
 
   useEffect(() => {
     fetch("/api/outlets/public")
       .then(r => r.json())
-      .then(d => setOutlets(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .then(d => { setOutlets(Array.isArray(d) ? d : []); setOutletsLoading(false); })
+      .catch(() => { setOutletsError(true); setOutletsLoading(false); });
   }, []);
 
   const pwMatch  = confirm && password !== confirm;
@@ -97,18 +99,29 @@ export default function RegisterPage() {
 
             {/* Outlet */}
             <div>
-              <label className="block text-sm font-medium text-stone-300 mb-1.5">Your Outlet / Store *</label>
-              <select
-                value={outletId}
-                onChange={e => setOutletId(e.target.value)}
-                required
-                className="w-full bg-stone-800 border border-stone-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-brand-500 text-sm"
-              >
-                <option value="">Select your outlet…</option>
-                {outlets.map(o => (
-                  <option key={o.id} value={o.id}>{o.name} · {o.city}</option>
-                ))}
-              </select>
+              <label className="block text-sm font-medium text-stone-300 mb-1.5">
+                Your Outlet / Store <span className="text-stone-500 font-normal">(optional)</span>
+              </label>
+              {outletsLoading ? (
+                <div className="w-full bg-stone-800 border border-stone-700 rounded-lg px-3 py-2.5 text-stone-500 text-sm">
+                  Loading outlets…
+                </div>
+              ) : outletsError ? (
+                <div className="w-full bg-stone-800 border border-red-800 rounded-lg px-3 py-2.5 text-red-400 text-sm">
+                  Could not load outlets — you can set this later
+                </div>
+              ) : (
+                <select
+                  value={outletId}
+                  onChange={e => setOutletId(e.target.value)}
+                  className="w-full bg-stone-800 border border-stone-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-brand-500 text-sm"
+                >
+                  <option value="">Select your outlet…</option>
+                  {outlets.map(o => (
+                    <option key={o.id} value={o.id}>{o.name} · {o.city}</option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* Phone (optional) */}

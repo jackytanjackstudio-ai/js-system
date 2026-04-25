@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     const isPhone = /^[0-9+\s\-()]{7,15}$/.test(login);
     const user = isPhone
       ? await prisma.user.findFirst({ where: { phone: login } })
-      : await prisma.user.findUnique({ where: { email: login } });
+      : await prisma.user.findUnique({ where: { email: login.toLowerCase() } });
     if (!user || !user.isActive) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
