@@ -13,13 +13,19 @@ type Product = {
 };
 type Outlet = { id: string; name: string; isActive: boolean };
 
-const REASONS = [
+const POSITIVE_REASONS = [
   { value: "Customer often asks", label: "客户常问" },
   { value: "Easy to sell",        label: "好卖"     },
   { value: "Good design",         label: "设计好"   },
   { value: "Reasonable price",    label: "价格合理" },
 ];
-const SALES_OPTIONS = [5, 10, 20, 30, 50];
+const NEGATIVE_REASONS = [
+  { value: "Price too high",      label: "价格太高" },
+  { value: "Design too ordinary", label: "设计普通" },
+  { value: "Quality concern",     label: "质量担忧" },
+  { value: "No demand",           label: "客户不需要" },
+  { value: "Wrong size",          label: "尺寸不对" },
+];
 
 function getImages(p: Pick<Product, "imageUrl" | "imageUrls">): string[] {
   try {
@@ -50,14 +56,14 @@ export default function ProductFeedback() {
   const [activeImg, setActiveImg] = useState<Record<string, number>>({});
   const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
   const [forms, setForms] = useState<Record<string, {
-    confidence: number; expected: number; reasons: string[]; submitting: boolean; done: boolean;
+    confidence: number; expected: string; reasons: string[]; submitting: boolean; done: boolean;
   }>>({});
 
   const validating = (products ?? []).filter(p => p.status === "Validating");
   const activeOutlets = (outlets ?? []).filter(o => o.isActive);
 
   function getForm(id: string) {
-    return forms[id] ?? { confidence: 0, expected: 10, reasons: [], submitting: false, done: false };
+    return forms[id] ?? { confidence: 0, expected: "", reasons: [], submitting: false, done: false };
   }
   function setForm(id: string, patch: Partial<ReturnType<typeof getForm>>) {
     setForms(prev => ({ ...prev, [id]: { ...getForm(id), ...patch } }));
@@ -80,7 +86,7 @@ export default function ProductFeedback() {
         outletName: outlet?.name ?? outletId,
         confidenceScore: f.confidence,
         wouldSell: f.confidence >= 3,
-        expectedSales: f.expected,
+        expectedSales: parseInt(f.expected) || 0,
         reason: f.reasons.join(", ") || null,
         staffName: user?.name ?? null,
       }),
@@ -249,37 +255,63 @@ export default function ProductFeedback() {
                   )}
                 </div>
 
-                {/* Expected sales */}
+                {/* Expected sales — free input */}
                 <div>
-                  <label className="block text-base font-bold text-gray-800 mb-3">预计每月卖多少？</label>
-                  <div className="flex flex-wrap gap-2">
-                    {SALES_OPTIONS.map(n => (
-                      <button key={n} type="button" onClick={() => setForm(p.id, { expected: n })}
-                        className={`px-5 py-2.5 rounded-xl text-sm font-bold border-2 transition-all ${
-                          f.expected === n
-                            ? "bg-brand-500 text-white border-brand-500 shadow-md"
-                            : "bg-white text-gray-600 border-gray-200 hover:border-brand-300"
-                        }`}>
-                        {n}
-                      </button>
-                    ))}
+                  <label className="block text-base font-bold text-gray-800 mb-2">预计每月卖多少？</label>
+                  <div className="flex items-center gap-3">
+                    <button type="button"
+                      onClick={() => setForm(p.id, { expected: String(Math.max(0, (parseInt(f.expected) || 0) - 1) )})}
+                      className="w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-lg flex items-center justify-center flex-shrink-0">−</button>
+                    <input
+                      type="number" min="0"
+                      value={f.expected}
+                      onChange={e => setForm(p.id, { expected: e.target.value })}
+                      placeholder="0"
+                      className="flex-1 text-center text-2xl font-black text-gray-900 border-2 border-gray-200 rounded-xl py-2.5 focus:outline-none focus:border-brand-400"
+                    />
+                    <button type="button"
+                      onClick={() => setForm(p.id, { expected: String((parseInt(f.expected) || 0) + 1) })}
+                      className="w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-lg flex items-center justify-center flex-shrink-0">+</button>
                   </div>
+                  <p className="text-xs text-gray-400 text-center mt-1">units per month — type any number</p>
                 </div>
 
-                {/* Reasons */}
-                <div>
-                  <label className="block text-base font-bold text-gray-800 mb-3">原因？</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {REASONS.map(r => (
-                      <button key={r.value} type="button" onClick={() => toggleReason(p.id, r.value)}
-                        className={`py-3 px-3 rounded-xl text-sm font-semibold border-2 transition-all text-left ${
-                          f.reasons.includes(r.value)
-                            ? "bg-green-500 text-white border-green-500 shadow-md"
-                            : "bg-white text-gray-600 border-gray-200 hover:border-green-300"
-                        }`}>
-                        {f.reasons.includes(r.value) ? "✓ " : ""}{r.label}
-                      </button>
-                    ))}
+                {/* Reasons — positive & negative */}
+                <div className="space-y-3">
+                  <label className="block text-base font-bold text-gray-800">原因？</label>
+
+                  {/* Why it WILL sell */}
+                  <div>
+                    <p className="text-xs font-bold text-green-600 uppercase tracking-wider mb-1.5">✔ 为什么好卖</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {POSITIVE_REASONS.map(r => (
+                        <button key={r.value} type="button" onClick={() => toggleReason(p.id, r.value)}
+                          className={`py-2.5 px-3 rounded-xl text-sm font-semibold border-2 transition-all text-left ${
+                            f.reasons.includes(r.value)
+                              ? "bg-green-500 text-white border-green-500 shadow-sm"
+                              : "bg-white text-gray-600 border-gray-100 hover:border-green-300"
+                          }`}>
+                          {f.reasons.includes(r.value) ? "✓ " : ""}{r.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Why it WON'T sell */}
+                  <div>
+                    <p className="text-xs font-bold text-red-500 uppercase tracking-wider mb-1.5">✖ 为什么不好卖</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {NEGATIVE_REASONS.map(r => (
+                        <button key={r.value} type="button" onClick={() => toggleReason(p.id, r.value)}
+                          className={`py-2.5 px-3 rounded-xl text-sm font-semibold border-2 transition-all text-left ${
+                            f.reasons.includes(r.value)
+                              ? "bg-red-500 text-white border-red-500 shadow-sm"
+                              : "bg-white text-gray-600 border-gray-100 hover:border-red-200"
+                          }`}>
+                          {f.reasons.includes(r.value) ? "✓ " : ""}{r.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
