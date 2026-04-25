@@ -8,26 +8,32 @@ on:
 jobs:
   backup:
     runs-on: ubuntu-latest
-    steps:
-      - name: Install PostgreSQL client
-        run: sudo apt-get install -y postgresql-client
 
-      - name: Dump database
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run backup
         env:
-          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
-        run: |
-          DATE=$(date +%Y-%m-%d)
-          pg_dump "$DIRECT_DATABASE_URL" \
-            --format=custom \
-            --no-acl \
-            --no-owner \
-            --file="backup-${DATE}.dump"
-          echo "Backup size: $(du -sh backup-${DATE}.dump | cut -f1)"
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/backup.ts
 
       - name: Upload backup as artifact
         uses: actions/upload-artifact@v4
         with:
           name: db-backup-${{ github.run_number }}-${{ github.run_id }}
-          path: backup-*.dump
+          path: backup-*.json
           retention-days: 90
           if-no-files-found: error
