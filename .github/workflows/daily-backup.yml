@@ -14,10 +14,10 @@ jobs:
 
       - name: Dump database
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
         run: |
           DATE=$(date +%Y-%m-%d)
-          pg_dump "$DATABASE_URL" \
+          pg_dump "$DIRECT_DATABASE_URL" \
             --format=custom \
             --no-acl \
             --no-owner \
