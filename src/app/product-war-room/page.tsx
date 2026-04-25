@@ -45,6 +45,8 @@ type Tab = "sourcing" | "validation" | "reservation" | "decision" | "tracking";
 const CATEGORIES   = ["Wallet", "Card Holder", "Bag", "Luggage", "Accessories", "Gift", "Other"];
 const USE_CASES    = ["Work", "Travel", "Daily", "Gift"];
 const SALES_OPTIONS = [5, 10, 20, 30, 50, 100];
+const BRANDS = ["Euro Polo", "Jack Studio", "Lancaster Polo"];
+
 const PROMOTIONS   = [
   { value: "Discount",   emoji: "🏷️" },
   { value: "Free Gift",  emoji: "🎁" },
@@ -1000,8 +1002,10 @@ function AddProductModal({ onClose, onSave }: {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Brand</label>
-            <input className="input" placeholder="e.g. Lovart, Balenciaga" value={form.brand}
-              onChange={e => setForm(f => ({ ...f, brand: e.target.value }))} />
+            <select className="select" value={form.brand} onChange={e => setForm(f => ({ ...f, brand: e.target.value }))}>
+              <option value="">Select brand…</option>
+              {BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
           </div>
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Style</label>
