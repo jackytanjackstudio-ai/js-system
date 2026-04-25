@@ -60,7 +60,12 @@ export async function GET(req: Request) {
   if (!session) return apiError("Unauthorized", 401);
 
   const { searchParams } = new URL(req.url);
-  const outletId = searchParams.get("outletId") ?? undefined;
+
+  // sales/manager scoped to their own outlet; admin/product sees all
+  const canSeeAll = ["admin", "product", "manager"].includes(session.role);
+  const outletId  = canSeeAll
+    ? (searchParams.get("outletId") ?? undefined)
+    : (session.outletId ?? undefined);
 
   const reports = await prisma.salesReport.findMany({
     where: outletId ? { outletId } : {},
@@ -72,10 +77,11 @@ export async function GET(req: Request) {
   return apiOk(reports);
 }
 
-// POST: upload Excel file
+// POST: upload Excel file — sales/manager/admin only
 export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return apiError("Unauthorized", 401);
+  if (!["sales", "manager", "admin"].includes(session.role)) return apiError("Forbidden", 403);
 
   const formData = await req.formData();
   const file      = formData.get("file") as File | null;

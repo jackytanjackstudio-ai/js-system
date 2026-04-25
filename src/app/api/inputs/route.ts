@@ -15,10 +15,15 @@ export async function GET(req: Request) {
   if (!session) return apiError("Unauthorized", 401);
 
   const { searchParams } = new URL(req.url);
-  const outletId = searchParams.get("outletId");
   const week     = searchParams.get("week");
   const month    = searchParams.get("month");
   const limit    = parseInt(searchParams.get("limit") ?? "50");
+
+  // sales/manager/creator are scoped to their own outlet
+  const canSeeAll = ["admin", "product"].includes(session.role);
+  const outletId  = canSeeAll
+    ? (searchParams.get("outletId") ?? undefined)
+    : (session.outletId ?? undefined);
 
   const inputs = await prisma.customerInput.findMany({
     where: {
