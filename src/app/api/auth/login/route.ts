@@ -5,12 +5,16 @@ import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
   try {
-    const { email, password } = await req.json();
-    if (!email || !password) {
-      return NextResponse.json({ error: "Email and password required" }, { status: 400 });
+    const { identifier, email: legacyEmail, password } = await req.json();
+    const login = (identifier ?? legacyEmail ?? "").trim();
+    if (!login || !password) {
+      return NextResponse.json({ error: "Email / phone and password required" }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const isPhone = /^[0-9+\s\-()]{7,15}$/.test(login);
+    const user = isPhone
+      ? await prisma.user.findFirst({ where: { phone: login } })
+      : await prisma.user.findUnique({ where: { email: login } });
     if (!user || !user.isActive) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
