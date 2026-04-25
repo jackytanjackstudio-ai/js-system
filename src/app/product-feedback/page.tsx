@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useData, apiFetch } from "@/hooks/useData";
 import { useAuth } from "@/context/AuthContext";
+import { useLang } from "@/context/LangContext";
 import { Star, CheckCircle2, Loader2, Package, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 type Product = {
@@ -12,20 +13,6 @@ type Product = {
   colours: string; notes: string | null; targetQty: number | null;
 };
 type Outlet = { id: string; name: string; isActive: boolean };
-
-const POSITIVE_REASONS = [
-  { value: "Customer often asks", label: "客户常问" },
-  { value: "Easy to sell",        label: "好卖"     },
-  { value: "Good design",         label: "设计好"   },
-  { value: "Reasonable price",    label: "价格合理" },
-];
-const NEGATIVE_REASONS = [
-  { value: "Price too high",      label: "价格太高" },
-  { value: "Design too ordinary", label: "设计普通" },
-  { value: "Quality concern",     label: "质量担忧" },
-  { value: "No demand",           label: "客户不需要" },
-  { value: "Wrong size",          label: "尺寸不对" },
-];
 
 function getImages(p: Pick<Product, "imageUrl" | "imageUrls">): string[] {
   try {
@@ -49,6 +36,7 @@ function StarsInput({ value, onChange }: { value: number; onChange: (n: number) 
 
 export default function ProductFeedback() {
   const { user } = useAuth();
+  const { t } = useLang();
   const { data: products, loading } = useData<Product[]>("/api/products");
   const { data: outlets } = useData<Outlet[]>("/api/outlets");
 
@@ -56,14 +44,30 @@ export default function ProductFeedback() {
   const [activeImg, setActiveImg] = useState<Record<string, number>>({});
   const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
   const [forms, setForms] = useState<Record<string, {
-    confidence: number; expected: string; reasons: string[]; submitting: boolean; done: boolean;
+    confidence: number; expected: string; reasons: string[];
+    otherText: string; submitting: boolean; done: boolean;
   }>>({});
 
   const validating = (products ?? []).filter(p => p.status === "Validating");
   const activeOutlets = (outlets ?? []).filter(o => o.isActive);
 
+  const POSITIVE_REASONS: { value: string; tKey: "pf_r_asks"|"pf_r_easy"|"pf_r_design"|"pf_r_price" }[] = [
+    { value: "Customer often asks", tKey: "pf_r_asks"   },
+    { value: "Easy to sell",        tKey: "pf_r_easy"   },
+    { value: "Good design",         tKey: "pf_r_design" },
+    { value: "Reasonable price",    tKey: "pf_r_price"  },
+  ];
+  const NEGATIVE_REASONS: { value: string; tKey: "pf_r_expensive"|"pf_r_ordinary"|"pf_r_quality"|"pf_r_no_demand"|"pf_r_wrong_size" }[] = [
+    { value: "Price too high",      tKey: "pf_r_expensive"  },
+    { value: "Design too ordinary", tKey: "pf_r_ordinary"   },
+    { value: "Quality concern",     tKey: "pf_r_quality"    },
+    { value: "No demand",           tKey: "pf_r_no_demand"  },
+    { value: "Wrong size",          tKey: "pf_r_wrong_size" },
+  ];
+  const STAR_LABELS = ["", t("pf_star_1"), t("pf_star_2"), t("pf_star_3"), t("pf_star_4"), t("pf_star_5")];
+
   function getForm(id: string) {
-    return forms[id] ?? { confidence: 0, expected: "", reasons: [], submitting: false, done: false };
+    return forms[id] ?? { confidence: 0, expected: "", reasons: [], otherText: "", submitting: false, done: false };
   }
   function setForm(id: string, patch: Partial<ReturnType<typeof getForm>>) {
     setForms(prev => ({ ...prev, [id]: { ...getForm(id), ...patch } }));
@@ -79,6 +83,10 @@ export default function ProductFeedback() {
     const f = getForm(productId);
     setForm(productId, { submitting: true });
     const outlet = activeOutlets.find(o => o.id === outletId);
+    const allReasons = [
+      ...f.reasons,
+      ...(f.otherText.trim() ? [`Other: ${f.otherText.trim()}`] : []),
+    ].join(", ");
     await apiFetch(`/api/products/${productId}/validate`, {
       method: "POST",
       body: JSON.stringify({
@@ -87,7 +95,7 @@ export default function ProductFeedback() {
         confidenceScore: f.confidence,
         wouldSell: f.confidence >= 3,
         expectedSales: parseInt(f.expected) || 0,
-        reason: f.reasons.join(", ") || null,
+        reason: allReasons || null,
         staffName: user?.name ?? null,
       }),
     });
@@ -103,15 +111,15 @@ export default function ProductFeedback() {
   return (
     <div className="max-w-lg mx-auto space-y-5">
       <div>
-        <h1 className="page-title">Product Feedback</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Rate the products — your feedback decides what we buy</p>
+        <h1 className="page-title">{t("nav_product_feedback")}</h1>
+        <p className="text-sm text-gray-400 mt-0.5">{t("pf_confidence_q").replace("？","").replace("?","")} — your feedback decides what we buy</p>
       </div>
 
       {/* Store selector */}
       <div className="card">
-        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Your Store</label>
+        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{t("pf_store")}</label>
         <select className="select" value={outletId} onChange={e => setOutletId(e.target.value)}>
-          <option value="">Select your store…</option>
+          <option value="">{t("pf_select_store")}</option>
           {activeOutlets.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
         </select>
       </div>
@@ -121,14 +129,15 @@ export default function ProductFeedback() {
           <div className="w-14 h-14 bg-gray-100 rounded-2xl mx-auto flex items-center justify-center">
             <Package size={24} className="text-gray-300" />
           </div>
-          <p className="font-semibold text-gray-500">No products to review right now</p>
-          <p className="text-sm text-gray-400">Check back later — the buying team will send new products here</p>
+          <p className="font-semibold text-gray-500">{t("pf_no_products")}</p>
+          <p className="text-sm text-gray-400">{t("pf_check_back")}</p>
         </div>
       ) : (
         <div className="space-y-5">
           {validating.map(p => {
             const f = getForm(p.id);
             const uc: string[] = (() => { try { return JSON.parse(p.useCase); } catch { return []; } })();
+            const colours: string[] = (() => { try { return JSON.parse(p.colours || "[]"); } catch { return []; } })();
             const images = getImages(p);
             const mainIdx = activeImg[p.id] ?? 0;
 
@@ -137,34 +146,26 @@ export default function ProductFeedback() {
                 <CheckCircle2 size={28} className="text-green-500 flex-shrink-0" />
                 <div>
                   <div className="font-bold text-green-800">{p.name}</div>
-                  <div className="text-sm text-green-600">Feedback submitted ✓</div>
+                  <div className="text-sm text-green-600">{t("pf_done")}</div>
                 </div>
               </div>
             );
 
             return (
               <div key={p.id} className="card space-y-5">
-                {/* ── Image gallery ── */}
+                {/* Image gallery */}
                 {images.length > 0 ? (
                   <div className="space-y-2">
-                    {/* Main image — click to open lightbox */}
                     <div className="relative cursor-pointer" onClick={() => setLightbox({ urls: images, index: mainIdx })}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={images[mainIdx]} alt={p.name}
-                        className="w-full h-56 object-cover rounded-xl" />
-                      <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-all rounded-xl flex items-center justify-center">
-                        <span className="opacity-0 hover:opacity-100 bg-white/90 text-xs font-bold text-gray-800 px-3 py-1.5 rounded-full transition-opacity">
-                          Tap to zoom
-                        </span>
-                      </div>
+                      <img src={images[mainIdx]} alt={p.name} className="w-full h-56 object-cover rounded-xl" />
+                      <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-all rounded-xl" />
                       {images.length > 1 && (
                         <div className="absolute top-2 right-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-full">
                           {mainIdx + 1} / {images.length}
                         </div>
                       )}
                     </div>
-
-                    {/* Thumbnail strip */}
                     {images.length > 1 && (
                       <div className="flex gap-2">
                         {images.map((url, i) => (
@@ -196,11 +197,8 @@ export default function ProductFeedback() {
                     </div>
                   </div>
 
-                  {/* Price + Qty */}
                   <div className="flex items-center gap-3 flex-wrap">
-                    {p.targetPrice && (
-                      <div className="text-lg font-bold text-brand-600">RM{p.targetPrice}</div>
-                    )}
+                    {p.targetPrice && <div className="text-lg font-bold text-brand-600">RM{p.targetPrice}</div>}
                     {p.targetQty && (
                       <div className="text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">
                         Target: {p.targetQty} units
@@ -208,7 +206,6 @@ export default function ProductFeedback() {
                     )}
                   </div>
 
-                  {/* Material */}
                   {p.material && (
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Material</span>
@@ -216,24 +213,17 @@ export default function ProductFeedback() {
                     </div>
                   )}
 
-                  {/* Colours */}
-                  {(() => {
-                    const cols: string[] = (() => { try { return JSON.parse(p.colours || "[]"); } catch { return []; } })();
-                    return cols.length > 0 ? (
-                      <div>
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Colours Available</span>
-                        <div className="flex flex-wrap gap-1.5 mt-1.5">
-                          {cols.map(c => (
-                            <span key={c} className="px-3 py-1 bg-white border border-gray-200 rounded-full text-sm font-semibold text-gray-700 shadow-sm">
-                              {c}
-                            </span>
-                          ))}
-                        </div>
+                  {colours.length > 0 && (
+                    <div>
+                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Colours Available</span>
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        {colours.map(c => (
+                          <span key={c} className="px-3 py-1 bg-white border border-gray-200 rounded-full text-sm font-semibold text-gray-700 shadow-sm">{c}</span>
+                        ))}
                       </div>
-                    ) : null;
-                  })()}
+                    </div>
+                  )}
 
-                  {/* Notes from product team */}
                   {p.notes && (
                     <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
                       <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">Product Team Notes</div>
@@ -244,26 +234,23 @@ export default function ProductFeedback() {
 
                 <div className="h-px bg-gray-100" />
 
-                {/* Confidence */}
+                {/* Confidence stars */}
                 <div>
-                  <label className="block text-base font-bold text-gray-800 mb-3">你觉得这个好卖吗？</label>
+                  <label className="block text-base font-bold text-gray-800 mb-3">{t("pf_confidence_q")}</label>
                   <StarsInput value={f.confidence} onChange={n => setForm(p.id, { confidence: n })} />
                   {f.confidence > 0 && (
-                    <p className="text-sm text-gray-500 mt-2">
-                      {["", "不好卖", "一般", "还可以", "好卖", "非常好卖！"][f.confidence]}
-                    </p>
+                    <p className="text-sm text-gray-500 mt-2">{STAR_LABELS[f.confidence]}</p>
                   )}
                 </div>
 
-                {/* Expected sales — free input */}
+                {/* Expected qty — free input */}
                 <div>
-                  <label className="block text-base font-bold text-gray-800 mb-2">预计每月卖多少？</label>
+                  <label className="block text-base font-bold text-gray-800 mb-2">{t("pf_est_qty_q")}</label>
                   <div className="flex items-center gap-3">
                     <button type="button"
-                      onClick={() => setForm(p.id, { expected: String(Math.max(0, (parseInt(f.expected) || 0) - 1) )})}
+                      onClick={() => setForm(p.id, { expected: String(Math.max(0, (parseInt(f.expected) || 0) - 1)) })}
                       className="w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-lg flex items-center justify-center flex-shrink-0">−</button>
-                    <input
-                      type="number" min="0"
+                    <input type="number" min="0"
                       value={f.expected}
                       onChange={e => setForm(p.id, { expected: e.target.value })}
                       placeholder="0"
@@ -273,16 +260,16 @@ export default function ProductFeedback() {
                       onClick={() => setForm(p.id, { expected: String((parseInt(f.expected) || 0) + 1) })}
                       className="w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-lg flex items-center justify-center flex-shrink-0">+</button>
                   </div>
-                  <p className="text-xs text-gray-400 text-center mt-1">units per month — type any number</p>
+                  <p className="text-xs text-gray-400 text-center mt-1">{t("pf_units_hint")}</p>
                 </div>
 
-                {/* Reasons — positive & negative */}
+                {/* Reasons — positive + negative + other */}
                 <div className="space-y-3">
-                  <label className="block text-base font-bold text-gray-800">原因？</label>
+                  <label className="block text-base font-bold text-gray-800">{t("pf_reasons_q")}</label>
 
-                  {/* Why it WILL sell */}
+                  {/* Why WILL sell */}
                   <div>
-                    <p className="text-xs font-bold text-green-600 uppercase tracking-wider mb-1.5">✔ 为什么好卖</p>
+                    <p className="text-xs font-bold text-green-600 uppercase tracking-wider mb-1.5">{t("pf_why_sell")}</p>
                     <div className="grid grid-cols-2 gap-2">
                       {POSITIVE_REASONS.map(r => (
                         <button key={r.value} type="button" onClick={() => toggleReason(p.id, r.value)}
@@ -291,15 +278,15 @@ export default function ProductFeedback() {
                               ? "bg-green-500 text-white border-green-500 shadow-sm"
                               : "bg-white text-gray-600 border-gray-100 hover:border-green-300"
                           }`}>
-                          {f.reasons.includes(r.value) ? "✓ " : ""}{r.label}
+                          {f.reasons.includes(r.value) ? "✓ " : ""}{t(r.tKey)}
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  {/* Why it WON'T sell */}
+                  {/* Why WON'T sell */}
                   <div>
-                    <p className="text-xs font-bold text-red-500 uppercase tracking-wider mb-1.5">✖ 为什么不好卖</p>
+                    <p className="text-xs font-bold text-red-500 uppercase tracking-wider mb-1.5">{t("pf_why_not_sell")}</p>
                     <div className="grid grid-cols-2 gap-2">
                       {NEGATIVE_REASONS.map(r => (
                         <button key={r.value} type="button" onClick={() => toggleReason(p.id, r.value)}
@@ -308,10 +295,22 @@ export default function ProductFeedback() {
                               ? "bg-red-500 text-white border-red-500 shadow-sm"
                               : "bg-white text-gray-600 border-gray-100 hover:border-red-200"
                           }`}>
-                          {f.reasons.includes(r.value) ? "✓ " : ""}{r.label}
+                          {f.reasons.includes(r.value) ? "✓ " : ""}{t(r.tKey)}
                         </button>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Other — free text */}
+                  <div>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">{t("pf_other")}</p>
+                    <textarea
+                      className="textarea text-sm"
+                      rows={2}
+                      placeholder={t("pf_other_ph")}
+                      value={f.otherText}
+                      onChange={e => setForm(p.id, { otherText: e.target.value })}
+                    />
                   </div>
                 </div>
 
@@ -321,11 +320,11 @@ export default function ProductFeedback() {
                   onClick={() => submit(p.id)}
                   className="w-full py-4 bg-brand-500 hover:bg-brand-600 disabled:opacity-40 text-white rounded-2xl font-bold text-base transition-colors flex items-center justify-center gap-2 shadow-lg shadow-brand-100">
                   {f.submitting ? <Loader2 size={18} className="animate-spin" /> : null}
-                  {f.submitting ? "Submitting…" : "Submit →"}
+                  {f.submitting ? "…" : t("pf_submit")}
                 </button>
 
                 {!outletId && (
-                  <p className="text-xs text-red-500 text-center -mt-2">Select your store above first</p>
+                  <p className="text-xs text-red-500 text-center -mt-2">{t("pf_select_store")}</p>
                 )}
               </div>
             );
@@ -333,23 +332,18 @@ export default function ProductFeedback() {
         </div>
       )}
 
-      {/* ── Lightbox ── */}
+      {/* Lightbox */}
       {lightbox && (
         <div className="fixed inset-0 z-[9999] bg-black/95 flex flex-col" onClick={() => setLightbox(null)}>
-          {/* Close */}
           <div className="flex justify-end px-4 py-3 flex-shrink-0" onClick={e => e.stopPropagation()}>
             <button onClick={() => setLightbox(null)}
               className="w-9 h-9 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white">
               <X size={18} />
             </button>
           </div>
-
-          {/* Main image */}
-          <div className="flex-1 flex items-center justify-center relative px-12 min-h-0"
-            onClick={e => e.stopPropagation()}>
+          <div className="flex-1 flex items-center justify-center relative px-12 min-h-0" onClick={e => e.stopPropagation()}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={lightbox.urls[lightbox.index]} alt=""
-              className="max-h-full max-w-full object-contain rounded-xl" />
+            <img src={lightbox.urls[lightbox.index]} alt="" className="max-h-full max-w-full object-contain rounded-xl" />
             {lightbox.index > 0 && (
               <button onClick={() => setLightbox({ ...lightbox, index: lightbox.index - 1 })}
                 className="absolute left-2 w-10 h-10 bg-white/10 hover:bg-white/25 rounded-full flex items-center justify-center text-white">
@@ -363,8 +357,6 @@ export default function ProductFeedback() {
               </button>
             )}
           </div>
-
-          {/* Thumbnails */}
           {lightbox.urls.length > 1 && (
             <div className="flex gap-2 justify-center px-4 py-3 flex-shrink-0" onClick={e => e.stopPropagation()}>
               {lightbox.urls.map((url, i) => (
