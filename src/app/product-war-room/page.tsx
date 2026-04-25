@@ -25,7 +25,8 @@ type Product = {
   decisionDate: string | null; tasks: string;
   targetPrice: number | null; cost: number | null; imageUrl: string | null;
   imageUrls: string;
-  useCase: string; style: string | null; demandScore: number;
+  useCase: string; style: string | null; material: string | null;
+  colours: string; targetQty: number | null; demandScore: number;
   validations: ValidationEntry[];
   reservations: ReservationEntry[];
 };
@@ -180,6 +181,7 @@ function SourcingPool({ products, onAdvance, onDelete, onUploadImage, canEdit }:
       {products.map(p => {
         const m = margin(p.targetPrice, p.cost);
         const uc: string[] = (() => { try { return JSON.parse(p.useCase); } catch { return []; } })();
+        const colours: string[] = (() => { try { return JSON.parse(p.colours || "[]"); } catch { return []; } })();
         const images = getImages(p);
         const hasImage = images.length > 0;
 
@@ -219,20 +221,43 @@ function SourcingPool({ products, onAdvance, onDelete, onUploadImage, canEdit }:
               </div>
             </div>
 
-            {(p.targetPrice || p.cost) && (
-              <div className="grid grid-cols-3 gap-2 text-center bg-gray-50 rounded-xl p-2">
+            {/* Pricing + Target Qty */}
+            {(p.targetPrice || p.cost || p.targetQty) && (
+              <div className="grid grid-cols-4 gap-1.5 text-center bg-gray-50 rounded-xl p-2">
                 {p.targetPrice && (
-                  <div><div className="text-[10px] text-gray-400">Target</div>
+                  <div><div className="text-[10px] text-gray-400">Price</div>
                     <div className="text-xs font-bold text-gray-800">RM{p.targetPrice}</div></div>
                 )}
                 {p.cost && (
-                  <div><div className="text-[10px] text-gray-400">Est Cost</div>
+                  <div><div className="text-[10px] text-gray-400">Cost</div>
                     <div className="text-xs font-bold text-gray-800">RM{p.cost}</div></div>
                 )}
                 {m !== null && (
                   <div><div className="text-[10px] text-gray-400">Margin</div>
                     <div className={`text-xs font-bold ${m >= 50 ? "text-green-600" : m >= 30 ? "text-amber-600" : "text-red-500"}`}>{m}%</div></div>
                 )}
+                {p.targetQty && (
+                  <div><div className="text-[10px] text-gray-400">Target Qty</div>
+                    <div className="text-xs font-bold text-brand-700">{p.targetQty}</div></div>
+                )}
+              </div>
+            )}
+
+            {/* Material */}
+            {p.material && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-gray-400 font-semibold uppercase">Material:</span>
+                <span className="text-[10px] text-gray-700">{p.material}</span>
+              </div>
+            )}
+
+            {/* Colours */}
+            {colours.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 items-center">
+                <span className="text-[10px] text-gray-400 font-semibold uppercase">Colours:</span>
+                {colours.map(c => (
+                  <span key={c} className="text-[10px] font-semibold px-2 py-0.5 bg-white border border-gray-200 rounded-full text-gray-700">{c}</span>
+                ))}
               </div>
             )}
 
@@ -808,9 +833,11 @@ function AddProductModal({ onClose, onSave }: {
   onSave: (data: object) => Promise<void>;
 }) {
   const [form, setForm] = useState({
-    name: "", category: "Bag", targetPrice: "", cost: "",
-    useCase: [] as string[], style: "", signalSource: "", notes: "", demandScore: "50",
+    name: "", category: "Bag", targetPrice: "", cost: "", targetQty: "",
+    useCase: [] as string[], style: "", material: "", colours: [] as string[],
+    signalSource: "", notes: "", demandScore: "50",
   });
+  const [colourInput, setColourInput] = useState("");
   const [imageUrls, setImageUrls]     = useState<string[]>([]);
   const [imgProcessing, setImgProcessing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -840,7 +867,10 @@ function AddProductModal({ onClose, onSave }: {
       name: form.name.trim(), category: form.category,
       targetPrice: form.targetPrice ? parseFloat(form.targetPrice) : null,
       cost: form.cost ? parseFloat(form.cost) : null,
+      targetQty: form.targetQty ? parseInt(form.targetQty) : null,
       useCase: form.useCase, style: form.style || null,
+      material: form.material || null,
+      colours: form.colours,
       signalSource: form.signalSource || null, notes: form.notes || null,
       demandScore: parseFloat(form.demandScore) || 50,
       imageUrl: imageUrls[0] ?? null,
@@ -900,7 +930,7 @@ function AddProductModal({ onClose, onSave }: {
           </select>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-2">
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Target Price (RM)</label>
             <input className="input" type="number" placeholder="129" value={form.targetPrice}
@@ -910,6 +940,11 @@ function AddProductModal({ onClose, onSave }: {
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Est Cost (RM)</label>
             <input className="input" type="number" placeholder="55" value={form.cost}
               onChange={e => setForm(f => ({ ...f, cost: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Target Qty</label>
+            <input className="input" type="number" placeholder="100" value={form.targetQty}
+              onChange={e => setForm(f => ({ ...f, targetQty: e.target.value }))} />
           </div>
         </div>
 
@@ -936,10 +971,69 @@ function AddProductModal({ onClose, onSave }: {
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Style</label>
+            <input className="input" placeholder="e.g. Functional, Formal" value={form.style}
+              onChange={e => setForm(f => ({ ...f, style: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Material</label>
+            <input className="input" placeholder="e.g. PU Leather, Canvas" value={form.material}
+              onChange={e => setForm(f => ({ ...f, material: e.target.value }))} />
+          </div>
+        </div>
+
+        {/* Colour Matrix */}
         <div>
-          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Style</label>
-          <input className="input" placeholder="e.g. Functional, Formal" value={form.style}
-            onChange={e => setForm(f => ({ ...f, style: e.target.value }))} />
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Colour Matrix</label>
+          {/* Quick-add common colours */}
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {["Black", "Brown", "Beige", "Navy", "Grey", "White", "Red", "Green", "Pink", "Blue"].map(c => (
+              <button key={c} type="button"
+                onClick={() => !form.colours.includes(c) && setForm(f => ({ ...f, colours: [...f.colours, c] }))}
+                className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
+                  form.colours.includes(c)
+                    ? "bg-gray-800 text-white border-gray-800"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
+                }`}>
+                {c}
+              </button>
+            ))}
+          </div>
+          {/* Custom colour input */}
+          <div className="flex gap-2">
+            <input className="input flex-1" placeholder="Custom colour…" value={colourInput}
+              onChange={e => setColourInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter" && colourInput.trim()) {
+                  e.preventDefault();
+                  const c = colourInput.trim();
+                  if (!form.colours.includes(c)) setForm(f => ({ ...f, colours: [...f.colours, c] }));
+                  setColourInput("");
+                }
+              }} />
+            <button type="button"
+              onClick={() => {
+                const c = colourInput.trim();
+                if (c && !form.colours.includes(c)) { setForm(f => ({ ...f, colours: [...f.colours, c] })); setColourInput(""); }
+              }}
+              className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition-colors">
+              + Add
+            </button>
+          </div>
+          {/* Selected colours */}
+          {form.colours.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {form.colours.map(c => (
+                <span key={c} className="flex items-center gap-1 px-2.5 py-1 bg-gray-100 rounded-full text-xs font-semibold text-gray-700">
+                  {c}
+                  <button type="button" onClick={() => setForm(f => ({ ...f, colours: f.colours.filter(x => x !== c) }))}
+                    className="text-gray-400 hover:text-red-500 ml-0.5 leading-none">×</button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div>

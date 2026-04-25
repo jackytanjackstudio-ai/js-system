@@ -122,6 +122,9 @@ model Product {
   imageUrls    String   @default("[]")
   useCase      String   @default("[]")
   style        String?
+  material     String?
+  colours      String   @default("[]")
+  targetQty    Int?
   demandScore  Float    @default(50)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
