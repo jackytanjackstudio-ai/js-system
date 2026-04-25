@@ -119,6 +119,7 @@ model Product {
   targetPrice  Float?
   cost         Float?
   imageUrl     String?
+  imageUrls    String   @default("[]")
   useCase      String   @default("[]")
   style        String?
   demandScore  Float    @default(50)

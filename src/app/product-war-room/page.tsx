@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import {
   Sword, PackagePlus, FlaskConical, BookMarked, Brain, BarChart3,
   Star, Loader2, ArrowRight, CheckCircle2, XCircle, ChevronDown, ChevronUp,
-  TrendingUp, AlertTriangle, Package, Camera, ThumbsUp,
+  ChevronLeft, ChevronRight, X as XIcon, TrendingUp, AlertTriangle, Package, Camera, ThumbsUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,10 +24,19 @@ type Product = {
   hitRate: number; signalSource: string | null; notes: string | null;
   decisionDate: string | null; tasks: string;
   targetPrice: number | null; cost: number | null; imageUrl: string | null;
+  imageUrls: string;
   useCase: string; style: string | null; demandScore: number;
   validations: ValidationEntry[];
   reservations: ReservationEntry[];
 };
+
+function getImages(p: Pick<Product, "imageUrl" | "imageUrls">): string[] {
+  try {
+    const arr = JSON.parse(p.imageUrls || "[]") as string[];
+    if (arr.length > 0) return arr.slice(0, 4);
+  } catch { /* */ }
+  return p.imageUrl ? [p.imageUrl] : [];
+}
 type Outlet = { id: string; name: string; isActive: boolean };
 type Tab = "sourcing" | "validation" | "reservation" | "decision" | "tracking";
 
@@ -159,22 +168,41 @@ function SourcingPool({ products, onAdvance, onDelete, onUploadImage, canEdit }:
   onUploadImage: (id: string, url: string) => Promise<void>;
   canEdit: boolean;
 }) {
+  const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
+
   if (!products.length)
     return <EmptyState icon={<PackagePlus size={28} className="text-gray-300" />} title="Sourcing pool is empty" sub="Add products you're considering to evaluate them through the system." />;
 
   return (
+    <>
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {products.map(p => {
         const m = margin(p.targetPrice, p.cost);
         const uc: string[] = (() => { try { return JSON.parse(p.useCase); } catch { return []; } })();
-        const hasImage = !!p.imageUrl;
+        const images = getImages(p);
+        const hasImage = images.length > 0;
 
         return (
           <div key={p.id} className="card space-y-3">
-            {/* Image */}
+            {/* Images grid */}
             {hasImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={p.imageUrl!} alt={p.name} className="w-full h-40 object-cover rounded-xl" />
+              <div className={`grid gap-1 rounded-xl overflow-hidden ${
+                images.length === 1 ? "grid-cols-1" :
+                images.length === 2 ? "grid-cols-2" :
+                images.length === 3 ? "grid-cols-3" : "grid-cols-2"
+              }`}>
+                {images.map((url, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={i} src={url} alt={p.name}
+                    onClick={() => setLightbox({ urls: images, index: i })}
+                    className={`w-full object-cover cursor-pointer hover:opacity-90 transition-opacity ${
+                      images.length === 1 ? "h-40" :
+                      images.length === 4 && i >= 2 ? "h-20" :
+                      "h-28"
+                    } ${images.length === 4 ? "" : ""}`}
+                  />
+                ))}
+              </div>
             ) : (
               <div className="w-full h-28 bg-gray-100 rounded-xl flex items-center justify-center">
                 <Package size={28} className="text-gray-300" />
@@ -211,13 +239,15 @@ function SourcingPool({ products, onAdvance, onDelete, onUploadImage, canEdit }:
 
             {canEdit && (
               <div className="space-y-2 pt-1">
-                {/* Image upload if no image */}
-                {!hasImage && (
+                {/* Add more images if < 4 */}
+                {images.length < 4 && (
                   <ImageUploader onUpload={url => onUploadImage(p.id, url)} />
+                )}
+                {images.length > 0 && images.length < 4 && (
+                  <p className="text-[10px] text-gray-400 text-center">{images.length}/4 photos · add up to {4 - images.length} more</p>
                 )}
 
                 <div className="flex gap-2">
-                  {/* Send to Validation — disabled without image */}
                   <div className="flex-1 relative group">
                     <button
                       onClick={() => hasImage && onAdvance(p.id, "Validating")}
@@ -236,8 +266,7 @@ function SourcingPool({ products, onAdvance, onDelete, onUploadImage, canEdit }:
                       </div>
                     )}
                   </div>
-                  <button
-                    onClick={() => onDelete(p.id)}
+                  <button onClick={() => onDelete(p.id)}
                     className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-xl text-xs font-semibold transition-colors">
                     ✕
                   </button>
@@ -248,6 +277,51 @@ function SourcingPool({ products, onAdvance, onDelete, onUploadImage, canEdit }:
         );
       })}
     </div>
+
+    {/* Lightbox */}
+    {lightbox && (
+      <div className="fixed inset-0 z-[9999] bg-black/95 flex flex-col" onClick={() => setLightbox(null)}>
+        <div className="flex justify-end px-4 py-3 flex-shrink-0" onClick={e => e.stopPropagation()}>
+          <button onClick={() => setLightbox(null)}
+            className="w-9 h-9 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white">
+            <XIcon size={18} />
+          </button>
+        </div>
+        <div className="flex-1 flex items-center justify-center relative px-12 min-h-0" onClick={e => e.stopPropagation()}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={lightbox.urls[lightbox.index]} alt="" className="max-h-full max-w-full object-contain rounded-xl" />
+          {lightbox.index > 0 && (
+            <button onClick={() => setLightbox({ ...lightbox, index: lightbox.index - 1 })}
+              className="absolute left-2 w-10 h-10 bg-white/10 hover:bg-white/25 rounded-full flex items-center justify-center text-white">
+              <ChevronLeft size={20} />
+            </button>
+          )}
+          {lightbox.index < lightbox.urls.length - 1 && (
+            <button onClick={() => setLightbox({ ...lightbox, index: lightbox.index + 1 })}
+              className="absolute right-2 w-10 h-10 bg-white/10 hover:bg-white/25 rounded-full flex items-center justify-center text-white">
+              <ChevronRight size={20} />
+            </button>
+          )}
+        </div>
+        {lightbox.urls.length > 1 && (
+          <div className="flex gap-2 justify-center px-4 py-3 flex-shrink-0" onClick={e => e.stopPropagation()}>
+            {lightbox.urls.map((url, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={i} src={url} alt=""
+                onClick={() => setLightbox({ ...lightbox, index: i })}
+                className={`w-14 h-14 object-cover rounded-lg cursor-pointer transition-all ${
+                  i === lightbox.index ? "ring-2 ring-brand-400 opacity-100" : "opacity-50 hover:opacity-80"
+                }`}
+              />
+            ))}
+          </div>
+        )}
+        <p className="text-center text-xs text-gray-600 pb-3">
+          {lightbox.index + 1} / {lightbox.urls.length} · Tap outside to close
+        </p>
+      </div>
+    )}
+    </>
   );
 }
 
@@ -723,8 +797,7 @@ function AddProductModal({ onClose, onSave }: {
     name: "", category: "Bag", targetPrice: "", cost: "",
     useCase: [] as string[], style: "", signalSource: "", notes: "", demandScore: "50",
   });
-  const [imageUrl, setImageUrl]   = useState<string | null>(null);
-  const [imageThumb, setImageThumb] = useState<string | null>(null);
+  const [imageUrls, setImageUrls]     = useState<string[]>([]);
   const [imgProcessing, setImgProcessing] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -735,17 +808,14 @@ function AddProductModal({ onClose, onSave }: {
 
   async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || imageUrls.length >= 4) return;
     setImgProcessing(true);
-    const local = URL.createObjectURL(file);
-    setImageThumb(local);
     try {
       const url = await uploadToCloudinary(file);
-      setImageUrl(url);
-    } catch {
-      setImageThumb(null);
+      setImageUrls(prev => [...prev, url].slice(0, 4));
     } finally {
       setImgProcessing(false);
+      if (fileRef.current) fileRef.current.value = "";
     }
   }
 
@@ -759,7 +829,8 @@ function AddProductModal({ onClose, onSave }: {
       useCase: form.useCase, style: form.style || null,
       signalSource: form.signalSource || null, notes: form.notes || null,
       demandScore: parseFloat(form.demandScore) || 50,
-      imageUrl: imageUrl ?? null,
+      imageUrl: imageUrls[0] ?? null,
+      imageUrls,
     });
     setSaving(false);
     onClose();
@@ -774,28 +845,31 @@ function AddProductModal({ onClose, onSave }: {
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
         </div>
 
-        {/* Image upload */}
+        {/* Image upload — up to 4 */}
         <div>
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-            Product Image <span className="text-amber-500 normal-case font-normal">(required to send to Validation)</span>
+            Product Photos <span className="text-amber-500 normal-case font-normal">(up to 4 · required for Validation)</span>
           </label>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
-          {imageThumb || imageUrl ? (
-            <div className="relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imageThumb ?? imageUrl ?? ""} alt="Product" className="w-full h-40 object-cover rounded-xl" />
-              <div className={`absolute bottom-2 left-2 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 ${imageUrl ? "bg-green-500" : "bg-amber-500"}`}>
-                {imageUrl ? "✓ Uploaded" : <><Loader2 size={9} className="animate-spin" /> Uploading…</>}
+          <div className="grid grid-cols-4 gap-2">
+            {imageUrls.map((url, i) => (
+              <div key={i} className="relative aspect-square">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="" className="w-full h-full object-cover rounded-xl" />
+                <button onClick={() => setImageUrls(prev => prev.filter((_, idx) => idx !== i))}
+                  className="absolute top-1 right-1 w-5 h-5 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white text-[10px]">×</button>
               </div>
-              <button onClick={() => { setImageUrl(null); setImageThumb(null); }}
-                className="absolute top-2 right-2 w-6 h-6 bg-black/50 rounded-full flex items-center justify-center text-white text-xs">×</button>
-            </div>
-          ) : (
-            <button onClick={() => fileRef.current?.click()} disabled={imgProcessing}
-              className="w-full py-5 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center gap-1.5 text-gray-400 hover:border-brand-300 hover:text-brand-500 transition-all disabled:opacity-50">
-              {imgProcessing ? <Loader2 size={20} className="animate-spin" /> : <Camera size={20} />}
-              <span className="text-sm font-medium">{imgProcessing ? "Uploading…" : "Upload product photo"}</span>
-            </button>
+            ))}
+            {imageUrls.length < 4 && (
+              <button onClick={() => fileRef.current?.click()} disabled={imgProcessing}
+                className="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-brand-300 hover:text-brand-500 transition-all disabled:opacity-50">
+                {imgProcessing ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+                <span className="text-[10px] font-medium">{imgProcessing ? "…" : "Add"}</span>
+              </button>
+            )}
+          </div>
+          {imageUrls.length > 0 && (
+            <p className="text-[10px] text-gray-400 mt-1">{imageUrls.length}/4 photos uploaded</p>
           )}
         </div>
 
@@ -939,7 +1013,13 @@ export default function ProductWarRoom() {
   }
 
   async function uploadImage(id: string, url: string) {
-    await apiFetch(`/api/products/${id}`, { method: "PATCH", body: JSON.stringify({ imageUrl: url }) });
+    const product = list.find(p => p.id === id);
+    const current: string[] = (() => { try { return JSON.parse(product?.imageUrls || "[]") as string[]; } catch { return []; } })();
+    const updated = [...current, url].slice(0, 4);
+    await apiFetch(`/api/products/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ imageUrl: updated[0], imageUrls: updated }),
+    });
     refetch();
   }
 

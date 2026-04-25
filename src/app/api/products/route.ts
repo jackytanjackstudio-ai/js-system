@@ -32,6 +32,7 @@ export async function POST(req: Request) {
       targetPrice:  body.targetPrice ?? null,
       cost:         body.cost ?? null,
       imageUrl:     body.imageUrl ?? null,
+      imageUrls:    JSON.stringify(body.imageUrls ?? []),
       useCase:      JSON.stringify(body.useCase ?? []),
       style:        body.style ?? null,
       demandScore:  body.demandScore ?? 50,

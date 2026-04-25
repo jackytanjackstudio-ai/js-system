@@ -2,11 +2,12 @@
 import { useState } from "react";
 import { useData, apiFetch } from "@/hooks/useData";
 import { useAuth } from "@/context/AuthContext";
-import { Star, CheckCircle2, Loader2, Package } from "lucide-react";
+import { Star, CheckCircle2, Loader2, Package, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 type Product = {
   id: string; name: string; category: string; status: string;
-  targetPrice: number | null; useCase: string; imageUrl: string | null;
+  targetPrice: number | null; useCase: string;
+  imageUrl: string | null; imageUrls: string;
 };
 type Outlet = { id: string; name: string; isActive: boolean };
 
@@ -17,6 +18,14 @@ const REASONS = [
   { value: "Reasonable price",    label: "价格合理" },
 ];
 const SALES_OPTIONS = [5, 10, 20, 30, 50];
+
+function getImages(p: Pick<Product, "imageUrl" | "imageUrls">): string[] {
+  try {
+    const arr = JSON.parse(p.imageUrls || "[]") as string[];
+    if (arr.length > 0) return arr.slice(0, 4);
+  } catch { /* */ }
+  return p.imageUrl ? [p.imageUrl] : [];
+}
 
 function StarsInput({ value, onChange }: { value: number; onChange: (n: number) => void }) {
   return (
@@ -36,6 +45,8 @@ export default function ProductFeedback() {
   const { data: outlets } = useData<Outlet[]>("/api/outlets");
 
   const [outletId, setOutletId] = useState(user?.outletId ?? "");
+  const [activeImg, setActiveImg] = useState<Record<string, number>>({});
+  const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
   const [forms, setForms] = useState<Record<string, {
     confidence: number; expected: number; reasons: string[]; submitting: boolean; done: boolean;
   }>>({});
@@ -110,6 +121,8 @@ export default function ProductFeedback() {
           {validating.map(p => {
             const f = getForm(p.id);
             const uc: string[] = (() => { try { return JSON.parse(p.useCase); } catch { return []; } })();
+            const images = getImages(p);
+            const mainIdx = activeImg[p.id] ?? 0;
 
             if (f.done) return (
               <div key={p.id} className="card flex items-center gap-3 bg-green-50 border-2 border-green-200">
@@ -123,17 +136,48 @@ export default function ProductFeedback() {
 
             return (
               <div key={p.id} className="card space-y-5">
-                {/* Image */}
-                {p.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.imageUrl} alt={p.name} className="w-full h-52 object-cover rounded-xl" />
+                {/* ── Image gallery ── */}
+                {images.length > 0 ? (
+                  <div className="space-y-2">
+                    {/* Main image — click to open lightbox */}
+                    <div className="relative cursor-pointer" onClick={() => setLightbox({ urls: images, index: mainIdx })}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={images[mainIdx]} alt={p.name}
+                        className="w-full h-56 object-cover rounded-xl" />
+                      <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-all rounded-xl flex items-center justify-center">
+                        <span className="opacity-0 hover:opacity-100 bg-white/90 text-xs font-bold text-gray-800 px-3 py-1.5 rounded-full transition-opacity">
+                          Tap to zoom
+                        </span>
+                      </div>
+                      {images.length > 1 && (
+                        <div className="absolute top-2 right-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-full">
+                          {mainIdx + 1} / {images.length}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Thumbnail strip */}
+                    {images.length > 1 && (
+                      <div className="flex gap-2">
+                        {images.map((url, i) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img key={i} src={url} alt=""
+                            onClick={() => setActiveImg(prev => ({ ...prev, [p.id]: i }))}
+                            className={`w-16 h-16 object-cover rounded-lg cursor-pointer transition-all ${
+                              i === mainIdx ? "ring-2 ring-brand-500 opacity-100" : "opacity-50 hover:opacity-80"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="w-full h-36 bg-gray-100 rounded-xl flex items-center justify-center">
                     <Package size={32} className="text-gray-300" />
                   </div>
                 )}
 
-                {/* Info */}
+                {/* Product info */}
                 <div>
                   <div className="text-xl font-black text-gray-900">{p.name}</div>
                   {p.targetPrice && <div className="text-lg font-bold text-brand-600 mt-0.5">RM{p.targetPrice}</div>}
@@ -192,8 +236,7 @@ export default function ProductFeedback() {
                 </div>
 
                 {/* Submit */}
-                <button
-                  type="button"
+                <button type="button"
                   disabled={!outletId || f.confidence === 0 || f.submitting}
                   onClick={() => submit(p.id)}
                   className="w-full py-4 bg-brand-500 hover:bg-brand-600 disabled:opacity-40 text-white rounded-2xl font-bold text-base transition-colors flex items-center justify-center gap-2 shadow-lg shadow-brand-100">
@@ -207,6 +250,57 @@ export default function ProductFeedback() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Lightbox ── */}
+      {lightbox && (
+        <div className="fixed inset-0 z-[9999] bg-black/95 flex flex-col" onClick={() => setLightbox(null)}>
+          {/* Close */}
+          <div className="flex justify-end px-4 py-3 flex-shrink-0" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setLightbox(null)}
+              className="w-9 h-9 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white">
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Main image */}
+          <div className="flex-1 flex items-center justify-center relative px-12 min-h-0"
+            onClick={e => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={lightbox.urls[lightbox.index]} alt=""
+              className="max-h-full max-w-full object-contain rounded-xl" />
+            {lightbox.index > 0 && (
+              <button onClick={() => setLightbox({ ...lightbox, index: lightbox.index - 1 })}
+                className="absolute left-2 w-10 h-10 bg-white/10 hover:bg-white/25 rounded-full flex items-center justify-center text-white">
+                <ChevronLeft size={20} />
+              </button>
+            )}
+            {lightbox.index < lightbox.urls.length - 1 && (
+              <button onClick={() => setLightbox({ ...lightbox, index: lightbox.index + 1 })}
+                className="absolute right-2 w-10 h-10 bg-white/10 hover:bg-white/25 rounded-full flex items-center justify-center text-white">
+                <ChevronRight size={20} />
+              </button>
+            )}
+          </div>
+
+          {/* Thumbnails */}
+          {lightbox.urls.length > 1 && (
+            <div className="flex gap-2 justify-center px-4 py-3 flex-shrink-0" onClick={e => e.stopPropagation()}>
+              {lightbox.urls.map((url, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={i} src={url} alt=""
+                  onClick={() => setLightbox({ ...lightbox, index: i })}
+                  className={`w-14 h-14 object-cover rounded-lg cursor-pointer transition-all ${
+                    i === lightbox.index ? "ring-2 ring-brand-400 opacity-100" : "opacity-50 hover:opacity-80"
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+          <p className="text-center text-xs text-gray-600 pb-3">
+            {lightbox.index + 1} / {lightbox.urls.length} · Tap outside to close
+          </p>
         </div>
       )}
     </div>
