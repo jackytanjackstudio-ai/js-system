@@ -212,3 +212,67 @@ model SystemFeedback {
 
   user User @relation(fields: [userId], references: [id])
 }
+
+model Campaign {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   @default("sales")
+  startDate   String
+  endDate     String
+  channels    String   @default("[]")
+  objective   String   @default("{}")
+  mechanics   String   @default("[]")
+  contentPlan String   @default("{}")
+  salesScript String?
+  status      String   @default("upcoming")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  vmGuide     VMGuide?
+  tasks       CampaignTask[]
+  submissions VMSubmission[]
+}
+
+model VMGuide {
+  id         String   @id @default(cuid())
+  campaignId String   @unique
+  images     String   @default("[]")
+  checklist  String   @default("[]")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
+
+model CampaignTask {
+  id         String   @id @default(cuid())
+  campaignId String
+  outletId   String?
+  taskName   String
+  assignedTo String?
+  deadline   String?
+  status     String   @default("pending")
+  category   String   @default("general")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
+
+model VMSubmission {
+  id               String   @id @default(cuid())
+  campaignId       String
+  outletId         String
+  outletName       String
+  imageUrls        String   @default("[]")
+  status           String   @default("pending")
+  displayScore     Int?
+  complianceScore  Int?
+  cleanlinessScore Int?
+  notes            String?
+  submittedAt      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}

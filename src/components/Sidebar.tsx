@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, MessageSquare, BarChart2, Video,
-  Database, Sword, CheckSquare, Trophy, Settings, Zap, Store, ShieldCheck, Menu, X, Users, ThumbsUp,
+  Database, Sword, CheckSquare, Trophy, Settings, Zap, Store, ShieldCheck, Menu, X, Users, ThumbsUp, Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/context/LangContext";
@@ -33,11 +33,12 @@ export default function Sidebar() {
     { href: "/",                   icon: LayoutDashboard, labelKey: "nav_dashboard",        group: "overview", hide: false          },
     { href: "/customer-input",     icon: MessageSquare,   labelKey: "nav_customer_input",   group: "input",    hide: false          },
     { href: "/sales-report",       icon: BarChart2,       labelKey: "nav_sales_report",     group: "input",    hide: false          },
-    { href: "/creator-insight",    icon: Video,           labelKey: "nav_creator_insight",  group: "input",    hide: isSales        },
+    { href: "/creator-insight",    icon: Video,           labelKey: "nav_creator_insight",  group: "input",    hide: false          },
     { href: "/data-hub",           icon: Database,        labelKey: "nav_data_hub",          group: "core",     hide: isSales        },
     { href: "/leads",              icon: Users,           labelKey: "nav_leads",             group: "core",     hide: isSales        },
     { href: "/product-war-room",   icon: Sword,           labelKey: "nav_product_war_room", group: "core",     hide: isSales        },
     { href: "/product-feedback",   icon: ThumbsUp,        labelKey: "nav_product_feedback", group: "core",     hide: !isSales       },
+    { href: "/campaign",            icon: Calendar,        labelKey: "nav_campaign",         group: "output",   hide: false          },
     { href: "/outlets",            icon: Store,           labelKey: "oc_title",             group: "output",   hide: isSales        },
     { href: "/execution",          icon: CheckSquare,     labelKey: "nav_execution",         group: "output",   hide: false          },
     { href: "/rewards",            icon: Trophy,          labelKey: "nav_rewards",           group: "output",   hide: false          },

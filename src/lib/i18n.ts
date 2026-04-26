@@ -234,6 +234,9 @@ export const translations = {
     sf_impact_bonus:      "Impact Bonus",
     sf_impact_sub:        "Your insight became a product win",
 
+    // Campaign
+    nav_campaign:         "Campaign",
+
     // Outlets & Channels
     oc_title:             "Outlets & Channels",
     oc_subtitle:          "All locations + online channels at a glance",
@@ -502,6 +505,8 @@ export const translations = {
     sf_impact_bonus:      "影响力奖励",
     sf_impact_sub:        "你的洞察成就了爆款",
 
+    nav_campaign:         "活动日历",
+
     oc_title:             "门店 & 渠道",
     oc_subtitle:          "所有位置 + 线上渠道一览",
     oc_physical:          "线下门店",
@@ -759,6 +764,8 @@ export const translations = {
     sf_tomorrow:          "Esok",
     sf_impact_bonus:      "Bonus Impak",
     sf_impact_sub:        "Insight anda menjadi produk berjaya",
+
+    nav_campaign:         "Kalendar Kempen",
 
     oc_title:             "Outlet & Saluran",
     oc_subtitle:          "Semua lokasi + saluran dalam talian",

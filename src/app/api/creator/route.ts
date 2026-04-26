@@ -65,7 +65,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return apiError("Unauthorized", 401);
-  if (!["creator", "admin"].includes(session.role)) return apiError("Forbidden", 403);
+  if (!["creator", "admin", "sales", "manager"].includes(session.role)) return apiError("Forbidden", 403);
 
   const body = await req.json();
   const {
