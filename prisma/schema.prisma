@@ -34,12 +34,14 @@ model Outlet {
   city       String
   type       String   @default("physical")
   channelKey String?
+  region     String?
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
 
-  staff        User[]
-  inputs       CustomerInput[]
-  salesReports SalesReport[]
+  staff           User[]
+  inputs          CustomerInput[]
+  salesReports    SalesReport[]
+  campaignOutlets CampaignOutlet[]
 }
 
 model CustomerInput {
@@ -214,23 +216,40 @@ model SystemFeedback {
 }
 
 model Campaign {
-  id          String   @id @default(cuid())
-  name        String
-  type        String   @default("sales")
-  startDate   String
-  endDate     String
-  channels    String   @default("[]")
-  objective   String   @default("{}")
-  mechanics   String   @default("[]")
-  contentPlan String   @default("{}")
-  salesScript String?
-  status      String   @default("upcoming")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  type         String   @default("sales")
+  startDate    String
+  endDate      String
+  channels     String   @default("[]")
+  objective    String   @default("{}")
+  mechanics    String   @default("[]")
+  contentPlan  String   @default("{}")
+  salesScript  String?
+  status       String   @default("upcoming")
+  scopeType    String   @default("all")
+  scopeRegions String   @default("[]")
+  owner        String   @default("hq")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  vmGuide     VMGuide?
-  tasks       CampaignTask[]
-  submissions VMSubmission[]
+  vmGuide         VMGuide?
+  tasks           CampaignTask[]
+  submissions     VMSubmission[]
+  campaignOutlets CampaignOutlet[]
+}
+
+model CampaignOutlet {
+  id         String   @id @default(cuid())
+  campaignId String
+  outletId   String
+  outletName String
+  createdAt  DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  outlet   Outlet   @relation(fields: [outletId], references: [id])
+
+  @@unique([campaignId, outletId])
 }
 
 model VMGuide {

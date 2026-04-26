@@ -9,9 +9,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const campaign = await prisma.campaign.findUnique({
     where: { id },
     include: {
-      vmGuide:     true,
-      tasks:       { orderBy: { createdAt: "asc" } },
-      submissions: { orderBy: { createdAt: "asc" } },
+      vmGuide:        true,
+      tasks:          { orderBy: { createdAt: "asc" } },
+      submissions:    { orderBy: { createdAt: "asc" } },
+      campaignOutlets: true,
     },
   });
   if (!campaign) return apiError("Not found", 404);
@@ -37,6 +38,35 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (body.objective   !== undefined) data.objective   = JSON.stringify(body.objective);
   if (body.mechanics   !== undefined) data.mechanics   = JSON.stringify(body.mechanics);
   if (body.contentPlan !== undefined) data.contentPlan = JSON.stringify(body.contentPlan);
+  if (body.owner       !== undefined) data.owner       = body.owner;
+  if (body.scopeRegions !== undefined) data.scopeRegions = JSON.stringify(body.scopeRegions);
+
+  // Handle scope changes
+  if (body.scopeType !== undefined) {
+    data.scopeType = body.scopeType;
+
+    if (body.scopeType === "selected" && body.scopeOutlets !== undefined) {
+      // Sync CampaignOutlet records
+      await prisma.campaignOutlet.deleteMany({ where: { campaignId: id } });
+      if (body.scopeOutlets.length > 0) {
+        const outlets = await prisma.outlet.findMany({ where: { id: { in: body.scopeOutlets } } });
+        await prisma.campaignOutlet.createMany({
+          data: outlets.map((o: { id: string; name: string }) => ({ campaignId: id, outletId: o.id, outletName: o.name })),
+        });
+      }
+    } else if (body.scopeType !== "selected") {
+      await prisma.campaignOutlet.deleteMany({ where: { campaignId: id } });
+    }
+  } else if (body.scopeOutlets !== undefined) {
+    // scopeOutlets update without scopeType change
+    await prisma.campaignOutlet.deleteMany({ where: { campaignId: id } });
+    if (body.scopeOutlets.length > 0) {
+      const outlets = await prisma.outlet.findMany({ where: { id: { in: body.scopeOutlets } } });
+      await prisma.campaignOutlet.createMany({
+        data: outlets.map((o: { id: string; name: string }) => ({ campaignId: id, outletId: o.id, outletName: o.name })),
+      });
+    }
+  }
 
   const campaign = await prisma.campaign.update({ where: { id }, data });
   return apiOk(campaign);

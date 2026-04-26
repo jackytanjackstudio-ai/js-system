@@ -6,19 +6,23 @@ import { useAuth } from "@/context/AuthContext";
 import {
   ArrowLeft, Target, Megaphone, FileText, MessageSquare,
   ImageIcon, CheckSquare, BarChart2, Plus, X, Check,
-  Loader2, Upload, Trash2, Star
+  Loader2, Upload, Trash2, Star, Store, Search
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type CampaignOutlet = { id: string; outletId: string; outletName: string };
+
 type Campaign = {
   id: string; name: string; type: string; startDate: string; endDate: string;
   channels: string; objective: string; mechanics: string;
   contentPlan: string; salesScript: string | null; status: string;
+  scopeType: string; scopeRegions: string; owner: string;
   vmGuide: VMGuide | null;
   tasks: CampaignTask[];
   submissions: VMSubmission[];
+  campaignOutlets: CampaignOutlet[];
 };
 type VMGuide     = { id: string; campaignId: string; images: string; checklist: string };
 type CampaignTask = { id: string; taskName: string; category: string; assignedTo: string | null; deadline: string | null; status: string };
@@ -175,6 +179,14 @@ const ALL_TYPES    = [
   { value: "product_launch", label: "Product Launch" },
   { value: "vm_update",      label: "VM Update"      },
 ];
+const ALL_OWNERS = [
+  { value: "hq",             label: "HQ"             },
+  { value: "outlet_manager", label: "Outlet Manager" },
+  { value: "marketing",      label: "Marketing Team" },
+];
+const REGIONS = ["Klang Valley", "Johor", "Penang", "Sabah", "Sarawak", "Perak", "Kedah", "Melaka", "Pahang", "Negeri Sembilan", "Others"];
+
+type Outlet = { id: string; name: string; city: string; region: string | null; isActive: boolean };
 
 function OverviewTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdmin: boolean; refetch: () => void }) {
   const obj         = parse<{ revenue?: number; units?: number }>(campaign.objective, {});
@@ -183,30 +195,49 @@ function OverviewTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdm
   const subApproved = campaign.submissions.filter(s => s.status === "approved").length;
   const subTotal    = campaign.submissions.length;
 
-  const [editing, setEditing] = useState(false);
-  const [saving,  setSaving]  = useState(false);
+  const { data: outlets } = useData<Outlet[]>("/api/outlets");
+  const activeOutlets = (outlets ?? []).filter(o => o.isActive);
+
+  const [editing,      setEditing]      = useState(false);
+  const [saving,       setSaving]       = useState(false);
+  const [outletSearch, setOutletSearch] = useState("");
   const [form, setForm] = useState({
-    name:          campaign.name,
-    type:          campaign.type,
-    startDate:     campaign.startDate,
-    endDate:       campaign.endDate,
-    status:        campaign.status,
-    channels:      parse<string[]>(campaign.channels, []),
-    revenue:       obj.revenue?.toString() ?? "",
-    units:         obj.units?.toString()   ?? "",
+    name:         campaign.name,
+    type:         campaign.type,
+    startDate:    campaign.startDate,
+    endDate:      campaign.endDate,
+    status:       campaign.status,
+    channels:     parse<string[]>(campaign.channels, []),
+    revenue:      obj.revenue?.toString() ?? "",
+    units:        obj.units?.toString()   ?? "",
+    scopeType:    campaign.scopeType    ?? "all",
+    scopeOutlets: campaign.campaignOutlets.map(co => co.outletId),
+    scopeRegions: parse<string[]>(campaign.scopeRegions, []),
+    owner:        campaign.owner ?? "hq",
   });
+
+  const filteredOutlets = activeOutlets.filter(o =>
+    !outletSearch ||
+    o.name.toLowerCase().includes(outletSearch.toLowerCase()) ||
+    (o.city ?? "").toLowerCase().includes(outletSearch.toLowerCase())
+  );
 
   function resetForm() {
     setForm({
-      name:      campaign.name,
-      type:      campaign.type,
-      startDate: campaign.startDate,
-      endDate:   campaign.endDate,
-      status:    campaign.status,
-      channels:  parse<string[]>(campaign.channels, []),
-      revenue:   obj.revenue?.toString() ?? "",
-      units:     obj.units?.toString()   ?? "",
+      name:         campaign.name,
+      type:         campaign.type,
+      startDate:    campaign.startDate,
+      endDate:      campaign.endDate,
+      status:       campaign.status,
+      channels:     parse<string[]>(campaign.channels, []),
+      revenue:      obj.revenue?.toString() ?? "",
+      units:        obj.units?.toString()   ?? "",
+      scopeType:    campaign.scopeType    ?? "all",
+      scopeOutlets: campaign.campaignOutlets.map(co => co.outletId),
+      scopeRegions: parse<string[]>(campaign.scopeRegions, []),
+      owner:        campaign.owner ?? "hq",
     });
+    setOutletSearch("");
     setEditing(false);
   }
 
@@ -218,13 +249,17 @@ function OverviewTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdm
       await apiFetch(`/api/campaigns/${campaign.id}`, {
         method: "PATCH",
         body: JSON.stringify({
-          name:      form.name,
-          type:      form.type,
-          startDate: form.startDate,
-          endDate:   form.endDate,
-          status:    form.status,
-          channels:  form.channels,
-          objective: { revenue: form.revenue ? Number(form.revenue) : 0, units: form.units ? Number(form.units) : 0 },
+          name:         form.name,
+          type:         form.type,
+          startDate:    form.startDate,
+          endDate:      form.endDate,
+          status:       form.status,
+          channels:     form.channels,
+          objective:    { revenue: form.revenue ? Number(form.revenue) : 0, units: form.units ? Number(form.units) : 0 },
+          scopeType:    form.scopeType,
+          scopeOutlets: form.scopeOutlets,
+          scopeRegions: form.scopeRegions,
+          owner:        form.owner,
         }),
       });
       refetch(); setEditing(false);
@@ -234,8 +269,31 @@ function OverviewTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdm
   function toggleChannel(ch: string) {
     setForm(f => ({ ...f, channels: f.channels.includes(ch) ? f.channels.filter(c => c !== ch) : [...f.channels, ch] }));
   }
+  function toggleScopeOutlet(id: string) {
+    setForm(f => ({ ...f, scopeOutlets: f.scopeOutlets.includes(id) ? f.scopeOutlets.filter(o => o !== id) : [...f.scopeOutlets, id] }));
+  }
+  function toggleScopeRegion(r: string) {
+    setForm(f => ({ ...f, scopeRegions: f.scopeRegions.includes(r) ? f.scopeRegions.filter(x => x !== r) : [...f.scopeRegions, r] }));
+  }
 
-  const channels = parse<string[]>(campaign.channels, []);
+  const channels     = parse<string[]>(campaign.channels, []);
+  const scopeRegions = parse<string[]>(campaign.scopeRegions, []);
+
+  const scopeDisplay = (() => {
+    if (campaign.scopeType === "all") return { label: "All Outlets", color: "bg-emerald-100 text-emerald-700 border border-emerald-200" };
+    if (campaign.scopeType === "selected") {
+      const n = campaign.campaignOutlets.length;
+      const label = n === 1 ? campaign.campaignOutlets[0]?.outletName : `${n} Outlets`;
+      return { label: label ?? "Selected", color: "bg-sky-100 text-sky-700 border border-sky-200" };
+    }
+    if (campaign.scopeType === "region") {
+      const label = scopeRegions.length === 1 ? scopeRegions[0] : `${scopeRegions.length} Regions`;
+      return { label, color: "bg-violet-100 text-violet-700 border border-violet-200" };
+    }
+    return { label: "—", color: "bg-gray-100 text-gray-500" };
+  })();
+
+  const ownerLabel = ALL_OWNERS.find(o => o.value === campaign.owner)?.label ?? campaign.owner ?? "HQ";
 
   return (
     <div className="space-y-4">
@@ -316,6 +374,86 @@ function OverviewTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdm
               </div>
             </div>
 
+            {/* Scope editor */}
+            <div className="border border-gray-100 rounded-xl p-4 space-y-3 bg-gray-50/50">
+              <div className="text-xs font-bold text-gray-600 uppercase tracking-wide">Campaign Scope</div>
+              <div className="space-y-2">
+                {([
+                  { value: "all",      label: "All Outlets"      },
+                  { value: "selected", label: "Selected Outlets" },
+                  { value: "region",   label: "Region"           },
+                ] as const).map(opt => (
+                  <label key={opt.value} className={cn(
+                    "flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-all text-sm",
+                    form.scopeType === opt.value ? "border-brand-400 bg-brand-50" : "border-gray-200 bg-white hover:border-gray-300"
+                  )}>
+                    <input type="radio" name="editScopeType" value={opt.value}
+                      checked={form.scopeType === opt.value}
+                      onChange={() => setForm(f => ({ ...f, scopeType: opt.value, scopeOutlets: [], scopeRegions: [] }))}
+                      className="accent-brand-500" />
+                    <span className="font-medium text-gray-800">{opt.label}</span>
+                  </label>
+                ))}
+              </div>
+
+              {form.scopeType === "selected" && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input value={outletSearch} onChange={e => setOutletSearch(e.target.value)}
+                        placeholder="Search outlets..."
+                        className="w-full pl-7 pr-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-400" />
+                    </div>
+                    <button onClick={() => setForm(f => ({ ...f, scopeOutlets: activeOutlets.map(o => o.id) }))}
+                      className="text-[11px] font-semibold text-brand-600 hover:text-brand-800 whitespace-nowrap">Select All</button>
+                    <button onClick={() => setForm(f => ({ ...f, scopeOutlets: [] }))}
+                      className="text-[11px] font-semibold text-gray-500 hover:text-gray-700 whitespace-nowrap">Clear</button>
+                  </div>
+                  <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
+                    {filteredOutlets.map(o => (
+                      <label key={o.id} className={cn(
+                        "flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-all text-sm",
+                        form.scopeOutlets.includes(o.id) ? "border-brand-300 bg-brand-50" : "border-gray-100 bg-white hover:border-gray-200"
+                      )}>
+                        <input type="checkbox" checked={form.scopeOutlets.includes(o.id)}
+                          onChange={() => toggleScopeOutlet(o.id)} className="accent-brand-500 shrink-0" />
+                        <span className="font-medium text-gray-800 flex-1">{o.name}</span>
+                        {o.city && <span className="text-gray-400 text-xs">{o.city}</span>}
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-gray-400">{form.scopeOutlets.length} outlet{form.scopeOutlets.length !== 1 ? "s" : ""} selected</p>
+                </div>
+              )}
+
+              {form.scopeType === "region" && (
+                <div className="flex flex-wrap gap-2">
+                  {REGIONS.map(r => (
+                    <button key={r} onClick={() => toggleScopeRegion(r)}
+                      className={cn("text-xs px-3 py-1.5 rounded-full border font-medium transition-all",
+                        form.scopeRegions.includes(r) ? "bg-violet-500 text-white border-violet-500" : "bg-white text-gray-500 border-gray-200 hover:border-violet-300")}>
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Owner */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Campaign Owner</label>
+              <div className="flex gap-2">
+                {ALL_OWNERS.map(o => (
+                  <button key={o.value} onClick={() => setForm(f => ({ ...f, owner: o.value }))}
+                    className={cn("text-xs px-3 py-1.5 rounded-full border font-medium transition-all",
+                      form.owner === o.value ? "bg-brand-500 text-white border-brand-500" : "bg-white text-gray-500 border-gray-200 hover:border-brand-300")}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Revenue Target (RM)</label>
@@ -362,6 +500,30 @@ function OverviewTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdm
                   <span key={ch} className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{ch}</span>
                 )) : <span className="text-gray-400">—</span>}
               </div>
+            </Row>
+            <Row label="Scope">
+              <div className="space-y-1.5">
+                <span className={cn("inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full", scopeDisplay.color)}>
+                  <Store size={11} /> {scopeDisplay.label}
+                </span>
+                {campaign.scopeType === "selected" && campaign.campaignOutlets.length > 1 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {campaign.campaignOutlets.map(co => (
+                      <span key={co.id} className="text-[11px] px-2 py-0.5 rounded-full bg-sky-50 text-sky-600 border border-sky-100">{co.outletName}</span>
+                    ))}
+                  </div>
+                )}
+                {campaign.scopeType === "region" && scopeRegions.length > 1 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {scopeRegions.map(r => (
+                      <span key={r} className="text-[11px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-100">{r}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Row>
+            <Row label="Owner">
+              <span className="text-xs font-medium text-gray-700">{ownerLabel}</span>
             </Row>
           </div>
         )}

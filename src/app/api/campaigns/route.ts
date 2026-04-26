@@ -7,7 +7,10 @@ export async function GET() {
 
   const campaigns = await prisma.campaign.findMany({
     orderBy: { startDate: "asc" },
-    include: { _count: { select: { tasks: true, submissions: true } } },
+    include: {
+      _count: { select: { tasks: true, submissions: true } },
+      campaignOutlets: true,
+    },
   });
   return apiOk(campaigns);
 }
@@ -22,6 +25,10 @@ export async function POST(req: Request) {
     return apiError("name, startDate, endDate required");
   }
 
+  const scopeType    = body.scopeType    ?? "all";
+  const scopeOutlets = body.scopeOutlets ?? [];   // array of outlet IDs
+  const scopeRegions = body.scopeRegions ?? [];
+
   const campaign = await prisma.campaign.create({
     data: {
       name:        body.name,
@@ -34,32 +41,42 @@ export async function POST(req: Request) {
       contentPlan: JSON.stringify(body.contentPlan ?? {}),
       salesScript: body.salesScript ?? null,
       status:      body.status      ?? "upcoming",
+      scopeType,
+      scopeRegions: JSON.stringify(scopeRegions),
+      owner:       body.owner ?? "hq",
     },
   });
 
-  // Auto-generate VM guide with default checklist
+  // Create CampaignOutlet records for selected-outlet scope
+  if (scopeType === "selected" && scopeOutlets.length > 0) {
+    const outlets = await prisma.outlet.findMany({ where: { id: { in: scopeOutlets } } });
+    await prisma.campaignOutlet.createMany({
+      data: outlets.map(o => ({ campaignId: campaign.id, outletId: o.id, outletName: o.name })),
+    });
+  }
+
+  // Auto-generate VM guide
   await prisma.vMGuide.create({
     data: {
       campaignId: campaign.id,
       checklist: JSON.stringify([
-        { id: "poster",    label: "Door / Entrance Poster",      required: true  },
-        { id: "main",      label: "Main Table — 3 hero products", required: true  },
-        { id: "gift",      label: "Gift / Promo Area Setup",      required: true  },
-        { id: "price",     label: "Price Tags Visible",           required: true  },
-        { id: "lighting",  label: "Lighting & Cleanliness",       required: false },
+        { id: "poster",   label: "Door / Entrance Poster",       required: true  },
+        { id: "main",     label: "Main Table — 3 hero products", required: true  },
+        { id: "gift",     label: "Gift / Promo Area Setup",      required: true  },
+        { id: "price",    label: "Price Tags Visible",           required: true  },
+        { id: "lighting", label: "Lighting & Cleanliness",       required: false },
       ]),
     },
   });
 
   // Auto-generate default execution tasks
-  const defaultTasks = [
-    { taskName: "Setup Campaign Poster",             category: "poster",  deadline: body.startDate },
-    { taskName: "Brief Staff on Campaign Mechanics", category: "staff",   deadline: body.startDate },
-    { taskName: "Setup VM Display",                  category: "vm",      deadline: body.startDate },
-    { taskName: "Launch Campaign Content",           category: "content", deadline: body.startDate },
-  ];
   await prisma.campaignTask.createMany({
-    data: defaultTasks.map(t => ({ ...t, campaignId: campaign.id })),
+    data: [
+      { taskName: "Setup Campaign Poster",             category: "poster",  deadline: body.startDate, campaignId: campaign.id },
+      { taskName: "Brief Staff on Campaign Mechanics", category: "staff",   deadline: body.startDate, campaignId: campaign.id },
+      { taskName: "Setup VM Display",                  category: "vm",      deadline: body.startDate, campaignId: campaign.id },
+      { taskName: "Launch Campaign Content",           category: "content", deadline: body.startDate, campaignId: campaign.id },
+    ],
   });
 
   return apiOk(campaign, 201);
