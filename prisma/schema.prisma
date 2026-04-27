@@ -23,6 +23,7 @@ model User {
   outlet         Outlet?          @relation(fields: [outletId], references: [id])
   inputs         CustomerInput[]
   salesReports   SalesReport[]
+  saleEntries    SaleEntry[]
   creatorContent CreatorContent[]
   rewardPoints   RewardPoint[]
   feedback       SystemFeedback[]
@@ -41,6 +42,7 @@ model Outlet {
   staff           User[]
   inputs          CustomerInput[]
   salesReports    SalesReport[]
+  saleEntries     SaleEntry[]
   campaignOutlets CampaignOutlet[]
 }
 
@@ -112,12 +114,35 @@ model CreatorContent {
   user User @relation(fields: [userId], references: [id])
 }
 
+model SaleEntry {
+  id             String   @id @default(cuid())
+  userId         String
+  outletId       String
+  productCode    String
+  productName    String
+  category       String
+  useCase        String
+  buyingTrigger  String
+  customerType   String?
+  lostReason     String?
+  addOns         String   @default("[]")
+  week           String
+  month          Int
+  createdAt      DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+  outlet Outlet @relation(fields: [outletId], references: [id])
+}
+
 model Product {
-  id           String   @id @default(cuid())
-  name         String
-  category     String
-  status       String   @default("Sourcing")
-  stage        String   @default("Bullet")
+  id              String   @id @default(cuid())
+  name            String
+  productCode     String?  @unique
+  defaultUseCase  String?
+  defaultTrigger  String?
+  category        String
+  status          String   @default("Sourcing")
+  stage           String   @default("Bullet")
   hitRate      Float    @default(0)
   signalSource String?
   source       String   @default("customer")

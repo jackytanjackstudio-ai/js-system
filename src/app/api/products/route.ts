@@ -20,8 +20,11 @@ export async function POST(req: Request) {
   const body = await req.json();
   const product = await prisma.product.create({
     data: {
-      name:         body.name,
-      category:     body.category ?? "Other",
+      name:          body.name,
+      productCode:   body.productCode ?? null,
+      defaultUseCase: body.defaultUseCase ?? null,
+      defaultTrigger: body.defaultTrigger ?? null,
+      category:      body.category ?? "Other",
       status:       body.status ?? "Sourcing",
       stage:        body.stage ?? "Bullet",
       hitRate:      body.hitRate ?? 0,

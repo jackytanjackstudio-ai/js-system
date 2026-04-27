@@ -11,8 +11,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const product = await prisma.product.update({
     where: { id: params.id },
     data: {
-      ...(body.name         !== undefined ? { name: body.name }                           : {}),
-      ...(body.category     !== undefined ? { category: body.category }                   : {}),
+      ...(body.name           !== undefined ? { name: body.name }                               : {}),
+      ...(body.productCode    !== undefined ? { productCode: body.productCode }               : {}),
+      ...(body.defaultUseCase !== undefined ? { defaultUseCase: body.defaultUseCase }         : {}),
+      ...(body.defaultTrigger !== undefined ? { defaultTrigger: body.defaultTrigger }         : {}),
+      ...(body.category       !== undefined ? { category: body.category }                     : {}),
       ...(body.status       !== undefined ? { status: body.status }                       : {}),
       ...(body.stage        !== undefined ? { stage: body.stage }                         : {}),
       ...(body.hitRate      !== undefined ? { hitRate: body.hitRate }                     : {}),

@@ -896,8 +896,9 @@ function AddProductModal({ onClose, onSave }: {
   onSave: (data: object) => Promise<void>;
 }) {
   const [form, setForm] = useState({
-    name: "", category: "Bag", targetPrice: "", cost: "", targetQty: "",
+    name: "", productCode: "", category: "Bag", targetPrice: "", cost: "", targetQty: "",
     useCase: [] as string[], sellingPoints: [] as string[],
+    defaultUseCase: "", defaultTrigger: "",
     style: "", material: "", colours: [] as string[],
     brand: "", promotions: [] as string[],
     signalSource: "", notes: "", demandScore: "50",
@@ -929,7 +930,9 @@ function AddProductModal({ onClose, onSave }: {
     if (!form.name.trim()) return;
     setSaving(true);
     await onSave({
-      name: form.name.trim(), category: form.category,
+      name: form.name.trim(), productCode: form.productCode.trim() || null,
+      category: form.category,
+      defaultUseCase: form.defaultUseCase || null, defaultTrigger: form.defaultTrigger || null,
       targetPrice: form.targetPrice ? parseFloat(form.targetPrice) : null,
       cost: form.cost ? parseFloat(form.cost) : null,
       targetQty: form.targetQty ? parseInt(form.targetQty) : null,
@@ -991,6 +994,14 @@ function AddProductModal({ onClose, onSave }: {
         </div>
 
         <div>
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+            SKU / Barcode <span className="normal-case font-normal text-gray-400">(for Quick Log scan)</span>
+          </label>
+          <input className="input font-mono" placeholder="e.g. WLT001 or 8888888001234" value={form.productCode}
+            onChange={e => setForm(f => ({ ...f, productCode: e.target.value }))} />
+        </div>
+
+        <div>
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Category *</label>
           <select className="select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -1035,6 +1046,23 @@ function AddProductModal({ onClose, onSave }: {
                 {uc}
               </button>
             ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Default Use Case <span className="normal-case font-normal text-gray-400">(Quick Log pre-select)</span></label>
+            <select className="select text-sm" value={form.defaultUseCase} onChange={e => setForm(f => ({ ...f, defaultUseCase: e.target.value }))}>
+              <option value="">None</option>
+              {USE_CASES.map(uc => <option key={uc} value={uc}>{uc}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Default Trigger <span className="normal-case font-normal text-gray-400">(Quick Log pre-select)</span></label>
+            <select className="select text-sm" value={form.defaultTrigger} onChange={e => setForm(f => ({ ...f, defaultTrigger: e.target.value }))}>
+              <option value="">None</option>
+              {["Design", "Function", "Price", "Staff ⭐"].map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
           </div>
         </div>
 
