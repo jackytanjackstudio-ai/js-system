@@ -854,18 +854,41 @@ function VMTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdmin: bo
       )}
       {/* Display Guide */}
       <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+        {/* Title row */}
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-gray-800">Display Guide</h3>
           {(saving || uploading) && <Loader2 size={14} className="animate-spin text-gray-400" />}
         </div>
+
+        {/* Correct | Themes | Wrong header row */}
+        {(() => {
+          const themes = parse<{ themes?: string[] }>(campaign.contentPlan, {}).themes ?? [];
+          return (
+            <div className="grid grid-cols-2 gap-4 items-center">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-xs font-semibold text-green-700">Correct ✓</span>
+              </div>
+              <div className="flex items-center gap-1.5 justify-end">
+                <span className="w-2 h-2 rounded-full bg-red-500" />
+                <span className="text-xs font-semibold text-red-700">Wrong ✗</span>
+              </div>
+              {themes.length > 0 && (
+                <div className="col-span-2 flex flex-wrap justify-center gap-1.5 -mt-2">
+                  {themes.map((th, i) => (
+                    <span key={i} className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-brand-50 text-brand-700 border border-brand-100">
+                      {th}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         <div className="grid grid-cols-2 gap-4">
           {/* Correct */}
-          <div>
-            <div className="flex items-center gap-1.5 mb-2">
-              <span className="w-2 h-2 rounded-full bg-green-500" />
-              <span className="text-xs font-semibold text-green-700">Correct ✓</span>
-            </div>
-            <div className="space-y-2">
+          <div className="space-y-2">
               {images.filter(img => img.type === "correct").map((img, idx) => (
                 <div key={idx} className="relative group">
                   <img src={img.url} alt={img.label} className="w-full rounded-lg object-cover h-36 border-2 border-green-200 cursor-zoom-in" onClick={() => setLightbox(img.url)} />
@@ -886,15 +909,9 @@ function VMTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdmin: bo
                   <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && uploadImage(e.target.files[0], "correct")} />
                 </label>
               )}
-            </div>
           </div>
           {/* Wrong */}
-          <div>
-            <div className="flex items-center gap-1.5 mb-2">
-              <span className="w-2 h-2 rounded-full bg-red-500" />
-              <span className="text-xs font-semibold text-red-700">Wrong ✗</span>
-            </div>
-            <div className="space-y-2">
+          <div className="space-y-2">
               {images.filter(img => img.type === "wrong").map((img, idx) => (
                 <div key={idx} className="relative group">
                   <img src={img.url} alt={img.label} className="w-full rounded-lg object-cover h-36 border-2 border-red-200 cursor-zoom-in" onClick={() => setLightbox(img.url)} />
@@ -915,7 +932,6 @@ function VMTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdmin: bo
                   <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && uploadImage(e.target.files[0], "wrong")} />
                 </label>
               )}
-            </div>
           </div>
         </div>
       </div>
