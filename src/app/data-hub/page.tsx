@@ -18,6 +18,7 @@ type VisualTrend = {
   tagKey: string; tags: string[]; count: number;
   imageUrls: string[]; categories: string[]; score: number; signal: string;
 };
+type GalleryPhoto = { url: string; tags: string[]; categories: string[] };
 type FitGapItem = {
   category: string; demand: number; didNotBuy: number;
   reasons: { label: string; count: number }[]; insight: string;
@@ -42,12 +43,13 @@ type HubData = {
   revenueTrend:        { week: string; revenue: number }[];
   creatorSignals:      { id: string; title: string; views: number; signal: string; creator: string; platform: string }[];
   visualTrends:        VisualTrend[];
+  allImages:           { url: string; tags: string[]; categories: string[] }[];
   products:            { total: number; watchlist: number; testing: number; scale: number };
   testingProducts:     { id: string; name: string; category: string; stage: string }[];
   tasks:               { pending: number; overdue: number };
 };
 type Period = "week" | "month" | "all";
-type LightboxState = { urls: string[]; index: number; trend: VisualTrend } | null;
+type LightboxState = { photos: GalleryPhoto[]; index: number } | null;
 
 function RankBar({ items, colorClass, empty }: {
   items: { label: string; count: number }[];
@@ -320,10 +322,12 @@ export default function DataHub() {
                   <p className="text-[10px] text-gray-400">Based on photos customers showed your staff</p>
                 </div>
               </div>
-              {data.imageInputsCount > 0 && (
-                <span className="text-[10px] font-semibold bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
-                  {data.imageInputsCount} photos
-                </span>
+              {data.allImages.length > 0 && (
+                <button
+                  onClick={() => setLightbox({ photos: data.allImages, index: 0 })}
+                  className="text-[10px] font-semibold bg-purple-100 text-purple-700 px-2 py-1 rounded-full hover:bg-purple-200 transition-colors cursor-pointer">
+                  View all {data.allImages.length} photos
+                </button>
               )}
             </div>
 
@@ -337,10 +341,13 @@ export default function DataHub() {
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {data.visualTrends.map(trend => (
+                {data.visualTrends.map(trend => {
+                  const firstUrl = trend.imageUrls[0];
+                  const startIndex = firstUrl ? data.allImages.findIndex(p => p.url === firstUrl) : -1;
+                  return (
                   <div key={trend.tagKey}
                     className="rounded-2xl border border-gray-100 overflow-hidden cursor-pointer hover:shadow-md hover:border-purple-200 transition-all group"
-                    onClick={() => trend.imageUrls.length > 0 && setLightbox({ urls: trend.imageUrls, index: 0, trend })}>
+                    onClick={() => data.allImages.length > 0 && setLightbox({ photos: data.allImages, index: startIndex >= 0 ? startIndex : 0 })}>
                     <div className="relative h-36 bg-gray-100 flex overflow-hidden">
                       {trend.imageUrls.length > 0 ? (
                         <>
@@ -351,8 +358,8 @@ export default function DataHub() {
                               style={{ width: `${100 / Math.min(trend.imageUrls.length, 3)}%` }} />
                           ))}
                           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
-                            <div className="opacity-0 group-hover:opacity-100 bg-white/90 rounded-full px-3 py-1.5 flex items-center gap-1.5 text-xs font-bold text-gray-800 transition-all">
-                              <ZoomIn size={12} /> View
+                            <div className="bg-black/40 rounded-full p-1.5 flex items-center gap-1 text-[10px] font-bold text-white group-hover:bg-white/90 group-hover:text-gray-800 transition-all">
+                              <ZoomIn size={11} /> View
                             </div>
                           </div>
                           {trend.imageUrls.length > 1 && (
@@ -392,7 +399,8 @@ export default function DataHub() {
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -577,22 +585,28 @@ export default function DataHub() {
           )}
 
           {/* ── LIGHTBOX ── */}
-          {lightbox && (
+          {lightbox && (() => {
+            const current = lightbox.photos[lightbox.index];
+            return (
             <div className="fixed inset-0 z-[9999] bg-black/95 flex flex-col" onClick={() => setLightbox(null)}>
               <div className="flex items-center justify-between px-4 py-3 flex-shrink-0" onClick={e => e.stopPropagation()}>
                 <div>
-                  <div className="flex flex-wrap gap-1.5 mb-1">
-                    {lightbox.trend.categories.map(c => (
-                      <span key={c} className="text-sm font-black text-white bg-brand-500 px-3 py-1 rounded-full">{c}</span>
-                    ))}
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {lightbox.trend.tags.map(tag => (
-                      <span key={tag} className="text-xs text-purple-300 bg-purple-900/50 px-2 py-0.5 rounded-full">{tag}</span>
-                    ))}
-                  </div>
+                  {current.categories.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-1">
+                      {current.categories.map(c => (
+                        <span key={c} className="text-sm font-black text-white bg-brand-500 px-3 py-1 rounded-full">{c}</span>
+                      ))}
+                    </div>
+                  )}
+                  {current.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {current.tags.map(tag => (
+                        <span key={tag} className="text-xs text-purple-300 bg-purple-900/50 px-2 py-0.5 rounded-full">{tag}</span>
+                      ))}
+                    </div>
+                  )}
                   <p className="text-xs text-gray-400 mt-1">
-                    {lightbox.trend.count} customer{lightbox.trend.count > 1 ? "s" : ""} showed this · {lightbox.trend.signal}
+                    {lightbox.index + 1} / {lightbox.photos.length} · Tap outside to close
                   </p>
                 </div>
                 <button className="w-9 h-9 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20 ml-4"
@@ -602,39 +616,37 @@ export default function DataHub() {
               </div>
               <div className="flex-1 flex items-center justify-center relative px-12 min-h-0" onClick={e => e.stopPropagation()}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={lightbox.urls[lightbox.index]} alt="Customer photo"
+                <img src={current.url} alt="Customer photo"
                   className="max-h-full max-w-full object-contain rounded-xl" />
-                {lightbox.urls.length > 1 && lightbox.index > 0 && (
+                {lightbox.index > 0 && (
                   <button className="absolute left-2 w-10 h-10 bg-white/10 hover:bg-white/25 rounded-full flex items-center justify-center text-white"
                     onClick={() => setLightbox({ ...lightbox, index: lightbox.index - 1 })}>
                     <ChevronLeft size={20} />
                   </button>
                 )}
-                {lightbox.urls.length > 1 && lightbox.index < lightbox.urls.length - 1 && (
+                {lightbox.index < lightbox.photos.length - 1 && (
                   <button className="absolute right-2 w-10 h-10 bg-white/10 hover:bg-white/25 rounded-full flex items-center justify-center text-white"
                     onClick={() => setLightbox({ ...lightbox, index: lightbox.index + 1 })}>
                     <ChevronRight size={20} />
                   </button>
                 )}
               </div>
-              {lightbox.urls.length > 1 && (
-                <div className="flex gap-2 justify-center px-4 py-3 flex-shrink-0" onClick={e => e.stopPropagation()}>
-                  {lightbox.urls.map((url, i) => (
+              {lightbox.photos.length > 1 && (
+                <div className="flex gap-2 justify-center px-4 py-3 flex-shrink-0 overflow-x-auto" onClick={e => e.stopPropagation()}>
+                  {lightbox.photos.map((p, i) => (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img key={i} src={url} alt=""
+                    <img key={i} src={p.url} alt=""
                       onClick={() => setLightbox({ ...lightbox, index: i })}
-                      className={`w-14 h-14 object-cover rounded-lg cursor-pointer transition-all ${
-                        i === lightbox.index ? "ring-2 ring-brand-400 opacity-100" : "opacity-50 hover:opacity-80"
+                      className={`w-14 h-14 flex-shrink-0 object-cover rounded-lg cursor-pointer transition-all ${
+                        i === lightbox.index ? "ring-2 ring-brand-400 opacity-100" : "opacity-40 hover:opacity-70"
                       }`}
                     />
                   ))}
                 </div>
               )}
-              <p className="text-center text-xs text-gray-600 pb-3">
-                {lightbox.index + 1} / {lightbox.urls.length} · Tap outside to close
-              </p>
             </div>
-          )}
+            );
+          })()}
         </>
       )}
     </div>

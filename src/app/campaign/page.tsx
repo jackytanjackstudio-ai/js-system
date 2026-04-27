@@ -41,6 +41,37 @@ const OWNERS   = [
   { value: "marketing",       label: "Marketing Team"  },
 ];
 
+const PRESET_TASKS: Record<string, { taskName: string; category: string }[]> = {
+  sales: [
+    { taskName: "Setup promo display",           category: "vm"      },
+    { taskName: "Print & place campaign poster", category: "vm"      },
+    { taskName: "Staff campaign briefing",       category: "staff"   },
+    { taskName: "Sales script training",         category: "staff"   },
+    { taskName: "TikTok campaign video",         category: "content" },
+  ],
+  branding: [
+    { taskName: "Brand display setup",           category: "vm"      },
+    { taskName: "Window display update",         category: "vm"      },
+    { taskName: "Staff brand guidelines briefing", category: "staff" },
+    { taskName: "IG brand post",                 category: "content" },
+    { taskName: "TikTok branding video",         category: "content" },
+  ],
+  product_launch: [
+    { taskName: "New product display setup",     category: "vm"      },
+    { taskName: "Demo station setup",            category: "vm"      },
+    { taskName: "Product knowledge training",    category: "staff"   },
+    { taskName: "Launch day briefing",           category: "staff"   },
+    { taskName: "Launch TikTok video",           category: "content" },
+    { taskName: "IG product launch post",        category: "content" },
+  ],
+  vm_update: [
+    { taskName: "Remove old VM materials",       category: "vm"      },
+    { taskName: "Install new VM setup",          category: "vm"      },
+    { taskName: "Submit VM photos to HQ",        category: "vm"      },
+    { taskName: "VM compliance check",           category: "vm"      },
+  ],
+};
+
 // ─── Scope badge helper ───────────────────────────────────────────────────────
 
 function ScopeBadge({ campaign }: { campaign: Campaign }) {
@@ -196,6 +227,13 @@ export default function CampaignCalendar() {
           owner:        form.owner,
         }),
       });
+      const presets = PRESET_TASKS[form.type] ?? [];
+      await Promise.all(presets.map(t =>
+        apiFetch(`/api/campaigns/${res.id}/tasks`, {
+          method: "POST",
+          body: JSON.stringify({ taskName: t.taskName, category: t.category, assignedTo: null, deadline: null }),
+        })
+      ));
       setShowNew(false); resetForm(); refetch();
       router.push(`/campaign/${res.id}`);
     } catch (err) {

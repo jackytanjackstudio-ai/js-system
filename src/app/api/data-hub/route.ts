@@ -248,6 +248,13 @@ export async function GET(req: Request) {
     .sort((a, b) => b.score - a.score)
     .slice(0, 8);
 
+  // Raw image list — every customer input that has a photo, newest first
+  const allImages = imageInputs.map(inp => {
+    const tags: string[] = (() => { try { return JSON.parse(inp.imageTags || "[]"); } catch { return []; } })();
+    const cats: string[] = (() => { try { return JSON.parse(inp.lookingFor || "[]"); } catch { return []; } })();
+    return { url: inp.imageUrl!, tags, categories: cats };
+  });
+
   const pendingTasks = tasks.filter(t => t.status !== "Completed").length;
   const overdueTasks = tasks.filter(t => t.status !== "Completed" && t.due < new Date().toISOString().slice(0, 10)).length;
 
@@ -276,6 +283,7 @@ export async function GET(req: Request) {
     revenueTrend,
     creatorSignals,
     visualTrends,
+    allImages,
     products: {
       total:     products.length,
       watchlist: products.filter(p => p.status === "Watchlist").length,

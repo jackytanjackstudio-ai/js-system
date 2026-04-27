@@ -27,7 +27,7 @@ type Product = {
   imageUrls: string;
   useCase: string; style: string | null; material: string | null;
   colours: string; targetQty: number | null;
-  brand: string | null; promotions: string; demandScore: number;
+  brand: string | null; promotions: string; sellingPoints: string; demandScore: number;
   validations: ValidationEntry[];
   reservations: ReservationEntry[];
 };
@@ -44,6 +44,7 @@ type Tab = "sourcing" | "validation" | "reservation" | "decision" | "tracking";
 
 const CATEGORIES   = ["Wallet", "Card Holder", "Bag", "Luggage", "Accessories", "Gift", "Other"];
 const USE_CASES    = ["Work", "Travel", "Daily", "Gift"];
+const SELLING_POINTS = ["Simple", "Slim", "Large Capacity", "Multi Compartment", "Premium Look", "Lightweight"];
 const SALES_OPTIONS = [5, 10, 20, 30, 50, 100];
 const BRANDS = ["Euro Polo", "Jack Studio", "Lancaster Polo"];
 
@@ -180,20 +181,53 @@ function SourcingPool({ products, onAdvance, onDelete, onUploadImage, canEdit }:
 }) {
   const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [ucFilter, setUcFilter] = useState<string>("All");
+
+  const filtered = ucFilter === "All" ? products : products.filter(p => {
+    const uc: string[] = (() => { try { return JSON.parse(p.useCase); } catch { return []; } })();
+    return uc.includes(ucFilter);
+  });
 
   if (!products.length)
     return <EmptyState icon={<PackagePlus size={28} className="text-gray-300" />} title="Sourcing pool is empty" sub="Add products you're considering to evaluate them through the system." />;
 
   return (
     <>
+    {/* Use Case Tabs */}
+    <div className="flex gap-1.5 flex-wrap mb-4">
+      {["All", ...USE_CASES].map(uc => (
+        <button key={uc} onClick={() => setUcFilter(uc)}
+          className={cn("px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border-2",
+            ucFilter === uc
+              ? "bg-blue-500 text-white border-blue-500 shadow-sm"
+              : "bg-white text-gray-500 border-gray-200 hover:border-blue-300")}>
+          {uc}
+          {uc !== "All" && (
+            <span className="ml-1 opacity-60">
+              ({products.filter(p => { const u: string[] = (() => { try { return JSON.parse(p.useCase); } catch { return []; } })(); return u.includes(uc); }).length})
+            </span>
+          )}
+        </button>
+      ))}
+    </div>
+
+    {filtered.length === 0 && (
+      <div className="text-center py-8 text-sm text-gray-400">No products in <span className="font-semibold">{ucFilter}</span> yet</div>
+    )}
+
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {products.map(p => {
+      {filtered.map(p => {
         const m = margin(p.targetPrice, p.cost);
         const uc: string[] = (() => { try { return JSON.parse(p.useCase); } catch { return []; } })();
+        const sp: string[] = (() => { try { return JSON.parse(p.sellingPoints || "[]"); } catch { return []; } })();
         const colours: string[] = (() => { try { return JSON.parse(p.colours || "[]"); } catch { return []; } })();
         const promos: string[] = (() => { try { return JSON.parse(p.promotions || "[]"); } catch { return []; } })();
         const images = getImages(p);
         const hasImage = images.length > 0;
+        const humanLabel = [
+          uc.length > 0 ? uc.join(" / ") : null,
+          p.category,
+        ].filter(Boolean).join(" ");
 
         return (
           <div key={p.id} className="card space-y-3">
@@ -227,10 +261,14 @@ function SourcingPool({ products, onAdvance, onDelete, onUploadImage, canEdit }:
                 <span className="font-bold text-gray-900 text-sm">{p.name}</span>
                 {p.brand && <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{p.brand}</span>}
               </div>
+              {/* Human-readable label: "Daily / Travel Bag · ✔ Slim · ✔ Lightweight · RM129" */}
+              <div className="text-[11px] text-gray-500 mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                {humanLabel && <span className="font-semibold text-gray-700">{humanLabel}</span>}
+                {sp.map(s => <span key={s} className="text-green-600 font-semibold">✔ {s}</span>)}
+                {p.targetPrice && <span className="font-bold text-brand-600">RM{p.targetPrice}</span>}
+              </div>
               <div className="flex flex-wrap gap-1 mt-1">
-                <span className="badge bg-gray-100 text-gray-600">{p.category}</span>
                 {p.style && <span className="badge bg-purple-50 text-purple-600">{p.style}</span>}
-                {uc.map(u => <span key={u} className="badge bg-blue-50 text-blue-600">{u}</span>)}
               </div>
               {promos.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-1.5">
@@ -859,7 +897,8 @@ function AddProductModal({ onClose, onSave }: {
 }) {
   const [form, setForm] = useState({
     name: "", category: "Bag", targetPrice: "", cost: "", targetQty: "",
-    useCase: [] as string[], style: "", material: "", colours: [] as string[],
+    useCase: [] as string[], sellingPoints: [] as string[],
+    style: "", material: "", colours: [] as string[],
     brand: "", promotions: [] as string[],
     signalSource: "", notes: "", demandScore: "50",
   });
@@ -894,7 +933,7 @@ function AddProductModal({ onClose, onSave }: {
       targetPrice: form.targetPrice ? parseFloat(form.targetPrice) : null,
       cost: form.cost ? parseFloat(form.cost) : null,
       targetQty: form.targetQty ? parseInt(form.targetQty) : null,
-      useCase: form.useCase, style: form.style || null,
+      useCase: form.useCase, sellingPoints: form.sellingPoints, style: form.style || null,
       material: form.material || null,
       colours: form.colours,
       brand: form.brand || null,
@@ -986,7 +1025,7 @@ function AddProductModal({ onClose, onSave }: {
         })()}
 
         <div>
-          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Use Case</label>
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Use Case <span className="normal-case font-normal text-gray-400">(pick 1–2)</span></label>
           <div className="flex flex-wrap gap-2">
             {USE_CASES.map(uc => (
               <button key={uc} onClick={() => toggleUC(uc)}
@@ -996,6 +1035,26 @@ function AddProductModal({ onClose, onSave }: {
                 {uc}
               </button>
             ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Main Selling Point <span className="normal-case font-normal text-gray-400">(what sales team says)</span></label>
+          <div className="flex flex-wrap gap-2">
+            {SELLING_POINTS.map(sp => {
+              const on = form.sellingPoints.includes(sp);
+              return (
+                <button key={sp} onClick={() => setForm(f => ({
+                  ...f,
+                  sellingPoints: on ? f.sellingPoints.filter(s => s !== sp) : [...f.sellingPoints, sp],
+                }))}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-all ${
+                    on ? "bg-green-500 text-white border-green-500" : "bg-white text-gray-600 border-gray-200 hover:border-green-300"
+                  }`}>
+                  {on ? "✔ " : ""}{sp}
+                </button>
+              );
+            })}
           </div>
         </div>
 

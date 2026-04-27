@@ -134,8 +134,9 @@ model Product {
   colours      String   @default("[]")
   targetQty    Int?
   brand        String?
-  promotions   String   @default("[]")
-  demandScore  Float    @default(50)
+  promotions    String   @default("[]")
+  sellingPoints String   @default("[]")
+  demandScore   Float    @default(50)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
