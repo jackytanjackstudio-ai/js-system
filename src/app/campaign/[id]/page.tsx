@@ -792,13 +792,14 @@ function VMTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdmin: bo
   const { user } = useAuth();
   const isSales  = user?.role === "sales";
   const vm       = campaign.vmGuide;
-  const [images,    setImages]    = useState<VMImage[]>(() => vm ? parse<VMImage[]>(vm.images, []) : []);
+  const [images,    setImages]    = useState<VMImage[]>(() => vm ? parse<VMImage[]>(vm.images, []).filter((i: VMImage) => !!i.url) : []);
   const [checklist, setChecklist] = useState<ChecklistItem[]>(() => vm ? parse<ChecklistItem[]>(vm.checklist, []) : []);
   const [uploading,   setUploading]   = useState(false);
   const [saving,      setSaving]      = useState(false);
   const [newItem,     setNewItem]     = useState("");
   const [newRequired, setNewRequired] = useState(true);
   const [lightbox,    setLightbox]    = useState<string | null>(null);
+  const [failedUrls,  setFailedUrls]  = useState<Set<string>>(new Set());
 
   async function saveVM(imgs: VMImage[], checks: ChecklistItem[]) {
     setSaving(true);
@@ -815,6 +816,7 @@ function VMTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdmin: bo
       fd.append("file", file);
       const res  = await fetch("/api/upload", { method: "POST", body: fd });
       const data = await res.json();
+      if (!res.ok || !data.url) { alert(data.error ?? "Upload failed"); return; }
       const next = [...images, { url: data.url, type, label: type === "correct" ? "Correct Display" : "Wrong Display" }];
       setImages(next);
       await saveVM(next, checklist);
@@ -889,9 +891,12 @@ function VMTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdmin: bo
         <div className="grid grid-cols-2 gap-4">
           {/* Correct */}
           <div className="space-y-2">
-              {images.filter(img => img.type === "correct").map((img, idx) => (
+              {images.filter(img => img.type === "correct" && img.url && !failedUrls.has(img.url)).map((img, idx) => (
                 <div key={idx} className="relative group">
-                  <img src={img.url} alt={img.label} className="w-full rounded-lg object-cover h-36 border-2 border-green-200 cursor-zoom-in" onClick={() => setLightbox(img.url)} />
+                  <img src={img.url} alt={img.label}
+                    className="w-full rounded-lg object-cover h-36 border-2 border-green-200 cursor-zoom-in"
+                    onClick={() => setLightbox(img.url)}
+                    onError={() => setFailedUrls(prev => new Set([...prev, img.url]))} />
                   {isAdmin && (
                     <button onClick={() => removeImage(images.indexOf(img))}
                       className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -900,7 +905,7 @@ function VMTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdmin: bo
                   )}
                 </div>
               ))}
-              {images.filter(img => img.type === "correct").length === 0 && (
+              {images.filter(img => img.type === "correct" && img.url && !failedUrls.has(img.url)).length === 0 && (
                 <div className="h-24 rounded-lg border-2 border-dashed border-green-100 flex items-center justify-center text-xs text-gray-300">No photo yet</div>
               )}
               {isAdmin && (
@@ -912,9 +917,12 @@ function VMTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdmin: bo
           </div>
           {/* Wrong */}
           <div className="space-y-2">
-              {images.filter(img => img.type === "wrong").map((img, idx) => (
+              {images.filter(img => img.type === "wrong" && img.url && !failedUrls.has(img.url)).map((img, idx) => (
                 <div key={idx} className="relative group">
-                  <img src={img.url} alt={img.label} className="w-full rounded-lg object-cover h-36 border-2 border-red-200 cursor-zoom-in" onClick={() => setLightbox(img.url)} />
+                  <img src={img.url} alt={img.label}
+                    className="w-full rounded-lg object-cover h-36 border-2 border-red-200 cursor-zoom-in"
+                    onClick={() => setLightbox(img.url)}
+                    onError={() => setFailedUrls(prev => new Set([...prev, img.url]))} />
                   {isAdmin && (
                     <button onClick={() => removeImage(images.indexOf(img))}
                       className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -923,7 +931,7 @@ function VMTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdmin: bo
                   )}
                 </div>
               ))}
-              {images.filter(img => img.type === "wrong").length === 0 && (
+              {images.filter(img => img.type === "wrong" && img.url && !failedUrls.has(img.url)).length === 0 && (
                 <div className="h-24 rounded-lg border-2 border-dashed border-red-100 flex items-center justify-center text-xs text-gray-300">No photo yet</div>
               )}
               {isAdmin && (
