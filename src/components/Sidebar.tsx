@@ -37,7 +37,7 @@ export default function Sidebar() {
     { href: "/data-hub",           icon: Database,        labelKey: "nav_data_hub",          group: "core",     hide: isSales        },
     { href: "/leads",              icon: Users,           labelKey: "nav_leads",             group: "core",     hide: isSales        },
     { href: "/product-war-room",   icon: Sword,           labelKey: "nav_product_war_room",  group: "core",     hide: isSales        },
-    { href: "/product-master",     icon: BookOpen,        labelKey: "nav_product_master",    group: "core",     hide: isSales        },
+    { href: "/product-master",     icon: BookOpen,        labelKey: "nav_product_master",    group: "core",     hide: false          },
     { href: "/product-feedback",   icon: ThumbsUp,        labelKey: "nav_product_feedback",  group: "core",     hide: !isSales       },
     { href: "/campaign",            icon: Calendar,        labelKey: "nav_campaign",         group: "output",   hide: false          },
     { href: "/outlets",            icon: Store,           labelKey: "oc_title",             group: "output",   hide: isSales        },

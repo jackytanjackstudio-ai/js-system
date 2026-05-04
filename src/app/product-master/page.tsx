@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/context/LangContext";
+import { useAuth } from "@/context/AuthContext";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type ProductMedia = { id: string; type: string; url: string; isPrimary: boolean; sortOrder: number };
@@ -679,6 +680,8 @@ function ProductModal({ initial, draft, onClose, onSaved }: {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function ProductMasterPage() {
   const { lang } = useLang();
+  const { user } = useAuth();
+  const canEdit = user?.role !== "sales" && user?.role !== "creator";
   const [q, setQ]                   = useState("");
   const [catFilter, setCatFilter]   = useState("");
   const [ucFilter, setUcFilter]     = useState("");
@@ -775,12 +778,16 @@ export default function ProductMasterPage() {
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <BookOpen size={22} className="text-brand-500" /> Product Master
           </h1>
-          <p className="text-gray-500 text-sm mt-0.5">Content production engine — {products.length} product{products.length !== 1 ? "s" : ""}</p>
+          <p className="text-gray-500 text-sm mt-0.5">
+            {canEdit ? "Content production engine" : "Product catalog & sales scripts"} — {products.length} product{products.length !== 1 ? "s" : ""}
+          </p>
         </div>
-        <button onClick={() => { setEditTarget(null); setShowModal(true); }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
-          <Plus size={16} /> Add Product
-        </button>
+        {canEdit && (
+          <button onClick={() => { setEditTarget(null); setShowModal(true); }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
+            <Plus size={16} /> Add Product
+          </button>
+        )}
       </div>
 
       {/* Search */}
@@ -829,7 +836,7 @@ export default function ProductMasterPage() {
               onDelete={handleDelete}
               onGenerate={setGenerateTarget}
               onContentUpdate={handleContentUpdate}
-              canEdit={true}
+              canEdit={canEdit}
             />
           ))}
         </div>
