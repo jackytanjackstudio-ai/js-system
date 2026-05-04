@@ -10,115 +10,96 @@ type ContentType = "tiktok" | "sales" | "ecommerce" | "all";
 
 interface ProductData {
   product_name: string;
-  target_user: string | null;
-  use_case: string;
-  custom_selling_points: string[];
-  sales_pitch: string | null;
   price: number;
   category: string;
   material: string | null;
+  use_case: string;
+  selling_points: string[];
+  target_audience: string | null;
+  sales_pitch: string | null;
   style: string | null;
 }
 
-function buildPrompt(product: ProductData, type: Exclude<ContentType, "all">): string {
-  const base = `
-产品名称：${product.product_name}
-类别：${product.category}
-目标用户：${product.target_user ?? "未指定"}
-使用场景：${product.use_case}
-核心卖点：${product.custom_selling_points.join(", ") || "未指定"}
-一句话卖点：${product.sales_pitch ?? "未指定"}
-价格：RM ${product.price}
-材质：${product.material ?? "未指定"}
-风格：${product.style ?? "未指定"}
+const PROMPT_TEMPLATE = `
+You are a top-tier retail content strategist specializing in fashion accessories.
+
+Your task is to generate HIGH-CONVERTING content for 3 channels:
+1. TikTok short video script (attention-grabbing, emotional)
+2. Retail sales script (in-store conversion focused)
+3. E-commerce product copy (clear, persuasive, structured)
+
+IMPORTANT RULES:
+- DO NOT use generic words like "high quality", "luxury", "perfect"
+- ALWAYS translate features into REAL USER BENEFITS
+- Focus on DAILY USAGE scenarios
+- Use NATURAL spoken language (not corporate)
+- Make it feel like real human selling, not AI
+- Write in the same language as the product data (Chinese if data is Chinese, English if English)
+
+OUTPUT FORMAT (STRICT — do not add extra headers or commentary):
+
+[TIKTOK_SCRIPT]
+Hook:
+<first 3 seconds — one punchy line or visual action>
+
+Body:
+<main content — relatable scenario, key benefits woven in naturally>
+
+Closing:
+<strong CTA with price and urgency>
+
+[SALES_SCRIPT]
+Opening Question:
+<question that makes customer think about their problem>
+
+Recommendation:
+<guide them to try/see the product, benefits in their words>
+
+Objection Handling:
+<one line that preempts price or hesitation>
+
+Closing:
+<natural close that feels like helping, not selling>
+
+[ECOMMERCE]
+Title:
+<clickable title, specific benefit + product name>
+
+Key Selling Points:
+• <benefit 1 — concrete, not vague>
+• <benefit 2 — concrete, not vague>
+• <benefit 3 — concrete, not vague>
+
+Usage Scenario:
+<1–2 sentences painting a vivid daily-life picture>
+
+Conversion CTA:
+<urgency-driven closing line with price>
 `.trim();
 
-  if (type === "tiktok") {
-    return `你是一位TikTok带货高手，请写一个短视频脚本：
+function buildPrompt(data: ProductData): string {
+  const sp = data.selling_points.length > 0 ? data.selling_points.join(", ") : "Not specified";
+  return `PRODUCT DATA:
+Name: ${data.product_name}
+Price: RM ${data.price}
+Category: ${data.category}
+Material: ${data.material ?? "Not specified"}
+Style: ${data.style ?? "Not specified"}
+Use Case: ${data.use_case}
+Selling Points: ${sp}
+Sales Pitch: ${data.sales_pitch ?? "Not specified"}
+Target Audience: ${data.target_audience ?? "Not specified"}
+Brand: JackStudio
 
-${base}
+${PROMPT_TEMPLATE}
 
-要求：
-- 开头3秒要抓人眼球
-- 有真实生活场景
-- 强调核心卖点
-- 结尾要有明确CTA（行动号召）
-- 语气轻松自然，适合年轻人
-
-请按以下格式输出：
-
-Hook（前3秒）:
-[内容]
-
-Content（主体内容）:
-[内容]
-
-CTA（行动号召）:
-[内容]`;
-  }
-
-  if (type === "sales") {
-    return `你是一位专业的门店销售顾问，请写一段销售话术：
-
-${base}
-
-要求：
-- 语气自然、有亲和力
-- 突出产品价值而非价格
-- 帮顾客想象使用场景
-- 结尾有成交引导
-
-请按以下格式输出：
-
-1. 开场白:
-[内容]
-
-2. 推荐理由:
-[内容]
-
-3. 成交句:
-[内容]`;
-  }
-
-  if (type === "ecommerce") {
-    return `请写一份电商详情页文案：
-
-${base}
-
-要求：
-- 标题吸引点击
-- 卖点清晰有力
-- 场景真实可信
-- 转化文案有紧迫感
-
-请按以下格式输出：
-
-标题:
-[内容]
-
-核心卖点:
-• [卖点1]
-• [卖点2]
-• [卖点3]
-
-使用场景:
-[内容]
-
-转化文案:
-[内容]`;
-  }
-
-  return base;
+Now generate the output.`;
 }
 
-async function generateOne(product: ProductData, type: Exclude<ContentType, "all">): Promise<string> {
-  const prompt = buildPrompt(product, type);
-  const response = await getClient().chat.completions.create({
-    model: "gpt-4o",
-    messages: [{ role: "user", content: prompt }],
-    max_tokens: 800,
-  });
-  return response.choices[0].message.content ?? "";
+function parseSection(text: string, tag: string): string {
+  const regex = new RegExp(`\\[${tag}\\]([\\s\\S]*?)(?=\\[|$)`, "i");
+  const match = text.match(regex);
+  return match ? match[1].trim() : "";
 }
 
 export async function POST(req: Request) {
@@ -141,44 +122,57 @@ export async function POST(req: Request) {
     if (!product) return apiError("Product not found", 404);
 
     const csp: string[] = (() => { try { return JSON.parse(product.customSellingPoints); } catch { return []; } })();
+    const sp: string[]  = (() => { try { return JSON.parse(product.sellingPoints); } catch { return []; } })();
 
     const productData: ProductData = {
-      product_name: product.name,
-      target_user: product.targetUser,
-      use_case: product.useCase,
-      custom_selling_points: csp,
-      sales_pitch: product.salesPitch,
-      price: product.price,
-      category: product.category,
-      material: product.material,
-      style: product.style,
+      product_name:    product.name,
+      price:           product.price,
+      category:        product.category,
+      material:        product.material,
+      style:           product.style,
+      use_case:        product.useCase,
+      selling_points:  [...csp, ...sp].filter(Boolean),
+      sales_pitch:     product.salesPitch ?? product.shortPitch,
+      target_audience: product.targetUser,
     };
+
+    const prompt = buildPrompt(productData);
+
+    const response = await getClient().responses.create({
+      model: "gpt-4o",
+      input: prompt,
+    });
+
+    const fullText = response.output_text;
+
+    const tiktok    = parseSection(fullText, "TIKTOK_SCRIPT");
+    const sales     = parseSection(fullText, "SALES_SCRIPT");
+    const ecommerce = parseSection(fullText, "ECOMMERCE");
 
     const existing = (product.generatedContent ?? {}) as Record<string, string>;
 
     if (type === "all") {
-      const [tiktok, sales, ecommerce] = await Promise.all([
-        generateOne(productData, "tiktok"),
-        generateOne(productData, "sales"),
-        generateOne(productData, "ecommerce"),
-      ]);
-
       const content = { ...existing, tiktok_script: tiktok, sales_script: sales, ecommerce_copy: ecommerce };
       await prisma.productMaster.update({ where: { id: product_id }, data: { generatedContent: content } });
       return apiOk({ tiktok_script: tiktok, sales_script: sales, ecommerce_copy: ecommerce });
     }
 
     const keyMap: Record<Exclude<ContentType, "all">, string> = {
-      tiktok: "tiktok_script",
-      sales: "sales_script",
+      tiktok:    "tiktok_script",
+      sales:     "sales_script",
       ecommerce: "ecommerce_copy",
     };
+    const sectionMap: Record<Exclude<ContentType, "all">, string> = {
+      tiktok:    tiktok,
+      sales:     sales,
+      ecommerce: ecommerce,
+    };
 
-    const result = await generateOne(productData, type);
-    const content = { ...existing, [keyMap[type]]: result };
+    const result = sectionMap[type as Exclude<ContentType, "all">];
+    const content = { ...existing, [keyMap[type as Exclude<ContentType, "all">]]: result };
     await prisma.productMaster.update({ where: { id: product_id }, data: { generatedContent: content } });
 
-    return apiOk({ [keyMap[type]]: result });
+    return apiOk({ [keyMap[type as Exclude<ContentType, "all">]]: result });
   } catch (err) {
     console.error("Generate content error:", err);
     return apiError(err instanceof Error ? err.message : "Generation failed", 500);
