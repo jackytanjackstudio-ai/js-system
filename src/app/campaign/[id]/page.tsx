@@ -10,6 +10,41 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// ─── Cloudinary direct upload (bypasses Vercel — no env vars needed) ──────────
+async function resizeToBlob(file: File): Promise<Blob> {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX = 1200;
+      const scale = Math.min(MAX / img.width, MAX / img.height, 1);
+      const canvas = document.createElement("canvas");
+      canvas.width  = Math.round(img.width  * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(blob => resolve(blob!), "image/jpeg", 0.82);
+    };
+    img.src = url;
+  });
+}
+
+async function uploadToCloudinary(file: File): Promise<string> {
+  const blob = await resizeToBlob(file);
+  const fd = new FormData();
+  fd.append("file", blob, "photo.jpg");
+  fd.append("upload_preset", "jackstudio_upload");
+  fd.append("folder", "jackstudio/vm");
+  const res = await fetch("https://api.cloudinary.com/v1_1/ds0ka66z1/image/upload", {
+    method: "POST",
+    body: fd,
+  });
+  if (!res.ok) throw new Error("Upload failed — check internet connection");
+  const data = await res.json();
+  if (!data.secure_url) throw new Error(data.error?.message ?? "Upload failed");
+  return data.secure_url as string;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type CampaignOutlet = { id: string; outletId: string; outletName: string };
@@ -812,14 +847,12 @@ function VMTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdmin: bo
   async function uploadImage(file: File, type: "correct" | "wrong") {
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res  = await fetch("/api/upload", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok || !data.url) { alert(data.error ?? "Upload failed"); return; }
-      const next = [...images, { url: data.url, type, label: type === "correct" ? "Correct Display" : "Wrong Display" }];
+      const url = await uploadToCloudinary(file);
+      const next = [...images, { url, type, label: type === "correct" ? "Correct Display" : "Wrong Display" }];
       setImages(next);
       await saveVM(next, checklist);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Upload failed");
     } finally { setUploading(false); }
   }
 
@@ -1035,11 +1068,10 @@ function SalesVMSubmit({ campaign, user, refetch }: {
   async function uploadPhoto(area: string, file: File) {
     setUploading(area);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res  = await fetch("/api/upload", { method: "POST", body: fd });
-      const data = await res.json();
-      setPhotos(p => ({ ...p, [area]: data.url }));
+      const url = await uploadToCloudinary(file);
+      setPhotos(p => ({ ...p, [area]: url }));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Upload failed");
     } finally { setUploading(null); }
   }
 
