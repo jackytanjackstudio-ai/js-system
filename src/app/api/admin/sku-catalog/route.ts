@@ -42,15 +42,20 @@ export async function POST(req: Request) {
 
     if (!items.length) return apiError("No valid rows found in file");
 
-    // Full replace: delete all → batch insert (fast, atomic-ish)
+    // Deduplicate by stockCode — keep last occurrence per code
+    const seen = new Map<string, typeof items[0]>();
+    for (const item of items) seen.set(item.stockCode, item);
+    const deduped = Array.from(seen.values());
+
+    // Full replace: delete all → batch insert
     await prisma.skuCatalog.deleteMany({});
 
     const CHUNK = 500;
-    for (let i = 0; i < items.length; i += CHUNK) {
-      await prisma.skuCatalog.createMany({ data: items.slice(i, i + CHUNK) });
+    for (let i = 0; i < deduped.length; i += CHUNK) {
+      await prisma.skuCatalog.createMany({ data: deduped.slice(i, i + CHUNK) });
     }
 
-    return apiOk({ imported: items.length, total: raw.length - 1 });
+    return apiOk({ imported: deduped.length, total: raw.length - 1, duplicatesRemoved: items.length - deduped.length });
   } catch (err) {
     console.error("SKU catalog import error:", err);
     return apiError(err instanceof Error ? err.message : "Import failed");
