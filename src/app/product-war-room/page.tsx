@@ -24,7 +24,7 @@ type Product = {
   hitRate: number; signalSource: string | null; notes: string | null;
   decisionDate: string | null; tasks: string;
   targetPrice: number | null; cost: number | null; imageUrl: string | null;
-  imageUrls: string;
+  imageUrls: string; productCode: string | null;
   useCase: string; style: string | null; material: string | null;
   colours: string; targetQty: number | null;
   brand: string | null; promotions: string; sellingPoints: string; demandScore: number;
@@ -724,10 +724,11 @@ function ReservationTab({ products, outlets, onSubmitReservation, onAdvance, can
 }
 
 // ─── Tab 4: Decision ─────────────────────────────────────────────────────────
-function DecisionTab({ products, onApprove, onReject, canEdit }: {
+function DecisionTab({ products, onApprove, onReject, onPromote, canEdit }: {
   products: Product[];
   onApprove: (id: string) => Promise<void>;
   onReject: (id: string) => Promise<void>;
+  onPromote: (p: Product) => void;
   canEdit: boolean;
 }) {
   if (!products.length)
@@ -822,10 +823,14 @@ function DecisionTab({ products, onApprove, onReject, canEdit }: {
             </div>
 
             {canEdit && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <button onClick={() => onApprove(p.id)}
                   className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-semibold transition-colors">
                   <CheckCircle2 size={14} /> Approve → Bullet Test
+                </button>
+                <button onClick={() => onPromote(p)}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-sm font-semibold transition-colors">
+                  → Master
                 </button>
                 <button onClick={() => onReject(p.id)}
                   className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-sm font-semibold transition-colors flex items-center gap-1.5">
@@ -844,7 +849,7 @@ function DecisionTab({ products, onApprove, onReject, canEdit }: {
 function TrackingTab({ products, onStatusChange, onPromote, canEdit }: {
   products: Product[];
   onStatusChange: (id: string, status: string, stage?: string) => Promise<void>;
-  onPromote: (p: Product) => Promise<void>;
+  onPromote: (p: Product) => void;
   canEdit: boolean;
 }) {
   const statusConfig: Record<string, { color: string; bg: string }> = {
@@ -926,21 +931,29 @@ function AddProductModal({ onClose, onSave }: {
   onSave: (data: object) => Promise<void>;
 }) {
   const [form, setForm] = useState({
-    name: "", productCode: "", category: "Bag", targetPrice: "", cost: "", targetQty: "",
+    name: "", productCode: "", category: "Bag", targetPrice: "", cost: "",
     useCase: [] as string[], sellingPoints: [] as string[],
-    defaultUseCase: "", defaultTrigger: "",
-    style: "", material: "", colours: [] as string[],
-    brand: "", promotions: [] as string[],
-    signalSource: "", notes: "", demandScore: "50",
+    brand: "", notes: "",
   });
-  const [colourInput, setColourInput] = useState("");
   const [imageUrls, setImageUrls]     = useState<string[]>([]);
   const [imgProcessing, setImgProcessing] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   function toggleUC(uc: string) {
-    setForm(f => ({ ...f, useCase: f.useCase.includes(uc) ? f.useCase.filter(u => u !== uc) : [...f.useCase, uc] }));
+    setForm(f => {
+      const already = f.useCase.includes(uc);
+      if (!already && f.useCase.length >= 2) return f;
+      return { ...f, useCase: already ? f.useCase.filter(u => u !== uc) : [...f.useCase, uc] };
+    });
+  }
+
+  function toggleSP(sp: string) {
+    setForm(f => {
+      const already = f.sellingPoints.includes(sp);
+      if (!already && f.sellingPoints.length >= 3) return f;
+      return { ...f, sellingPoints: already ? f.sellingPoints.filter(s => s !== sp) : [...f.sellingPoints, sp] };
+    });
   }
 
   async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -962,17 +975,11 @@ function AddProductModal({ onClose, onSave }: {
     await onSave({
       name: form.name.trim(), productCode: form.productCode.trim() || null,
       category: form.category,
-      defaultUseCase: form.defaultUseCase || null, defaultTrigger: form.defaultTrigger || null,
       targetPrice: form.targetPrice ? parseFloat(form.targetPrice) : null,
       cost: form.cost ? parseFloat(form.cost) : null,
-      targetQty: form.targetQty ? parseInt(form.targetQty) : null,
-      useCase: form.useCase, sellingPoints: form.sellingPoints, style: form.style || null,
-      material: form.material || null,
-      colours: form.colours,
+      useCase: form.useCase, sellingPoints: form.sellingPoints,
       brand: form.brand || null,
-      promotions: form.promotions,
-      signalSource: form.signalSource || null, notes: form.notes || null,
-      demandScore: parseFloat(form.demandScore) || 50,
+      notes: form.notes || null,
       imageUrl: imageUrls[0] ?? null,
       imageUrls,
     });
@@ -989,10 +996,10 @@ function AddProductModal({ onClose, onSave }: {
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
         </div>
 
-        {/* Image upload — up to 4 */}
+        {/* Photos */}
         <div>
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-            Product Photos <span className="text-amber-500 normal-case font-normal">(up to 4 · required for Validation)</span>
+            Photos <span className="text-amber-500 normal-case font-normal">(up to 4)</span>
           </label>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
           <div className="grid grid-cols-4 gap-2">
@@ -1001,7 +1008,7 @@ function AddProductModal({ onClose, onSave }: {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={url} alt="" className="w-full h-full object-cover rounded-xl" />
                 <button onClick={() => setImageUrls(prev => prev.filter((_, idx) => idx !== i))}
-                  className="absolute top-1 right-1 w-5 h-5 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white text-[10px]">×</button>
+                  className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center text-white text-[10px]">×</button>
               </div>
             ))}
             {imageUrls.length < 4 && (
@@ -1012,25 +1019,23 @@ function AddProductModal({ onClose, onSave }: {
               </button>
             )}
           </div>
-          {imageUrls.length > 0 && (
-            <p className="text-[10px] text-gray-400 mt-1">{imageUrls.length}/4 photos uploaded</p>
-          )}
         </div>
 
+        {/* Name */}
         <div>
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Product Name *</label>
           <input className="input" placeholder="e.g. Urban Sling V2" value={form.name}
             onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
         </div>
 
+        {/* SKU */}
         <div>
-          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-            SKU / Barcode <span className="normal-case font-normal text-gray-400">(for Quick Log scan)</span>
-          </label>
-          <input className="input font-mono" placeholder="e.g. WLT001 or 8888888001234" value={form.productCode}
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">SKU</label>
+          <input className="input font-mono" placeholder="Your barcode / SKU code" value={form.productCode}
             onChange={e => setForm(f => ({ ...f, productCode: e.target.value }))} />
         </div>
 
+        {/* Category */}
         <div>
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Category *</label>
           <select className="select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
@@ -1038,7 +1043,47 @@ function AddProductModal({ onClose, onSave }: {
           </select>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        {/* Use Case */}
+        <div>
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+            Use Case <span className="normal-case font-normal text-gray-400">(max 2)</span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {USE_CASES.map(uc => (
+              <button key={uc} onClick={() => toggleUC(uc)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-all ${
+                  form.useCase.includes(uc) ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"
+                }`}>
+                {uc}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Selling Points */}
+        <div>
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+            Selling Points <span className="normal-case font-normal text-gray-400">(pick 3)</span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {SELLING_POINTS.map(sp => {
+              const on = form.sellingPoints.includes(sp);
+              return (
+                <button key={sp} onClick={() => toggleSP(sp)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-all ${
+                    on ? "bg-green-500 text-white border-green-500"
+                       : form.sellingPoints.length >= 3 ? "bg-white text-gray-300 border-gray-100 cursor-not-allowed"
+                       : "bg-white text-gray-600 border-gray-200 hover:border-green-300"
+                  }`}>
+                  {on ? "✔ " : ""}{sp}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Price + Cost */}
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Target Price (RM)</label>
             <input className="input" type="number" placeholder="129" value={form.targetPrice}
@@ -1048,11 +1093,6 @@ function AddProductModal({ onClose, onSave }: {
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Est Cost (RM)</label>
             <input className="input" type="number" placeholder="55" value={form.cost}
               onChange={e => setForm(f => ({ ...f, cost: e.target.value }))} />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Target Qty</label>
-            <input className="input" type="number" placeholder="100" value={form.targetQty}
-              onChange={e => setForm(f => ({ ...f, targetQty: e.target.value }))} />
           </div>
         </div>
 
@@ -1065,164 +1105,18 @@ function AddProductModal({ onClose, onSave }: {
           ) : null;
         })()}
 
+        {/* Brand */}
         <div>
-          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Use Case <span className="normal-case font-normal text-gray-400">(pick 1–2)</span></label>
-          <div className="flex flex-wrap gap-2">
-            {USE_CASES.map(uc => (
-              <button key={uc} onClick={() => toggleUC(uc)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-all ${
-                  form.useCase.includes(uc) ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-600 border-gray-200"
-                }`}>
-                {uc}
-              </button>
-            ))}
-          </div>
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Brand</label>
+          <select className="select" value={form.brand} onChange={e => setForm(f => ({ ...f, brand: e.target.value }))}>
+            <option value="">Select brand…</option>
+            {BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Default Use Case <span className="normal-case font-normal text-gray-400">(Quick Log pre-select)</span></label>
-            <select className="select text-sm" value={form.defaultUseCase} onChange={e => setForm(f => ({ ...f, defaultUseCase: e.target.value }))}>
-              <option value="">None</option>
-              {USE_CASES.map(uc => <option key={uc} value={uc}>{uc}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Default Trigger <span className="normal-case font-normal text-gray-400">(Quick Log pre-select)</span></label>
-            <select className="select text-sm" value={form.defaultTrigger} onChange={e => setForm(f => ({ ...f, defaultTrigger: e.target.value }))}>
-              <option value="">None</option>
-              {["Design", "Function", "Price", "Staff ⭐"].map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-        </div>
-
+        {/* Notes */}
         <div>
-          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Main Selling Point <span className="normal-case font-normal text-gray-400">(what sales team says)</span></label>
-          <div className="flex flex-wrap gap-2">
-            {SELLING_POINTS.map(sp => {
-              const on = form.sellingPoints.includes(sp);
-              return (
-                <button key={sp} onClick={() => setForm(f => ({
-                  ...f,
-                  sellingPoints: on ? f.sellingPoints.filter(s => s !== sp) : [...f.sellingPoints, sp],
-                }))}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-all ${
-                    on ? "bg-green-500 text-white border-green-500" : "bg-white text-gray-600 border-gray-200 hover:border-green-300"
-                  }`}>
-                  {on ? "✔ " : ""}{sp}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Brand</label>
-            <select className="select" value={form.brand} onChange={e => setForm(f => ({ ...f, brand: e.target.value }))}>
-              <option value="">Select brand…</option>
-              {BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Style</label>
-            <input className="input" placeholder="e.g. Formal, Casual" value={form.style}
-              onChange={e => setForm(f => ({ ...f, style: e.target.value }))} />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Material</label>
-          <input className="input" placeholder="e.g. PU Leather, Canvas, Nylon" value={form.material}
-            onChange={e => setForm(f => ({ ...f, material: e.target.value }))} />
-        </div>
-
-        {/* Promotion */}
-        <div>
-          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Promotion</label>
-          <div className="grid grid-cols-2 gap-2">
-            {PROMOTIONS.map(promo => {
-              const on = form.promotions.includes(promo.value);
-              return (
-                <button key={promo.value} type="button"
-                  onClick={() => setForm(f => ({
-                    ...f,
-                    promotions: on ? f.promotions.filter(p => p !== promo.value) : [...f.promotions, promo.value],
-                  }))}
-                  className={`py-2.5 px-3 rounded-xl text-sm font-semibold border-2 transition-all flex items-center gap-2 ${
-                    on ? "bg-orange-500 text-white border-orange-500 shadow-md" : "bg-white text-gray-600 border-gray-200 hover:border-orange-300"
-                  }`}>
-                  <span className="text-base">{promo.emoji}</span>
-                  {promo.value}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Colour Matrix */}
-        <div>
-          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Colour Matrix</label>
-          {/* Quick-add common colours */}
-          <div className="flex flex-wrap gap-1.5 mb-2">
-            {["Black", "Brown", "Beige", "Navy", "Grey", "White", "Red", "Green", "Pink", "Blue"].map(c => (
-              <button key={c} type="button"
-                onClick={() => !form.colours.includes(c) && setForm(f => ({ ...f, colours: [...f.colours, c] }))}
-                className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
-                  form.colours.includes(c)
-                    ? "bg-gray-800 text-white border-gray-800"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
-                }`}>
-                {c}
-              </button>
-            ))}
-          </div>
-          {/* Custom colour input */}
-          <div className="flex gap-2">
-            <input className="input flex-1" placeholder="Custom colour…" value={colourInput}
-              onChange={e => setColourInput(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Enter" && colourInput.trim()) {
-                  e.preventDefault();
-                  const c = colourInput.trim();
-                  if (!form.colours.includes(c)) setForm(f => ({ ...f, colours: [...f.colours, c] }));
-                  setColourInput("");
-                }
-              }} />
-            <button type="button"
-              onClick={() => {
-                const c = colourInput.trim();
-                if (c && !form.colours.includes(c)) { setForm(f => ({ ...f, colours: [...f.colours, c] })); setColourInput(""); }
-              }}
-              className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition-colors">
-              + Add
-            </button>
-          </div>
-          {/* Selected colours */}
-          {form.colours.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {form.colours.map(c => (
-                <span key={c} className="flex items-center gap-1 px-2.5 py-1 bg-gray-100 rounded-full text-xs font-semibold text-gray-700">
-                  {c}
-                  <button type="button" onClick={() => setForm(f => ({ ...f, colours: f.colours.filter(x => x !== c) }))}
-                    className="text-gray-400 hover:text-red-500 ml-0.5 leading-none">×</button>
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Demand Score (0–100)</label>
-          <div className="flex items-center gap-3">
-            <input type="range" min="0" max="100" className="flex-1" value={form.demandScore}
-              onChange={e => setForm(f => ({ ...f, demandScore: e.target.value }))} />
-            <span className="text-sm font-bold text-gray-700 w-8 text-right">{form.demandScore}</span>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Notes</label>
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Notes <span className="normal-case font-normal text-gray-400">(optional)</span></label>
           <textarea className="textarea" rows={2} placeholder="Any observations…" value={form.notes}
             onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
         </div>
@@ -1237,13 +1131,119 @@ function AddProductModal({ onClose, onSave }: {
   );
 }
 
+// ─── Promote to Master Modal ─────────────────────────────────────────────────
+function PromoteModal({ product, onClose, onSaved }: {
+  product: Product;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const sp: string[] = (() => { try { return JSON.parse(product.sellingPoints || "[]"); } catch { return []; } })();
+  const uc: string[] = (() => { try { return JSON.parse(product.useCase || "[]"); } catch { return []; } })();
+  const images = getImages(product);
+
+  const [sku, setSku]             = useState(product.productCode ?? "");
+  const [retailPrice, setRetailPrice] = useState(String(product.targetPrice ?? ""));
+  const [shortPitch, setShortPitch]   = useState("");
+  const [saving, setSaving]           = useState(false);
+  const [error, setError]             = useState("");
+
+  async function submit() {
+    if (!sku.trim() || !shortPitch.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      await apiFetch("/api/products/promote", {
+        method: "POST",
+        body: JSON.stringify({
+          warRoomProductId: product.id,
+          sku: sku.trim().toUpperCase(),
+          retailPrice: parseFloat(retailPrice) || 0,
+          shortPitch: shortPitch.trim(),
+        }),
+      });
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Promote failed");
+    } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="font-bold text-gray-900">Promote to Product Master</div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><XIcon size={18} /></button>
+        </div>
+
+        {/* Preview */}
+        <div className="px-6 pt-5 pb-4 bg-gray-50 mx-4 mt-4 rounded-xl space-y-3">
+          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Preview — auto-filled from War Room</div>
+          <div className="flex gap-3">
+            {images[0] ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={images[0]} alt="" className="w-16 h-16 object-cover rounded-lg flex-shrink-0" />
+            ) : (
+              <div className="w-16 h-16 bg-gray-200 rounded-lg flex-shrink-0 flex items-center justify-center">
+                <Package size={20} className="text-gray-300" />
+              </div>
+            )}
+            <div className="min-w-0">
+              <div className="font-bold text-gray-900 text-sm">{product.name}</div>
+              <div className="flex gap-1 flex-wrap mt-1">
+                <span className="badge bg-gray-200 text-gray-600 text-[10px]">{product.category}</span>
+                {uc.map(u => <span key={u} className="badge bg-blue-100 text-blue-600 text-[10px]">{u}</span>)}
+              </div>
+              {sp.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {sp.map(s => <span key={s} className="text-[10px] text-green-600 font-semibold">✔ {s}</span>)}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Inputs */}
+        <div className="px-6 py-5 space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">SKU *</label>
+            <input className="input font-mono" placeholder="Your barcode formula SKU"
+              value={sku} onChange={e => setSku(e.target.value.toUpperCase())} />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Retail Price (RM) *</label>
+            <input className="input" type="number" placeholder="129"
+              value={retailPrice} onChange={e => setRetailPrice(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Short Pitch *</label>
+            <input className="input" placeholder="One-liner your sales team says to customers…"
+              value={shortPitch} onChange={e => setShortPitch(e.target.value)} />
+          </div>
+
+          {error && <div className="text-red-500 text-sm bg-red-50 rounded-xl px-3 py-2">{error}</div>}
+
+          <button onClick={submit}
+            disabled={saving || !sku.trim() || !shortPitch.trim()}
+            className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:opacity-40 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors">
+            {saving && <Loader2 size={14} className="animate-spin" />}
+            Confirm → Add to Master
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ProductWarRoom() {
   const { user } = useAuth();
   const { data: products, loading, refetch } = useData<Product[]>("/api/products");
   const { data: outlets } = useData<Outlet[]>("/api/outlets");
-  const [activeTab, setActiveTab] = useState<Tab>("sourcing");
-  const [showAdd, setShowAdd] = useState(false);
+  const [activeTab, setActiveTab]     = useState<Tab>("sourcing");
+  const [showAdd, setShowAdd]         = useState(false);
+  const [promoteTarget, setPromoteTarget] = useState<Product | null>(null);
 
   // Sales users → redirect to Product Feedback
   if (user && user.role === "sales") {
@@ -1321,27 +1321,8 @@ export default function ProductWarRoom() {
     refetch();
   }
 
-  async function promoteToMaster(p: Product) {
-    // SKU must be set by the product team — store draft data in sessionStorage
-    // and redirect to Product Master with pre-filled modal
-    const uc: string[] = (() => { try { return JSON.parse(p.useCase); } catch { return []; } })();
-    const sp: string[] = (() => { try { return JSON.parse(p.sellingPoints || "[]"); } catch { return []; } })();
-    const draft = {
-      name:         p.name,
-      category:     p.category.toLowerCase(),
-      useCase:      (uc[0] ?? "daily").toLowerCase(),
-      series:       "core",
-      price:        String(p.targetPrice ?? ""),
-      mainImageUrl: p.imageUrl ?? "",
-      sellingPoints: sp,
-      shortPitch:   "",
-      barcode:      "",
-      mediaFolderUrl: "",
-      sku:          "",
-      warRoomId:    p.id,
-    };
-    sessionStorage.setItem("pm_draft", JSON.stringify(draft));
-    window.location.href = "/product-master?promote=1";
+  function promoteToMaster(p: Product) {
+    setPromoteTarget(p);
   }
 
   return (
@@ -1407,6 +1388,7 @@ export default function ProductWarRoom() {
             <DecisionTab products={watchlist}
               onApprove={id => advanceStatus(id, "Testing")}
               onReject={id => advanceStatus(id, "Eliminated")}
+              onPromote={setPromoteTarget}
               canEdit={canDecide} />
           )}
           {activeTab === "tracking" && (
@@ -1416,6 +1398,13 @@ export default function ProductWarRoom() {
       )}
 
       {showAdd && <AddProductModal onClose={() => setShowAdd(false)} onSave={addProduct} />}
+      {promoteTarget && (
+        <PromoteModal
+          product={promoteTarget}
+          onClose={() => setPromoteTarget(null)}
+          onSaved={refetch}
+        />
+      )}
     </div>
   );
 }

@@ -21,7 +21,6 @@ type PM = {
 // ─── Constants ───────────────────────────────────────────────────────────────
 const CATEGORIES = ["bag", "belt", "wallet", "travel", "accessory"];
 const USE_CASES  = ["work", "travel", "daily", "gift"];
-const SERIES     = ["daily", "core", "pro"];
 const STATUSES   = ["selling", "archive"];
 
 const CAT_LABEL: Record<string, string> = {
@@ -29,11 +28,6 @@ const CAT_LABEL: Record<string, string> = {
 };
 const UC_LABEL: Record<string, string> = {
   work: "Work", travel: "Travel", daily: "Daily", gift: "Gift",
-};
-const SERIES_COLOR: Record<string, string> = {
-  daily: "bg-blue-50 text-blue-600",
-  core:  "bg-amber-50 text-amber-600",
-  pro:   "bg-purple-50 text-purple-600",
 };
 const STATUS_COLOR: Record<string, string> = {
   selling: "bg-green-100 text-green-700",
@@ -124,7 +118,6 @@ function ProductCard({ p, onEdit, onArchive, onDelete, canEdit }: {
         </div>
 
         <div className="flex flex-wrap gap-1 mt-1.5">
-          <span className={cn("badge capitalize", SERIES_COLOR[p.series] ?? "bg-gray-50 text-gray-500")}>{p.series}</span>
           <span className="badge bg-gray-100 text-gray-600 capitalize">{CAT_LABEL[p.category] ?? p.category}</span>
           <span className="badge bg-blue-50 text-blue-600 capitalize">{UC_LABEL[p.useCase] ?? p.useCase}</span>
           <span className={cn("badge capitalize", STATUS_COLOR[p.status] ?? "bg-gray-100 text-gray-500")}>{p.status}</span>
@@ -216,7 +209,7 @@ function ProductCard({ p, onEdit, onArchive, onDelete, canEdit }: {
 
 // ─── Add / Edit Modal ────────────────────────────────────────────────────────
 const BLANK_FORM = {
-  name: "", category: "bag", useCase: "daily", series: "core",
+  name: "", category: "bag", useCase: "daily",
   price: "", barcode: "", mainImageUrl: "", mediaFolderUrl: "",
   sellingPoints: [] as string[], shortPitch: "", sku: "",
 };
@@ -230,7 +223,7 @@ function ProductModal({ initial, draft, onClose, onSaved }: {
   const isEdit = !!initial;
   const [form, setForm] = useState(initial ? {
     name: initial.name, category: initial.category, useCase: initial.useCase,
-    series: initial.series, price: String(initial.price),
+    price: String(initial.price),
     barcode: initial.barcode ?? "", mainImageUrl: initial.mainImageUrl ?? "",
     mediaFolderUrl: initial.mediaFolderUrl ?? "",
     sellingPoints: (() => { try { return JSON.parse(initial.sellingPoints); } catch { return []; } })(),
@@ -270,7 +263,7 @@ function ProductModal({ initial, draft, onClose, onSaved }: {
       const payload = {
         sku: form.sku.trim(),
         name: form.name.trim(), category: form.category, useCase: form.useCase,
-        series: form.series, price: parseFloat(form.price) || 0,
+        price: parseFloat(form.price) || 0,
         barcode: form.barcode.trim() || null,
         mainImageUrl: form.mainImageUrl.trim() || null,
         mediaFolderUrl: form.mediaFolderUrl.trim() || null,
@@ -346,8 +339,8 @@ function ProductModal({ initial, draft, onClose, onSaved }: {
             </div>
           </div>
 
-          {/* Category / Use Case / Series */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* Category / Use Case */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Category</label>
               <select className={inputCls} value={f.category} onChange={e => setForm(frm => ({ ...frm, category: e.target.value }))}>
@@ -358,12 +351,6 @@ function ProductModal({ initial, draft, onClose, onSaved }: {
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Use Case</label>
               <select className={inputCls} value={f.useCase} onChange={e => setForm(frm => ({ ...frm, useCase: e.target.value }))}>
                 {USE_CASES.map(u => <option key={u} value={u}>{UC_LABEL[u]}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Series</label>
-              <select className={inputCls} value={f.series} onChange={e => setForm(frm => ({ ...frm, series: e.target.value }))}>
-                {SERIES.map(s => <option key={s} value={s} className="capitalize">{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
               </select>
             </div>
           </div>
@@ -431,7 +418,6 @@ export default function ProductMasterPage() {
   const [q, setQ]                   = useState("");
   const [catFilter, setCatFilter]   = useState("");
   const [ucFilter, setUcFilter]     = useState("");
-  const [seriesFilter, setSeriesFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("selling");
   const [showModal, setShowModal]       = useState(false);
   const [editTarget, setEditTarget]     = useState<PM | null>(null);
@@ -457,14 +443,13 @@ export default function ProductMasterPage() {
   if (q)            params.set("q", q);
   if (catFilter)    params.set("category", catFilter);
   if (ucFilter)     params.set("useCase", ucFilter);
-  if (seriesFilter) params.set("series", seriesFilter);
   if (statusFilter) params.set("status", statusFilter);
 
   const url = `/api/product-master?${params.toString()}`;
-  const { data, loading, refetch } = useData<PM[]>(url, [q, catFilter, ucFilter, seriesFilter, statusFilter]);
+  const { data, loading, refetch } = useData<PM[]>(url, [q, catFilter, ucFilter, statusFilter]);
   const products = data ?? [];
 
-  const isFiltered = !!(q || catFilter || ucFilter || seriesFilter);
+  const isFiltered = !!(q || catFilter || ucFilter);
 
   async function handleArchive(p: PM) {
     const newStatus = p.status === "archive" ? "selling" : "archive";
@@ -547,11 +532,6 @@ export default function ProductMasterPage() {
           {USE_CASES.map(u => filterBtn(UC_LABEL[u], ucFilter === u, () => setUcFilter(ucFilter === u ? "" : u), "blue"))}
         </div>
 
-        {/* Series */}
-        <div className="flex gap-1.5 flex-wrap">
-          {filterBtn("All Series", seriesFilter === "", () => setSeriesFilter(""), "purple")}
-          {SERIES.map(s => filterBtn(s.charAt(0).toUpperCase() + s.slice(1), seriesFilter === s, () => setSeriesFilter(seriesFilter === s ? "" : s), "purple"))}
-        </div>
       </div>
 
       {/* Grid */}
