@@ -4,11 +4,17 @@ import { useData, apiFetch } from "@/hooks/useData";
 import {
   Search, Plus, X, ChevronDown, ChevronUp, Loader2, Package,
   Camera, ExternalLink, CheckCircle2, Archive, Pencil, Trash2, BookOpen,
+  Zap, Copy, Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type ProductMedia = { id: string; type: string; url: string; isPrimary: boolean; sortOrder: number };
+type GeneratedContent = {
+  tiktok_script?: string;
+  sales_script?: string;
+  ecommerce_copy?: string;
+};
 type PM = {
   id: string; sku: string; name: string; category: string; useCase: string;
   series: string; price: number; status: string; barcode: string | null;
@@ -16,12 +22,17 @@ type PM = {
   sellingPoints: string; shortPitch: string | null;
   warRoomId: string | null; createdAt: string; updatedAt: string;
   media: ProductMedia[];
+  targetUser: string | null;
+  customSellingPoints: string;
+  salesPitch: string | null;
+  material: string | null;
+  style: string | null;
+  generatedContent: GeneratedContent | null;
 };
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const CATEGORIES = ["bag", "belt", "wallet", "travel", "accessory"];
 const USE_CASES  = ["work", "travel", "daily", "gift"];
-const STATUSES   = ["selling", "archive"];
 
 const CAT_LABEL: Record<string, string> = {
   bag: "Bag", belt: "Belt", wallet: "Wallet", travel: "Travel", accessory: "Accessory",
@@ -61,6 +72,122 @@ async function uploadImage(file: File): Promise<string> {
   return (await r.json()).secure_url as string;
 }
 
+// ─── Copy Button ─────────────────────────────────────────────────────────────
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  async function handleCopy() {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  return (
+    <button onClick={handleCopy}
+      className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 hover:text-brand-500 transition-colors">
+      {copied ? <Check size={11} className="text-green-500" /> : <Copy size={11} />}
+      {copied ? "Copied!" : "Copy"}
+    </button>
+  );
+}
+
+// ─── Generated Content Display ───────────────────────────────────────────────
+function ContentSection({ label, text, onRegenerate, loading }: {
+  label: string; text: string; onRegenerate: () => void; loading: boolean;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{label}</span>
+        <div className="flex items-center gap-2">
+          <CopyButton text={text} />
+          <button onClick={onRegenerate} disabled={loading}
+            className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 hover:text-brand-500 transition-colors disabled:opacity-50">
+            {loading ? <Loader2 size={11} className="animate-spin" /> : <Zap size={11} />}
+            {loading ? "..." : "Redo"}
+          </button>
+        </div>
+      </div>
+      <pre className="bg-gray-50 rounded-xl p-3 text-xs text-gray-700 whitespace-pre-wrap leading-relaxed font-sans border border-gray-100">
+        {text}
+      </pre>
+    </div>
+  );
+}
+
+// ─── Generate Modal ───────────────────────────────────────────────────────────
+function GenerateModal({ product, onClose, onDone }: {
+  product: PM;
+  onClose: () => void;
+  onDone: (content: GeneratedContent) => void;
+}) {
+  const [loading, setLoading] = useState<string | null>(null);
+  const [error, setError]     = useState("");
+
+  async function generate(type: "tiktok" | "sales" | "ecommerce" | "all") {
+    setLoading(type);
+    setError("");
+    try {
+      const res = await apiFetch("/api/generate-content", {
+        method: "POST",
+        body: JSON.stringify({ product_id: product.id, type }),
+      });
+      onDone(res as GeneratedContent);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Generation failed");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  const csp: string[] = (() => { try { return JSON.parse(product.customSellingPoints); } catch { return []; } })();
+  const hasPitch = !!(product.salesPitch || product.targetUser || csp.length > 0);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+        <div className="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+          <div>
+            <h2 className="font-bold text-gray-900 flex items-center gap-2">
+              <Zap size={16} className="text-amber-500" /> Generate Content
+            </h2>
+            <p className="text-xs text-gray-400 mt-0.5">{product.name}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {!hasPitch && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700">
+              Tip: Add Target User, Selling Points, and Sales Pitch in Edit to get better content.
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2">
+            {(["tiktok", "sales", "ecommerce"] as const).map(type => (
+              <button key={type} onClick={() => generate(type)} disabled={!!loading}
+                className="flex items-center justify-center gap-2 py-3 bg-gray-50 hover:bg-brand-50 hover:text-brand-600 border-2 border-gray-100 hover:border-brand-200 text-gray-600 text-sm font-semibold rounded-xl transition-all disabled:opacity-50">
+                {loading === type ? <Loader2 size={14} className="animate-spin" /> : null}
+                {type === "tiktok" && "📱 TikTok"}
+                {type === "sales" && "🏪 Sales"}
+                {type === "ecommerce" && "🛒 E-commerce"}
+              </button>
+            ))}
+            <button onClick={() => generate("all")} disabled={!!loading}
+              className="col-span-2 flex items-center justify-center gap-2 py-3 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-xl transition-all disabled:opacity-50 shadow-sm">
+              {loading === "all" ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+              Generate All 3
+            </button>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl px-4 py-3 text-xs">{error}</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Empty State ─────────────────────────────────────────────────────────────
 function EmptyState({ filtered }: { filtered: boolean }) {
   return (
@@ -79,16 +206,34 @@ function EmptyState({ filtered }: { filtered: boolean }) {
 }
 
 // ─── Product Card ─────────────────────────────────────────────────────────────
-function ProductCard({ p, onEdit, onArchive, onDelete, canEdit }: {
+function ProductCard({ p, onEdit, onArchive, onDelete, onGenerate, onContentUpdate, canEdit }: {
   p: PM;
   onEdit: (p: PM) => void;
   onArchive: (p: PM) => void;
   onDelete: (id: string) => void;
+  onGenerate: (p: PM) => void;
+  onContentUpdate: (id: string, content: GeneratedContent) => void;
   canEdit: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [regenLoading, setRegenLoading] = useState<string | null>(null);
   const sp: string[] = (() => { try { return JSON.parse(p.sellingPoints); } catch { return []; } })();
   const thumb = p.mainImageUrl ?? p.media.find(m => m.isPrimary)?.url ?? p.media[0]?.url ?? null;
+  const content = p.generatedContent ?? {};
+
+  async function regenerate(type: "tiktok" | "sales" | "ecommerce") {
+    setRegenLoading(type);
+    try {
+      const res = await apiFetch("/api/generate-content", {
+        method: "POST",
+        body: JSON.stringify({ product_id: p.id, type }),
+      });
+      onContentUpdate(p.id, { ...content, ...(res as GeneratedContent) });
+    } catch { /* silent */ }
+    finally { setRegenLoading(null); }
+  }
+
+  const hasContent = !!(content.tiktok_script || content.sales_script || content.ecommerce_copy);
 
   return (
     <div className={cn("card space-y-3 cursor-pointer hover:shadow-md transition-all",
@@ -121,10 +266,13 @@ function ProductCard({ p, onEdit, onArchive, onDelete, canEdit }: {
           <span className="badge bg-gray-100 text-gray-600 capitalize">{CAT_LABEL[p.category] ?? p.category}</span>
           <span className="badge bg-blue-50 text-blue-600 capitalize">{UC_LABEL[p.useCase] ?? p.useCase}</span>
           <span className={cn("badge capitalize", STATUS_COLOR[p.status] ?? "bg-gray-100 text-gray-500")}>{p.status}</span>
+          {hasContent && (
+            <span className="badge bg-amber-50 text-amber-600">✦ Content Ready</span>
+          )}
         </div>
       </div>
 
-      {/* Selling points — always show top 3 */}
+      {/* Selling points */}
       {sp.length > 0 && (
         <div onClick={() => setExpanded(e => !e)} className="flex flex-wrap gap-1">
           {sp.slice(0, 3).map(s => (
@@ -137,6 +285,14 @@ function ProductCard({ p, onEdit, onArchive, onDelete, canEdit }: {
       {/* Short pitch */}
       {p.shortPitch && (
         <p onClick={() => setExpanded(e => !e)} className="text-xs text-gray-500 italic">"{p.shortPitch}"</p>
+      )}
+
+      {/* Generate button — always visible */}
+      {canEdit && (
+        <button onClick={() => onGenerate(p)}
+          className="w-full flex items-center justify-center gap-2 py-2 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 text-xs font-bold rounded-xl transition-all">
+          <Zap size={12} /> Generate Content
+        </button>
       )}
 
       {/* Expand toggle */}
@@ -170,6 +326,16 @@ function ProductCard({ p, onEdit, onArchive, onDelete, canEdit }: {
             </div>
           )}
 
+          {/* Product info */}
+          {(p.targetUser || p.salesPitch || p.material || p.style) && (
+            <div className="space-y-1 text-xs text-gray-500">
+              {p.targetUser  && <div>Target: <span className="font-semibold text-gray-700">{p.targetUser}</span></div>}
+              {p.salesPitch  && <div>Pitch: <span className="italic text-gray-600">"{p.salesPitch}"</span></div>}
+              {p.material    && <div>Material: <span className="font-semibold text-gray-700">{p.material}</span></div>}
+              {p.style       && <div>Style: <span className="font-semibold text-gray-700">{p.style}</span></div>}
+            </div>
+          )}
+
           {/* Barcode */}
           {p.barcode && (
             <div className="text-xs text-gray-500">Barcode: <span className="font-mono font-semibold text-gray-700">{p.barcode}</span></div>
@@ -181,6 +347,27 @@ function ProductCard({ p, onEdit, onArchive, onDelete, canEdit }: {
               className="flex items-center gap-1.5 text-xs text-blue-500 hover:text-blue-600 font-semibold">
               <ExternalLink size={11} /> Open Media Folder
             </a>
+          )}
+
+          {/* Generated Content */}
+          {hasContent && (
+            <div className="space-y-3 border-t border-amber-100 pt-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-amber-600">
+                <Zap size={12} /> Generated Content
+              </div>
+              {content.tiktok_script && (
+                <ContentSection label="📱 TikTok Script" text={content.tiktok_script}
+                  onRegenerate={() => regenerate("tiktok")} loading={regenLoading === "tiktok"} />
+              )}
+              {content.sales_script && (
+                <ContentSection label="🏪 Sales Script" text={content.sales_script}
+                  onRegenerate={() => regenerate("sales")} loading={regenLoading === "sales"} />
+              )}
+              {content.ecommerce_copy && (
+                <ContentSection label="🛒 E-commerce Copy" text={content.ecommerce_copy}
+                  onRegenerate={() => regenerate("ecommerce")} loading={regenLoading === "ecommerce"} />
+              )}
+            </div>
           )}
 
           {/* Actions */}
@@ -212,6 +399,8 @@ const BLANK_FORM = {
   name: "", category: "bag", useCase: "daily",
   price: "", barcode: "", mainImageUrl: "", mediaFolderUrl: "",
   sellingPoints: [] as string[], shortPitch: "", sku: "",
+  targetUser: "", customSellingPoints: ["", "", ""] as string[],
+  salesPitch: "", material: "", style: "",
 };
 
 function ProductModal({ initial, draft, onClose, onSaved }: {
@@ -221,6 +410,18 @@ function ProductModal({ initial, draft, onClose, onSaved }: {
   onSaved: () => void;
 }) {
   const isEdit = !!initial;
+
+  function parseCSP(raw: string): string[] {
+    try {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        const padded = [...arr, "", "", ""].slice(0, 3);
+        return padded;
+      }
+    } catch { /* */ }
+    return ["", "", ""];
+  }
+
   const [form, setForm] = useState(initial ? {
     name: initial.name, category: initial.category, useCase: initial.useCase,
     price: String(initial.price),
@@ -228,6 +429,11 @@ function ProductModal({ initial, draft, onClose, onSaved }: {
     mediaFolderUrl: initial.mediaFolderUrl ?? "",
     sellingPoints: (() => { try { return JSON.parse(initial.sellingPoints); } catch { return []; } })(),
     shortPitch: initial.shortPitch ?? "", sku: initial.sku,
+    targetUser: initial.targetUser ?? "",
+    customSellingPoints: parseCSP(initial.customSellingPoints),
+    salesPitch: initial.salesPitch ?? "",
+    material: initial.material ?? "",
+    style: initial.style ?? "",
   } : draft ? { ...draft } : { ...BLANK_FORM });
 
   const [uploading, setUploading] = useState(false);
@@ -242,6 +448,14 @@ function ProductModal({ initial, draft, onClose, onSaved }: {
         ? f.sellingPoints.filter((s: string) => s !== sp)
         : [...f.sellingPoints, sp],
     }));
+  }
+
+  function setCSP(index: number, value: string) {
+    setForm(f => {
+      const arr = [...f.customSellingPoints];
+      arr[index] = value;
+      return { ...f, customSellingPoints: arr };
+    });
   }
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -260,6 +474,7 @@ function ProductModal({ initial, draft, onClose, onSaved }: {
     setSaving(true);
     setError("");
     try {
+      const csp = form.customSellingPoints.map(s => s.trim()).filter(Boolean);
       const payload = {
         sku: form.sku.trim(),
         name: form.name.trim(), category: form.category, useCase: form.useCase,
@@ -269,6 +484,11 @@ function ProductModal({ initial, draft, onClose, onSaved }: {
         mediaFolderUrl: form.mediaFolderUrl.trim() || null,
         sellingPoints: form.sellingPoints,
         shortPitch: form.shortPitch.trim() || null,
+        targetUser: form.targetUser.trim() || null,
+        customSellingPoints: csp,
+        salesPitch: form.salesPitch.trim() || null,
+        material: form.material.trim() || null,
+        style: form.style.trim() || null,
       };
       if (isEdit) {
         await apiFetch(`/api/product-master/${initial!.id}`, { method: "PATCH", body: JSON.stringify(payload) });
@@ -355,6 +575,25 @@ function ProductModal({ initial, draft, onClose, onSaved }: {
             </div>
           </div>
 
+          {/* Target User + Material + Style */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Target User</label>
+              <input className={inputCls} placeholder="e.g. Working professionals aged 25-35"
+                value={f.targetUser} onChange={e => setForm(frm => ({ ...frm, targetUser: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Material</label>
+              <input className={inputCls} placeholder="e.g. Nylon, Leather"
+                value={f.material} onChange={e => setForm(frm => ({ ...frm, material: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Style</label>
+              <input className={inputCls} placeholder="e.g. Minimalist"
+                value={f.style} onChange={e => setForm(frm => ({ ...frm, style: e.target.value }))} />
+            </div>
+          </div>
+
           {/* Selling Points */}
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Selling Points</label>
@@ -371,9 +610,27 @@ function ProductModal({ initial, draft, onClose, onSaved }: {
             </div>
           </div>
 
+          {/* Custom Selling Points */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Custom Selling Points (max 3)</label>
+            <div className="space-y-2">
+              {f.customSellingPoints.map((pt, i) => (
+                <input key={i} className={inputCls} placeholder={`Point ${i + 1}…`}
+                  value={pt} onChange={e => setCSP(i, e.target.value)} />
+              ))}
+            </div>
+          </div>
+
+          {/* Sales Pitch */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Sales Pitch</label>
+            <input className={inputCls} placeholder="One powerful sentence to sell this product…"
+              value={f.salesPitch} onChange={e => setForm(frm => ({ ...frm, salesPitch: e.target.value }))} />
+          </div>
+
           {/* Short pitch */}
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Short Pitch</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Short Pitch (internal)</label>
             <input className={inputCls} placeholder="One-liner for your sales team…"
               value={f.shortPitch} onChange={e => setForm(frm => ({ ...frm, shortPitch: e.target.value }))} />
           </div>
@@ -422,6 +679,10 @@ export default function ProductMasterPage() {
   const [showModal, setShowModal]       = useState(false);
   const [editTarget, setEditTarget]     = useState<PM | null>(null);
   const [promoteDraft, setPromoteDraft] = useState<typeof BLANK_FORM | null>(null);
+  const [generateTarget, setGenerateTarget] = useState<PM | null>(null);
+
+  // Optimistic content update (no full refetch needed after generation)
+  const [contentOverrides, setContentOverrides] = useState<Record<string, GeneratedContent>>({});
 
   // Pick up War Room promote draft
   useEffect(() => {
@@ -447,7 +708,10 @@ export default function ProductMasterPage() {
 
   const url = `/api/product-master?${params.toString()}`;
   const { data, loading, refetch } = useData<PM[]>(url, [q, catFilter, ucFilter, statusFilter]);
-  const products = data ?? [];
+  const products = (data ?? []).map(p => ({
+    ...p,
+    generatedContent: contentOverrides[p.id] ?? p.generatedContent,
+  }));
 
   const isFiltered = !!(q || catFilter || ucFilter);
 
@@ -466,6 +730,22 @@ export default function ProductMasterPage() {
   }
 
   const handleSaved = useCallback(() => { refetch(); setEditTarget(null); }, [refetch]);
+
+  function handleContentUpdate(id: string, content: GeneratedContent) {
+    setContentOverrides(prev => ({ ...prev, [id]: content }));
+    // also refresh in background to keep server state in sync
+    refetch();
+  }
+
+  function handleGenerateDone(content: GeneratedContent) {
+    if (generateTarget) {
+      handleContentUpdate(generateTarget.id, {
+        ...(generateTarget.generatedContent ?? {}),
+        ...content,
+      });
+    }
+    refetch();
+  }
 
   const filterBtn = (label: string, active: boolean, onClick: () => void, color = "brand") => (
     <button onClick={onClick}
@@ -488,7 +768,7 @@ export default function ProductMasterPage() {
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <BookOpen size={22} className="text-brand-500" /> Product Master
           </h1>
-          <p className="text-gray-500 text-sm mt-0.5">Official product catalog — {products.length} product{products.length !== 1 ? "s" : ""}</p>
+          <p className="text-gray-500 text-sm mt-0.5">Content production engine — {products.length} product{products.length !== 1 ? "s" : ""}</p>
         </div>
         <button onClick={() => { setEditTarget(null); setShowModal(true); }}
           className="flex items-center gap-2 px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
@@ -513,25 +793,19 @@ export default function ProductMasterPage() {
 
       {/* Filters */}
       <div className="space-y-2">
-        {/* Status */}
         <div className="flex gap-1.5 flex-wrap">
           {filterBtn("All", statusFilter === "", () => setStatusFilter(""), "brand")}
           {filterBtn("Selling", statusFilter === "selling", () => setStatusFilter("selling"), "green")}
           {filterBtn("Archive", statusFilter === "archive", () => setStatusFilter("archive"), "brand")}
         </div>
-
-        {/* Category */}
         <div className="flex gap-1.5 flex-wrap">
           {filterBtn("All Categories", catFilter === "", () => setCatFilter(""), "brand")}
           {CATEGORIES.map(c => filterBtn(CAT_LABEL[c], catFilter === c, () => setCatFilter(catFilter === c ? "" : c), "brand"))}
         </div>
-
-        {/* Use Case */}
         <div className="flex gap-1.5 flex-wrap">
           {filterBtn("All Use Cases", ucFilter === "", () => setUcFilter(""), "blue")}
           {USE_CASES.map(u => filterBtn(UC_LABEL[u], ucFilter === u, () => setUcFilter(ucFilter === u ? "" : u), "blue"))}
         </div>
-
       </div>
 
       {/* Grid */}
@@ -546,19 +820,30 @@ export default function ProductMasterPage() {
               onEdit={setEditTarget}
               onArchive={handleArchive}
               onDelete={handleDelete}
+              onGenerate={setGenerateTarget}
+              onContentUpdate={handleContentUpdate}
               canEdit={true}
             />
           ))}
         </div>
       )}
 
-      {/* Modals */}
+      {/* Product Edit Modal */}
       {(showModal || editTarget) && (
         <ProductModal
           initial={editTarget}
           draft={!editTarget ? promoteDraft : null}
           onClose={() => { setShowModal(false); setEditTarget(null); setPromoteDraft(null); }}
           onSaved={handleSaved}
+        />
+      )}
+
+      {/* Generate Modal */}
+      {generateTarget && (
+        <GenerateModal
+          product={generateTarget}
+          onClose={() => setGenerateTarget(null)}
+          onDone={handleGenerateDone}
         />
       )}
     </div>

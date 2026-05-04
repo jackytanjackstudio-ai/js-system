@@ -355,11 +355,17 @@ model ProductMaster {
   barcode        String?
   mainImageUrl   String?
   mediaFolderUrl String?
-  sellingPoints  String   @default("[]")
-  shortPitch     String?
-  warRoomId      String?  // optional link back to source War Room product
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  sellingPoints        String   @default("[]")
+  shortPitch           String?
+  warRoomId            String?
+  targetUser           String?
+  customSellingPoints  String   @default("[]")
+  salesPitch           String?
+  material             String?
+  style                String?
+  generatedContent     Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   media ProductMedia[]
 

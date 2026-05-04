@@ -12,11 +12,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const data: Record<string, unknown> = {};
     const fields = ["name", "category", "useCase", "series", "price", "status", "barcode",
-                    "mainImageUrl", "mediaFolderUrl", "shortPitch", "warRoomId"] as const;
+                    "mainImageUrl", "mediaFolderUrl", "shortPitch", "warRoomId",
+                    "targetUser", "salesPitch", "material", "style"] as const;
     for (const f of fields) {
       if (body[f] !== undefined) data[f] = body[f] === "" ? null : body[f];
     }
     if (body.sellingPoints !== undefined) data.sellingPoints = JSON.stringify(body.sellingPoints);
+    if (body.customSellingPoints !== undefined) data.customSellingPoints = JSON.stringify(body.customSellingPoints);
 
     // Lowercase enum fields
     if (data.category) data.category = String(data.category).toLowerCase();

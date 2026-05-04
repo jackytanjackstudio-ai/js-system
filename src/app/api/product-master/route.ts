@@ -43,7 +43,8 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { name, category, useCase, series, price, status, barcode,
-            mainImageUrl, mediaFolderUrl, sellingPoints, shortPitch, warRoomId } = body;
+            mainImageUrl, mediaFolderUrl, sellingPoints, shortPitch, warRoomId,
+            targetUser, customSellingPoints, salesPitch, material, style } = body;
 
     const sku = body.sku?.trim();
     if (!sku)              return apiError("SKU is required");
@@ -56,18 +57,23 @@ export async function POST(req: Request) {
     const product = await prisma.productMaster.create({
       data: {
         sku,
-        name:          name.trim(),
-        category:      category.toLowerCase(),
-        useCase:       useCase.toLowerCase(),
-        series:        (series ?? "core").toLowerCase(),
-        price:         Number(price) || 0,
-        status:        status ?? "selling",
-        barcode:       barcode?.trim() || null,
-        mainImageUrl:  mainImageUrl?.trim() || null,
-        mediaFolderUrl: mediaFolderUrl?.trim() || null,
-        sellingPoints: JSON.stringify(sellingPoints ?? []),
-        shortPitch:    shortPitch?.trim() || null,
-        warRoomId:     warRoomId ?? null,
+        name:                name.trim(),
+        category:            category.toLowerCase(),
+        useCase:             useCase.toLowerCase(),
+        series:              (series ?? "core").toLowerCase(),
+        price:               Number(price) || 0,
+        status:              status ?? "selling",
+        barcode:             barcode?.trim() || null,
+        mainImageUrl:        mainImageUrl?.trim() || null,
+        mediaFolderUrl:      mediaFolderUrl?.trim() || null,
+        sellingPoints:       JSON.stringify(sellingPoints ?? []),
+        shortPitch:          shortPitch?.trim() || null,
+        warRoomId:           warRoomId ?? null,
+        targetUser:          targetUser?.trim() || null,
+        customSellingPoints: JSON.stringify(customSellingPoints ?? []),
+        salesPitch:          salesPitch?.trim() || null,
+        material:            material?.trim() || null,
+        style:               style?.trim() || null,
       },
       include: { media: true },
     });
