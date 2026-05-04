@@ -1,6 +1,7 @@
 "use client";
-import { useData } from "@/hooks/useData";
-import { Store, Users, Activity, ShieldCheck } from "lucide-react";
+import { useState, useRef } from "react";
+import { useData, apiFetch } from "@/hooks/useData";
+import { Store, Users, Activity, ShieldCheck, Database, Upload, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 type Outlet = { id: string; name: string; city: string; type: string; isActive: boolean };
@@ -14,12 +15,85 @@ const ROLE_COLORS: Record<string, string> = {
   product: "bg-green-900 text-green-300",
 };
 
+function SkuCatalogImport() {
+  const { data: catalogInfo, refetch } = useData<{ count: number }>("/api/admin/sku-catalog");
+  const fileRef   = useRef<HTMLInputElement>(null);
+  const [status,   setStatus]   = useState<"idle" | "uploading" | "done" | "error">("idle");
+  const [result,   setResult]   = useState<{ imported: number; total: number } | null>(null);
+  const [errMsg,   setErrMsg]   = useState("");
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setStatus("uploading");
+    setResult(null);
+    setErrMsg("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/admin/sku-catalog", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) { setErrMsg(data.error ?? "Import failed"); setStatus("error"); return; }
+      setResult(data.data ?? data);
+      setStatus("done");
+      refetch();
+    } catch (err) {
+      setErrMsg(err instanceof Error ? err.message : "Import failed");
+      setStatus("error");
+    } finally {
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  const count = catalogInfo?.count ?? 0;
+
+  return (
+    <div className="bg-stone-800 border border-stone-700 rounded-xl p-5 space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-lg bg-amber-600/20 flex items-center justify-center">
+          <Database size={16} className="text-amber-400" />
+        </div>
+        <div>
+          <h2 className="text-white font-semibold text-sm">SKU Catalog</h2>
+          <p className="text-stone-400 text-xs">{count > 0 ? `${count.toLocaleString()} products loaded` : "No products loaded yet"}</p>
+        </div>
+      </div>
+
+      <p className="text-stone-400 text-xs leading-relaxed">
+        Upload your <span className="text-white font-medium">MASTER CODE LIST.xlsx</span> to enable barcode scanning in Sales Report Quick Log.
+        Re-uploading will update existing products automatically.
+      </p>
+
+      <label className={`flex items-center justify-center gap-2 w-full py-3 rounded-lg border-2 border-dashed cursor-pointer transition-all text-sm font-semibold
+        ${status === "uploading" ? "border-amber-600/40 text-amber-400/50 pointer-events-none" :
+          "border-amber-600/40 text-amber-400 hover:border-amber-500 hover:bg-amber-600/5"}`}>
+        {status === "uploading"
+          ? <><Loader2 size={16} className="animate-spin" /> Importing…</>
+          : <><Upload size={15} /> Upload Master Code List (.xlsx)</>}
+        <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFile} disabled={status === "uploading"} />
+      </label>
+
+      {status === "done" && result && (
+        <div className="flex items-center gap-2 text-green-400 text-xs font-semibold">
+          <CheckCircle size={14} />
+          {result.imported.toLocaleString()} of {result.total.toLocaleString()} products imported successfully.
+        </div>
+      )}
+      {status === "error" && (
+        <div className="flex items-center gap-2 text-red-400 text-xs font-semibold">
+          <AlertCircle size={14} /> {errMsg}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminOverview() {
   const { data: outlets, loading: ol } = useData<Outlet[]>("/api/outlets");
   const { data: staff,   loading: sl } = useData<Staff[]>("/api/staff");
 
-  const physical  = (outlets ?? []).filter(o => o.type === "physical" && o.isActive);
-  const online    = (outlets ?? []).filter(o => o.type === "online"   && o.isActive);
+  const physical    = (outlets ?? []).filter(o => o.type === "physical" && o.isActive);
+  const online      = (outlets ?? []).filter(o => o.type === "online"   && o.isActive);
   const activeStaff = (staff ?? []).filter(s => s.isActive);
 
   const roleCounts = (staff ?? []).reduce<Record<string, number>>((acc, s) => {
@@ -88,6 +162,9 @@ export default function AdminOverview() {
           <p className="text-stone-500 text-sm">Manage login accounts, roles, and outlet assignments.</p>
         </Link>
       </div>
+
+      {/* SKU Catalog import */}
+      <SkuCatalogImport />
 
       {/* Role breakdown */}
       {!sl && (

@@ -896,7 +896,7 @@ function VMTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdmin: bo
                   <img src={img.url} alt={img.label}
                     className="w-full rounded-lg object-cover h-36 border-2 border-green-200 cursor-zoom-in"
                     onClick={() => setLightbox(img.url)}
-                    onError={() => setFailedUrls(prev => new Set([...prev, img.url]))} />
+                    onError={() => setFailedUrls(prev => { const s = new Set(prev); s.add(img.url); return s; })} />
                   {isAdmin && (
                     <button onClick={() => removeImage(images.indexOf(img))}
                       className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -922,7 +922,7 @@ function VMTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdmin: bo
                   <img src={img.url} alt={img.label}
                     className="w-full rounded-lg object-cover h-36 border-2 border-red-200 cursor-zoom-in"
                     onClick={() => setLightbox(img.url)}
-                    onError={() => setFailedUrls(prev => new Set([...prev, img.url]))} />
+                    onError={() => setFailedUrls(prev => { const s = new Set(prev); s.add(img.url); return s; })} />
                   {isAdmin && (
                     <button onClick={() => removeImage(images.indexOf(img))}
                       className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">

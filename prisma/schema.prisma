@@ -304,6 +304,21 @@ model CampaignTask {
   campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 }
 
+model SkuCatalog {
+  id        String   @id @default(cuid())
+  stockCode String   @unique
+  barcode   String?
+  name      String
+  brand     String?
+  category  String
+  price     Float    @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([barcode])
+}
+
 model VMSubmission {
   id               String   @id @default(cuid())
   campaignId       String
