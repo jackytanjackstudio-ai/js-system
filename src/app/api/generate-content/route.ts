@@ -7,18 +7,25 @@ function getClient() {
 }
 
 type ContentType = "tiktok" | "sales" | "ecommerce" | "all";
+type Lang = "en" | "zh" | "ms";
 
 interface ProductData {
   product_name: string;
   price: number;
   category: string;
   material: string | null;
+  style: string | null;
   use_case: string;
   selling_points: string[];
-  target_audience: string | null;
   sales_pitch: string | null;
-  style: string | null;
+  target_audience: string | null;
 }
+
+const LANG_INSTRUCTION: Record<Lang, string> = {
+  en: "Write ALL content in English.",
+  zh: "Write ALL content in Simplified Chinese (中文简体).",
+  ms: "Write ALL content in Bahasa Malaysia (Bahasa Melayu).",
+};
 
 const PROMPT_TEMPLATE = `
 You are a top-tier retail content strategist specializing in fashion accessories.
@@ -34,7 +41,6 @@ IMPORTANT RULES:
 - Focus on DAILY USAGE scenarios
 - Use NATURAL spoken language (not corporate)
 - Make it feel like real human selling, not AI
-- Write in the same language as the product data (Chinese if data is Chinese, English if English)
 
 OUTPUT FORMAT (STRICT — do not add extra headers or commentary):
 
@@ -77,9 +83,11 @@ Conversion CTA:
 <urgency-driven closing line with price>
 `.trim();
 
-function buildPrompt(data: ProductData): string {
+function buildPrompt(data: ProductData, lang: Lang): string {
   const sp = data.selling_points.length > 0 ? data.selling_points.join(", ") : "Not specified";
-  return `PRODUCT DATA:
+  return `LANGUAGE REQUIREMENT: ${LANG_INSTRUCTION[lang]}
+
+PRODUCT DATA:
 Name: ${data.product_name}
 Price: RM ${data.price}
 Category: ${data.category}
@@ -113,10 +121,11 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { product_id, type } = body as { product_id: string; type: ContentType };
+    const { product_id, type, lang = "en" } = body as { product_id: string; type: ContentType; lang?: Lang };
 
     if (!product_id) return apiError("product_id is required");
     if (!["tiktok", "sales", "ecommerce", "all"].includes(type)) return apiError("invalid type");
+    if (!["en", "zh", "ms"].includes(lang)) return apiError("invalid lang");
 
     const product = await prisma.productMaster.findUnique({ where: { id: product_id } });
     if (!product) return apiError("Product not found", 404);
@@ -136,7 +145,7 @@ export async function POST(req: Request) {
       target_audience: product.targetUser,
     };
 
-    const prompt = buildPrompt(productData);
+    const prompt = buildPrompt(productData, lang);
 
     const response = await getClient().responses.create({
       model: "gpt-4o",
@@ -144,16 +153,20 @@ export async function POST(req: Request) {
     });
 
     const fullText = response.output_text;
-
     const tiktok    = parseSection(fullText, "TIKTOK_SCRIPT");
     const sales     = parseSection(fullText, "SALES_SCRIPT");
     const ecommerce = parseSection(fullText, "ECOMMERCE");
 
-    const existing = (product.generatedContent ?? {}) as Record<string, string>;
+    // Nested storage: generatedContent[lang][type]
+    const existing = (product.generatedContent ?? {}) as Record<string, Record<string, string>>;
+    const existingLang = existing[lang] ?? {};
 
     if (type === "all") {
-      const content = { ...existing, tiktok_script: tiktok, sales_script: sales, ecommerce_copy: ecommerce };
-      await prisma.productMaster.update({ where: { id: product_id }, data: { generatedContent: content } });
+      const updated = {
+        ...existing,
+        [lang]: { ...existingLang, tiktok_script: tiktok, sales_script: sales, ecommerce_copy: ecommerce },
+      };
+      await prisma.productMaster.update({ where: { id: product_id }, data: { generatedContent: updated } });
       return apiOk({ tiktok_script: tiktok, sales_script: sales, ecommerce_copy: ecommerce });
     }
 
@@ -168,11 +181,14 @@ export async function POST(req: Request) {
       ecommerce: ecommerce,
     };
 
-    const result = sectionMap[type as Exclude<ContentType, "all">];
-    const content = { ...existing, [keyMap[type as Exclude<ContentType, "all">]]: result };
-    await prisma.productMaster.update({ where: { id: product_id }, data: { generatedContent: content } });
+    const t = type as Exclude<ContentType, "all">;
+    const updated = {
+      ...existing,
+      [lang]: { ...existingLang, [keyMap[t]]: sectionMap[t] },
+    };
+    await prisma.productMaster.update({ where: { id: product_id }, data: { generatedContent: updated } });
 
-    return apiOk({ [keyMap[type as Exclude<ContentType, "all">]]: result });
+    return apiOk({ [keyMap[t]]: sectionMap[t] });
   } catch (err) {
     console.error("Generate content error:", err);
     return apiError(err instanceof Error ? err.message : "Generation failed", 500);

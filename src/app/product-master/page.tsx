@@ -7,14 +7,12 @@ import {
   Zap, Copy, Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/context/LangContext";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type ProductMedia = { id: string; type: string; url: string; isPrimary: boolean; sortOrder: number };
-type GeneratedContent = {
-  tiktok_script?: string;
-  sales_script?: string;
-  ecommerce_copy?: string;
-};
+type LangSlot = { tiktok_script?: string; sales_script?: string; ecommerce_copy?: string; };
+type GeneratedContent = { en?: LangSlot; zh?: LangSlot; ms?: LangSlot; } & LangSlot;
 type PM = {
   id: string; sku: string; name: string; category: string; useCase: string;
   series: string; price: number; status: string; barcode: string | null;
@@ -114,10 +112,11 @@ function ContentSection({ label, text, onRegenerate, loading }: {
 }
 
 // ─── Generate Modal ───────────────────────────────────────────────────────────
-function GenerateModal({ product, onClose, onDone }: {
+function GenerateModal({ product, lang, onClose, onDone }: {
   product: PM;
+  lang: string;
   onClose: () => void;
-  onDone: (content: GeneratedContent) => void;
+  onDone: (content: LangSlot) => void;
 }) {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError]     = useState("");
@@ -128,9 +127,9 @@ function GenerateModal({ product, onClose, onDone }: {
     try {
       const res = await apiFetch("/api/generate-content", {
         method: "POST",
-        body: JSON.stringify({ product_id: product.id, type }),
+        body: JSON.stringify({ product_id: product.id, type, lang }),
       });
-      onDone(res as GeneratedContent);
+      onDone(res as LangSlot);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generation failed");
@@ -206,8 +205,9 @@ function EmptyState({ filtered }: { filtered: boolean }) {
 }
 
 // ─── Product Card ─────────────────────────────────────────────────────────────
-function ProductCard({ p, onEdit, onArchive, onDelete, onGenerate, onContentUpdate, canEdit }: {
+function ProductCard({ p, lang, onEdit, onArchive, onDelete, onGenerate, onContentUpdate, canEdit }: {
   p: PM;
+  lang: string;
   onEdit: (p: PM) => void;
   onArchive: (p: PM) => void;
   onDelete: (id: string) => void;
@@ -219,16 +219,22 @@ function ProductCard({ p, onEdit, onArchive, onDelete, onGenerate, onContentUpda
   const [regenLoading, setRegenLoading] = useState<string | null>(null);
   const sp: string[] = (() => { try { return JSON.parse(p.sellingPoints); } catch { return []; } })();
   const thumb = p.mainImageUrl ?? p.media.find(m => m.isPrimary)?.url ?? p.media[0]?.url ?? null;
-  const content = p.generatedContent ?? {};
+
+  // Read content for current language; fall back to legacy flat format
+  const allContent = p.generatedContent ?? {};
+  const content: LangSlot = (allContent as Record<string, LangSlot>)[lang] ?? {};
+  const anyLangHasContent = !!(allContent.tiktok_script || allContent.sales_script || allContent.ecommerce_copy ||
+    Object.values(allContent).some((v) => typeof v === "object" && v && (v as LangSlot).tiktok_script));
 
   async function regenerate(type: "tiktok" | "sales" | "ecommerce") {
     setRegenLoading(type);
     try {
       const res = await apiFetch("/api/generate-content", {
         method: "POST",
-        body: JSON.stringify({ product_id: p.id, type }),
+        body: JSON.stringify({ product_id: p.id, type, lang }),
       });
-      onContentUpdate(p.id, { ...content, ...(res as GeneratedContent) });
+      const updated = { ...allContent, [lang]: { ...content, ...(res as LangSlot) } };
+      onContentUpdate(p.id, updated as GeneratedContent);
     } catch { /* silent */ }
     finally { setRegenLoading(null); }
   }
@@ -266,8 +272,8 @@ function ProductCard({ p, onEdit, onArchive, onDelete, onGenerate, onContentUpda
           <span className="badge bg-gray-100 text-gray-600 capitalize">{CAT_LABEL[p.category] ?? p.category}</span>
           <span className="badge bg-blue-50 text-blue-600 capitalize">{UC_LABEL[p.useCase] ?? p.useCase}</span>
           <span className={cn("badge capitalize", STATUS_COLOR[p.status] ?? "bg-gray-100 text-gray-500")}>{p.status}</span>
-          {hasContent && (
-            <span className="badge bg-amber-50 text-amber-600">✦ Content Ready</span>
+          {anyLangHasContent && (
+            <span className="badge bg-amber-50 text-amber-600">✦ {hasContent ? "Content Ready" : "Content (other lang)"}</span>
           )}
         </div>
       </div>
@@ -672,6 +678,7 @@ function ProductModal({ initial, draft, onClose, onSaved }: {
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function ProductMasterPage() {
+  const { lang } = useLang();
   const [q, setQ]                   = useState("");
   const [catFilter, setCatFilter]   = useState("");
   const [ucFilter, setUcFilter]     = useState("");
@@ -816,7 +823,7 @@ export default function ProductMasterPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {products.map(p => (
-            <ProductCard key={p.id} p={p}
+            <ProductCard key={p.id} p={p} lang={lang}
               onEdit={setEditTarget}
               onArchive={handleArchive}
               onDelete={handleDelete}
@@ -842,6 +849,7 @@ export default function ProductMasterPage() {
       {generateTarget && (
         <GenerateModal
           product={generateTarget}
+          lang={lang}
           onClose={() => setGenerateTarget(null)}
           onDone={handleGenerateDone}
         />
