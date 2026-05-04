@@ -9,6 +9,7 @@ export const translations = {
     nav_creator_insight:  "Creator Insight",
     nav_data_hub:         "Data Hub",
     nav_product_war_room: "Product War Room",
+    nav_product_master:   "Product Master",
     nav_product_feedback: "Product Feedback",
     nav_execution:        "Execution",
 
@@ -282,6 +283,7 @@ export const translations = {
     nav_creator_insight:  "内容洞察",
     nav_data_hub:         "数据中枢",
     nav_product_war_room: "产品决策室",
+    nav_product_master:   "产品目录",
     nav_product_feedback: "产品评分",
 
     // Product Feedback page
@@ -542,6 +544,7 @@ export const translations = {
     nav_creator_insight:  "Insight Kreator",
     nav_data_hub:         "Hab Data",
     nav_product_war_room: "Bilik Perang Produk",
+    nav_product_master:   "Katalog Produk",
     nav_product_feedback: "Maklum Balas Produk",
 
     // Product Feedback page

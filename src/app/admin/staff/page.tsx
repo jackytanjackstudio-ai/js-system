@@ -27,6 +27,8 @@ export default function AdminStaff() {
   const [editForm, setEditForm]   = useState({ name: "", role: "", outletId: "" });
   const [newForm, setNewForm]     = useState({ name: "", email: "", role: "sales", outletId: "", password: "" });
   const [search, setSearch]       = useState("");
+  const [resetId, setResetId]     = useState<string | null>(null);
+  const [newPw, setNewPw]         = useState("");
 
   async function addUser() {
     if (!newForm.name.trim() || !newForm.email.trim()) return;
@@ -57,6 +59,16 @@ export default function AdminStaff() {
   async function toggleActive(s: Staff) {
     await apiFetch("/api/staff", { method: "PATCH", body: JSON.stringify({ id: s.id, isActive: !s.isActive }) });
     refetchStaff();
+  }
+
+  async function resetPassword(id: string) {
+    if (!newPw.trim()) return;
+    setSaving(true);
+    try {
+      await apiFetch("/api/staff", { method: "PATCH", body: JSON.stringify({ id, password: newPw.trim() }) });
+      setResetId(null);
+      setNewPw("");
+    } finally { setSaving(false); }
   }
 
   function startEdit(s: Staff) {
@@ -212,11 +224,30 @@ export default function AdminStaff() {
                           <X size={11} />
                         </button>
                       </div>
+                    ) : resetId === s.id ? (
+                      <div className="flex items-center gap-1.5 justify-end">
+                        <input autoFocus type="password" placeholder="New password"
+                          value={newPw} onChange={(e) => setNewPw(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") resetPassword(s.id); if (e.key === "Escape") { setResetId(null); setNewPw(""); } }}
+                          className="bg-stone-700 border border-amber-600/60 rounded-lg px-2.5 py-1 text-white text-xs w-32 focus:outline-none focus:border-amber-500 placeholder-stone-500" />
+                        <button onClick={() => resetPassword(s.id)} disabled={saving || !newPw.trim()}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
+                          {saving ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+                        </button>
+                        <button onClick={() => { setResetId(null); setNewPw(""); }}
+                          className="p-1.5 bg-stone-700 hover:bg-stone-600 text-stone-400 rounded-lg transition-colors">
+                          <X size={11} />
+                        </button>
+                      </div>
                     ) : (
                       <div className="flex items-center gap-1.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => startEdit(s)}
                           className="p-1.5 bg-stone-700 hover:bg-stone-600 text-stone-400 hover:text-white rounded-lg transition-colors" title="Edit">
                           <Pencil size={12} />
+                        </button>
+                        <button onClick={() => { setResetId(s.id); setNewPw(""); setEditingId(null); }}
+                          className="p-1.5 bg-stone-700 hover:bg-stone-600 text-stone-400 hover:text-amber-400 rounded-lg transition-colors" title="Reset Password">
+                          <KeyRound size={12} />
                         </button>
                         <button onClick={() => toggleActive(s)}
                           className="p-1.5 bg-stone-700 hover:bg-stone-600 text-stone-400 hover:text-white rounded-lg transition-colors" title={s.isActive ? "Deactivate" : "Activate"}>

@@ -336,3 +336,63 @@ model VMSubmission {
 
   campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 }
+
+// ─── Product Master ────────────────────────────────────────────────────────────
+
+model ProductMaster {
+  id             String   @id @default(cuid())
+  sku            String   @unique
+  name           String
+  // bag | belt | wallet | travel | accessory
+  category       String
+  // work | travel | daily | gift
+  useCase        String
+  // daily | core | pro
+  series         String   @default("core")
+  price          Float    @default(0)
+  // selling | archive
+  status         String   @default("selling")
+  barcode        String?
+  mainImageUrl   String?
+  mediaFolderUrl String?
+  sellingPoints  String   @default("[]")
+  shortPitch     String?
+  warRoomId      String?  // optional link back to source War Room product
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  media ProductMedia[]
+
+  @@index([status])
+  @@index([category])
+  @@index([useCase])
+  @@index([sku])
+}
+
+model ProductMedia {
+  id        String   @id @default(cuid())
+  productId String
+  type      String   @default("image")
+  url       String
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  product ProductMaster @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ProductTag {
+  id   String @id @default(cuid())
+  name String @unique
+
+  tagMap ProductTagMap[]
+}
+
+model ProductTagMap {
+  productId String
+  tagId     String
+
+  tag ProductTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([productId, tagId])
+}

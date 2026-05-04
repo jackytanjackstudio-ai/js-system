@@ -52,6 +52,8 @@ export async function PATCH(req: Request) {
   const body = await req.json();
   if (!body.id) return apiError("id required");
 
+  const pwHash = body.password ? await bcrypt.hash(body.password, 10) : undefined;
+
   const user = await prisma.user.update({
     where: { id: body.id },
     data: {
@@ -59,6 +61,7 @@ export async function PATCH(req: Request) {
       ...(body.role !== undefined ? { role: body.role } : {}),
       ...(body.outletId !== undefined ? { outletId: body.outletId } : {}),
       ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
+      ...(pwHash ? { password: pwHash } : {}),
     },
     select: { id: true, name: true, email: true, role: true, outletId: true, isActive: true },
   });

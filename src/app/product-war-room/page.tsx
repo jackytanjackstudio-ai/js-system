@@ -181,11 +181,16 @@ function SourcingPool({ products, onAdvance, onDelete, onUploadImage, canEdit }:
 }) {
   const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const [ucFilter, setUcFilter] = useState<string>("All");
+  const [ucFilter, setUcFilter]       = useState<string>("All");
+  const [brandFilter, setBrandFilter] = useState<string>("All");
 
-  const filtered = ucFilter === "All" ? products : products.filter(p => {
+  const activeBrands = Array.from(new Set(products.map(p => p.brand).filter(Boolean))) as string[];
+
+  const filtered = products.filter(p => {
     const uc: string[] = (() => { try { return JSON.parse(p.useCase); } catch { return []; } })();
-    return uc.includes(ucFilter);
+    const ucOk = ucFilter === "All" || uc.includes(ucFilter);
+    const brandOk = brandFilter === "All" || p.brand === brandFilter;
+    return ucOk && brandOk;
   });
 
   if (!products.length)
@@ -193,6 +198,26 @@ function SourcingPool({ products, onAdvance, onDelete, onUploadImage, canEdit }:
 
   return (
     <>
+    {/* Brand Tabs */}
+    {activeBrands.length > 0 && (
+      <div className="flex gap-1.5 flex-wrap mb-2">
+        {["All", ...activeBrands].map(b => (
+          <button key={b} onClick={() => setBrandFilter(b)}
+            className={cn("px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border-2",
+              brandFilter === b
+                ? "bg-amber-500 text-white border-amber-500 shadow-sm"
+                : "bg-white text-gray-500 border-gray-200 hover:border-amber-300")}>
+            {b}
+            {b !== "All" && (
+              <span className="ml-1 opacity-60">
+                ({products.filter(p => p.brand === b).length})
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+    )}
+
     {/* Use Case Tabs */}
     <div className="flex gap-1.5 flex-wrap mb-4">
       {["All", ...USE_CASES].map(uc => (
@@ -212,7 +237,7 @@ function SourcingPool({ products, onAdvance, onDelete, onUploadImage, canEdit }:
     </div>
 
     {filtered.length === 0 && (
-      <div className="text-center py-8 text-sm text-gray-400">No products in <span className="font-semibold">{ucFilter}</span> yet</div>
+      <div className="text-center py-8 text-sm text-gray-400">No products match the selected filters</div>
     )}
 
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -816,9 +841,10 @@ function DecisionTab({ products, onApprove, onReject, canEdit }: {
 }
 
 // ─── Tab 5: Tracking ─────────────────────────────────────────────────────────
-function TrackingTab({ products, onStatusChange, canEdit }: {
+function TrackingTab({ products, onStatusChange, onPromote, canEdit }: {
   products: Product[];
   onStatusChange: (id: string, status: string, stage?: string) => Promise<void>;
+  onPromote: (p: Product) => Promise<void>;
   canEdit: boolean;
 }) {
   const statusConfig: Record<string, { color: string; bg: string }> = {
@@ -872,8 +898,12 @@ function TrackingTab({ products, onStatusChange, canEdit }: {
                 </div>
               )}
               {canEdit && p.status === "Scale" && (
-                <button onClick={() => onStatusChange(p.id, "Eliminated")}
-                  className="text-[10px] font-semibold px-2 py-1 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 flex-shrink-0">Discontinue</button>
+                <div className="flex gap-1.5 flex-shrink-0">
+                  <button onClick={() => onPromote(p)}
+                    className="text-[10px] font-semibold px-2 py-1 bg-brand-100 text-brand-700 rounded-lg hover:bg-brand-200">→ Product Master</button>
+                  <button onClick={() => onStatusChange(p.id, "Eliminated")}
+                    className="text-[10px] font-semibold px-2 py-1 bg-red-100 text-red-600 rounded-lg hover:bg-red-200">Discontinue</button>
+                </div>
               )}
             </div>
 
@@ -1291,6 +1321,29 @@ export default function ProductWarRoom() {
     refetch();
   }
 
+  async function promoteToMaster(p: Product) {
+    // SKU must be set by the product team — store draft data in sessionStorage
+    // and redirect to Product Master with pre-filled modal
+    const uc: string[] = (() => { try { return JSON.parse(p.useCase); } catch { return []; } })();
+    const sp: string[] = (() => { try { return JSON.parse(p.sellingPoints || "[]"); } catch { return []; } })();
+    const draft = {
+      name:         p.name,
+      category:     p.category.toLowerCase(),
+      useCase:      (uc[0] ?? "daily").toLowerCase(),
+      series:       "core",
+      price:        String(p.targetPrice ?? ""),
+      mainImageUrl: p.imageUrl ?? "",
+      sellingPoints: sp,
+      shortPitch:   "",
+      barcode:      "",
+      mediaFolderUrl: "",
+      sku:          "",
+      warRoomId:    p.id,
+    };
+    sessionStorage.setItem("pm_draft", JSON.stringify(draft));
+    window.location.href = "/product-master?promote=1";
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -1357,7 +1410,7 @@ export default function ProductWarRoom() {
               canEdit={canDecide} />
           )}
           {activeTab === "tracking" && (
-            <TrackingTab products={tracking} onStatusChange={advanceStatus} canEdit={canEdit} />
+            <TrackingTab products={tracking} onStatusChange={advanceStatus} onPromote={promoteToMaster} canEdit={canEdit} />
           )}
         </>
       )}
