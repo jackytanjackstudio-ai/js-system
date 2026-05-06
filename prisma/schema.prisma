@@ -91,27 +91,39 @@ model SalesReport {
 }
 
 model CreatorContent {
-  id              String   @id @default(cuid())
-  userId          String
-  platform        String
-  title           String
-  contentUrl      String?
-  contentType     String?
-  productTags     String   @default("[]")
-  views           Int      @default(0)
-  likes           Int      @default(0)
-  comments        Int      @default(0)
-  linkedSales     Int      @default(0)
-  topComment      String?
-  productSignal   String?
-  signalScore     Float    @default(0)
-  aiSignals       String   @default("[]")
-  pushedToWarRoom Boolean  @default(false)
-  week            String?
-  month           Int?
-  createdAt       DateTime @default(now())
+  id               String   @id @default(cuid())
+  userId           String
+  platform         String
+  title            String
+  contentUrl       String?
+  contentType      String?
+  productTags      String   @default("[]")
+  views            Int      @default(0)
+  likes            Int      @default(0)
+  comments         Int      @default(0)
+  saves            Int      @default(0)
+  shares           Int      @default(0)
+  linkedSales      Int      @default(0)
+  topComment       String?
+  productSignal    String?
+  signalScore      Float    @default(0)
+  aiSignals        String   @default("[]")
+  pushedToWarRoom  Boolean  @default(false)
+  week             String?
+  month            Int?
+  // V1 new fields
+  objective        String   @default("traffic")
+  dataSource       String   @default("manual")
+  detectedKeywords String   @default("[]")
+  performanceLevel String   @default("low")
+  aiGenerated      Boolean  @default(false)
+  productId        String?
+  createdAt        DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
+
+  @@index([performanceLevel])
+  @@index([week])
 }
 
 model SaleEntry {
@@ -162,6 +174,7 @@ model Product {
   promotions    String   @default("[]")
   sellingPoints String   @default("[]")
   demandScore   Float    @default(50)
+  priority      String   @default("B")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -188,13 +201,16 @@ model SalesValidation {
 }
 
 model Reservation {
-  id         String   @id @default(cuid())
-  productId  String
-  outletId   String
-  outletName String
-  quantity   Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id               String   @id @default(cuid())
+  productId        String
+  outletId         String
+  outletName       String
+  quantity         Int      @default(0)
+  colourBreakdown  String   @default("{}")
+  signalTag        String?
+  submittedBy      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
@@ -401,4 +417,75 @@ model ProductTagMap {
   tag ProductTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([productId, tagId])
+}
+
+// ─── Incentive System ──────────────────────────────────────────────────────────
+
+model WeightConfig {
+  id         String   @id @default(cuid())
+  name       String
+  startDate  String   // YYYY-MM-DD
+  endDate    String   // YYYY-MM-DD
+  mposWeight Int      @default(50)
+  // JSON: { quick_log: 25, content: 25, review: 25, campaign: 25 }
+  osWeights  String   @default("{\"quick_log\":25,\"content\":25,\"review\":25,\"campaign\":25}")
+  createdBy  String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  mposScores MposScore[]
+
+  @@index([isActive])
+}
+
+model MposScore {
+  id                 String       @id @default(cuid())
+  outletId           String
+  outletName         String
+  periodId           String
+  achievementPercent Float
+  score              Int          // calculated: 100/80/60/40
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  period WeightConfig @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([outletId, periodId])
+}
+
+// ─── Data Hub Entry (unified signal layer) ─────────────────────────────────────
+
+model DataHubEntry {
+  id        String   @id @default(cuid())
+  // "sales" | "customer_reason" | "content"
+  type      String
+  // product code / name as the shared key
+  refId     String
+  outletId  String
+  value     Float    @default(1)
+  // JSON: { productName, reason, useCase, source, week, ... }
+  meta      String   @default("{}")
+  week      String?
+  month     Int?
+  createdAt DateTime @default(now())
+
+  @@index([type])
+  @@index([refId])
+  @@index([outletId])
+  @@index([week])
+}
+
+// ─── Review Module ─────────────────────────────────────────────────────────────
+
+model Review {
+  id             String   @id @default(cuid())
+  store          String
+  rating         Int
+  reviewText     String
+  productTag     String
+  createdAt      DateTime @default(now())
+  usedForContent Boolean  @default(false)
+
+  @@index([store])
+  @@index([productTag])
 }

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useData } from "@/hooks/useData";
-import { Phone, User, Store, Calendar, Search, MessageSquare } from "lucide-react";
+import { Phone, User, Store, Calendar, Search, MessageSquare, X, ZoomIn } from "lucide-react";
 
 type Lead = {
   id: string;
@@ -36,8 +36,9 @@ const REASON_EMOJI: Record<string, string> = {
 };
 
 export default function LeadsPage() {
-  const [search, setSearch]     = useState("");
+  const [search, setSearch]       = useState("");
   const [filterCat, setFilterCat] = useState<string | null>(null);
+  const [lightbox, setLightbox]   = useState<string | null>(null);
 
   const { data: raw, loading } = useData<Lead[]>("/api/inputs?limit=500");
   const all = raw ?? [];
@@ -79,6 +80,28 @@ export default function LeadsPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-8">
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white bg-white/20 hover:bg-white/30 rounded-full p-2"
+            onClick={() => setLightbox(null)}
+          >
+            <X size={20} />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightbox}
+            alt="Customer photo"
+            className="max-w-full max-h-[90vh] rounded-2xl shadow-2xl object-contain"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       {/* Header */}
       <div>
@@ -241,12 +264,19 @@ export default function LeadsPage() {
                       </div>
                     </div>
 
-                    {/* Customer photo thumbnail */}
+                    {/* Customer photo thumbnail — tap to enlarge */}
                     {l.imageUrl && (
-                      <div className="flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border border-gray-100">
+                      <button
+                        onClick={() => setLightbox(l.imageUrl!)}
+                        className="flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border border-gray-200 relative group"
+                        title="Tap to enlarge"
+                      >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={l.imageUrl} alt="Customer photo" className="w-full h-full object-cover" />
-                      </div>
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                          <ZoomIn size={18} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </button>
                     )}
                   </div>
                 </div>

@@ -1,3 +1,4 @@
+import OpenAI from "openai";
 import { prisma } from "@/lib/prisma";
 import { getSession, apiError, apiOk } from "@/lib/auth";
 
@@ -10,36 +11,32 @@ function getISOWeek(date: Date): string {
   return `${d.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
 }
 
-function calcSignalScore(views: number, likes: number, comments: number, linkedSales: number): number {
-  if (views === 0) return 0;
-  const engagementRate = ((likes + comments) / views) * 100;
-  const conversionBonus = linkedSales * 5;
-  const commentBonus = comments > 500 ? 20 : comments > 100 ? 10 : 0;
-  return Math.min(100, Math.round(engagementRate * 3 + conversionBonus + commentBonus));
+// Weighted score normalized to 0-100
+// Divide by 1000 so 280K views → 84 pts (HIGH)
+function calcScore(views: number, likes: number, comments: number, sales: number): number {
+  const raw = views * 0.3 + likes * 0.2 + comments * 0.2 + sales * 0.3;
+  return Math.min(100, Math.round(raw / 1000));
 }
 
-// Extract product signals from raw comment text
-function extractSignals(rawComments: string): string[] {
-  const signals: string[] = [];
-  const lower = rawComments.toLowerCase();
+function perfLevel(score: number): "high" | "medium" | "low" {
+  if (score > 80) return "high";
+  if (score > 50) return "medium";
+  return "low";
+}
 
-  const patterns: [RegExp, string][] = [
-    [/bigger|larger|more space|compartment/i, "Bigger size / more compartments"],
-    [/colour|color|brown|black|grey|blue|pink/i, "More colour options"],
-    [/waterproof|water.?resist/i, "Waterproof feature"],
-    [/price|expensive|cheap|affordable|rm\d/i, "Price sensitivity"],
-    [/coin.?pocket|coin slot/i, "Coin pocket"],
-    [/crossbody|strap|shoulder/i, "Crossbody / strap option"],
-    [/cabin|carry.?on|travel/i, "Travel / cabin size"],
-    [/slim|thin|compact/i, "Slim / compact design"],
-    [/when.?(restock|available)|out.?of.?stock/i, "Restock demand"],
-    [/where.?to.?buy|purchase|order/i, "Purchase intent"],
-  ];
-
-  for (const [regex, label] of patterns) {
-    if (regex.test(lower)) signals.push(label);
+async function extractKeywords(comment: string): Promise<string[]> {
+  if (!process.env.OPENAI_API_KEY) return [];
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  try {
+    const res = await client.responses.create({
+      model: "gpt-4o",
+      input: `From this customer comment:\n"${comment}"\n\nExtract 3–5 short keywords that represent what customers care about.\n\nReturn JSON array only.\n\nExample:\n["size", "lightweight", "travel friendly"]`,
+    });
+    const arr = JSON.parse(res.output_text.trim());
+    return Array.isArray(arr) ? (arr as string[]).slice(0, 5) : [];
+  } catch {
+    return [];
   }
-  return signals;
 }
 
 export async function GET(req: Request) {
@@ -65,58 +62,100 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return apiError("Unauthorized", 401);
-  if (!["creator", "admin", "sales", "manager"].includes(session.role)) return apiError("Forbidden", 403);
+  if (!["creator", "admin", "sales", "manager"].includes(session.role)) {
+    return apiError("Forbidden", 403);
+  }
 
   const body = await req.json();
   const {
-    platform, title, contentUrl, contentType, productTags,
-    views, likes, comments, linkedSales, topComment, productSignal,
-  } = body;
+    platform, title, contentUrl,
+    views = 0, likes = 0, comments = 0, saves = 0, shares = 0, linkedSales = 0,
+    topComment, objective = "traffic", productId,
+    // legacy fields kept for backwards compat
+    contentType, productTags, productSignal,
+  } = body as {
+    platform: string;
+    title: string;
+    contentUrl?: string;
+    views?: number;
+    likes?: number;
+    comments?: number;
+    saves?: number;
+    shares?: number;
+    linkedSales?: number;
+    topComment?: string;
+    objective?: string;
+    productId?: string;
+    contentType?: string;
+    productTags?: string[];
+    productSignal?: string;
+  };
 
   if (!platform || !title) return apiError("platform and title required");
+  if (!["traffic", "trust", "conversion"].includes(objective)) {
+    return apiError("invalid objective");
+  }
 
-  const now          = new Date();
-  const week         = getISOWeek(now);
-  const month        = now.getMonth() + 1;
-  const signalScore  = calcSignalScore(views ?? 0, likes ?? 0, comments ?? 0, linkedSales ?? 0);
-  const aiSignals    = topComment ? extractSignals(topComment) : [];
-  const pushedToWarRoom = signalScore >= 70;
+  const now  = new Date();
+  const week = getISOWeek(now);
+  const month = now.getMonth() + 1;
+
+  const score = calcScore(views, likes, comments, linkedSales);
+  const level = perfLevel(score);
+
+  // AI keyword extraction from top comment
+  const keywords: string[] = topComment ? await extractKeywords(topComment) : [];
+
+  const pushedToWarRoom = level === "high";
 
   const content = await prisma.creatorContent.create({
     data: {
-      userId:         session.id,
+      userId:          session.id,
       platform,
       title,
-      contentUrl:     contentUrl ?? null,
-      contentType:    contentType ?? null,
-      productTags:    JSON.stringify(productTags ?? []),
-      views:          views ?? 0,
-      likes:          likes ?? 0,
-      comments:       comments ?? 0,
-      linkedSales:    linkedSales ?? 0,
-      topComment:     topComment ?? null,
-      productSignal:  productSignal ?? null,
-      signalScore,
-      aiSignals:      JSON.stringify(aiSignals),
+      contentUrl:      contentUrl ?? null,
+      contentType:     contentType ?? null,
+      productTags:     JSON.stringify(productTags ?? []),
+      views,
+      likes,
+      comments,
+      saves,
+      shares,
+      linkedSales,
+      topComment:      topComment ?? null,
+      productSignal:   productSignal ?? null,
+      signalScore:     score,
+      aiSignals:       JSON.stringify(keywords),
+      detectedKeywords: JSON.stringify(keywords),
+      performanceLevel: level,
+      objective,
+      dataSource:      "manual",
+      aiGenerated:     keywords.length > 0,
+      productId:       productId ?? null,
       pushedToWarRoom,
       week,
       month,
     },
   });
 
-  // Auto-push to War Room: create a product signal note if score >= 70
-  if (pushedToWarRoom && productTags?.length > 0) {
-    const tag = productTags[0];
-    const existing = await prisma.product.findFirst({
-      where: { name: { contains: tag, mode: "insensitive" } },
-    });
-    if (existing && existing.status === "Watchlist") {
-      await prisma.product.update({
-        where: { id: existing.id },
-        data:  { notes: `${existing.notes ?? ""}\n[Auto-signal] ${title} — Score ${signalScore}`.trim() },
+  // Auto War Room signal when HIGH
+  if (pushedToWarRoom && productId) {
+    const product = await prisma.productMaster.findUnique({ where: { id: productId } });
+    if (product) {
+      await prisma.productMaster.update({
+        where: { id: productId },
+        data: {
+          notes: `[Content Signal] ${platform} ${score}/100 — "${title}". Keywords: ${keywords.join(", ")}`,
+        } as Parameters<typeof prisma.productMaster.update>[0]["data"],
       });
     }
   }
 
-  return apiOk({ ...content, aiSignals, signalScore, pushedToWarRoom }, 201);
+  return apiOk({
+    ...content,
+    detectedKeywords: keywords,
+    signalScore: score,
+    performanceLevel: level,
+    pushedToWarRoom,
+  }, 201);
 }

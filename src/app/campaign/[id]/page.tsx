@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import {
   ArrowLeft, Target, Megaphone, FileText, MessageSquare,
   ImageIcon, CheckSquare, BarChart2, Plus, X, Check,
-  Loader2, Upload, Trash2, Star, Store, Search
+  Loader2, Upload, Trash2, Star, Store, Search, ZoomIn
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -1178,11 +1178,12 @@ function SalesVMSubmit({ campaign, user, refetch }: {
 
 function VMSubmissionsSection({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdmin: boolean; refetch: () => void }) {
   const subs = campaign.submissions;
-  const [scoring, setScoring] = useState<string | null>(null);
-  const [scores, setScores]   = useState<{ display: number; compliance: number; cleanliness: number; notes: string }>({
+  const [scoring,  setScoring]  = useState<string | null>(null);
+  const [scores,   setScores]   = useState<{ display: number; compliance: number; cleanliness: number; notes: string }>({
     display: 8, compliance: 8, cleanliness: 8, notes: "",
   });
-  const [saving, setSaving]   = useState(false);
+  const [saving,   setSaving]   = useState(false);
+  const [lightbox, setLightbox] = useState<string | null>(null);
 
   async function approve(sub: VMSubmission) {
     if (!isAdmin) return;
@@ -1216,6 +1217,28 @@ function VMSubmissionsSection({ campaign, isAdmin, refetch }: { campaign: Campai
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white bg-white/20 hover:bg-white/30 rounded-full p-2"
+            onClick={() => setLightbox(null)}
+          >
+            <X size={20} />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightbox}
+            alt="VM submission photo"
+            className="max-w-full max-h-[90vh] rounded-2xl shadow-2xl object-contain"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-gray-800">VM Submissions</h3>
         <span className="text-xs text-gray-400">{subs.filter(s => s.status === "approved").length}/{subs.length} approved</span>
@@ -1225,7 +1248,8 @@ function VMSubmissionsSection({ campaign, isAdmin, refetch }: { campaign: Campai
 
       <div className="space-y-3">
         {subs.map(sub => {
-          const imgs = parse<{ url: string; area: string }[]>(sub.imageUrls, []);
+          const allImgs  = parse<{ url?: string; area: string }[]>(sub.imageUrls, []);
+          const imgs     = allImgs.filter(img => !!img.url);
           const total = (sub.displayScore ?? 0) + (sub.complianceScore ?? 0) + (sub.cleanlinessScore ?? 0);
           return (
             <div key={sub.id} className="border border-gray-100 rounded-xl p-4 space-y-3">
@@ -1243,14 +1267,31 @@ function VMSubmissionsSection({ campaign, isAdmin, refetch }: { campaign: Campai
                 </span>
               </div>
 
-              {imgs.length > 0 && (
+              {imgs.length > 0 ? (
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {imgs.map((img, i) => (
-                    <div key={i} className="shrink-0">
-                      <img src={img.url} alt={img.area} className="w-24 h-20 object-cover rounded-lg border border-gray-100" />
+                    <button
+                      key={i}
+                      className="shrink-0 group relative"
+                      onClick={() => setLightbox(img.url!)}
+                      title="Tap to enlarge"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={img.url} alt={img.area} className="w-28 h-24 object-cover rounded-lg border border-gray-100" />
+                      <div className="absolute inset-0 rounded-lg bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                        <ZoomIn size={18} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
                       <p className="text-[10px] text-gray-400 text-center mt-0.5 capitalize">{img.area}</p>
-                    </div>
+                    </button>
                   ))}
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
+                  <ImageIcon size={13} />
+                  No photos — submission was made before photo upload was set up.
+                  {isAdmin && sub.status === "submitted" && (
+                    <span className="ml-1 text-amber-600 font-semibold">Ask outlet to resubmit.</span>
+                  )}
                 </div>
               )}
 

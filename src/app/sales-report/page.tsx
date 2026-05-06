@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import {
   FileSpreadsheet, CheckCircle, AlertCircle, X, Zap,
   TrendingUp, Package, DollarSign, Percent, ChevronDown, ChevronUp,
-  ArrowRight, Save, Search, Camera, Loader2, ScanLine,
+  Save, Search, Camera, Loader2, ScanLine, Trash2, RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -492,7 +492,11 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
   const [saving, setSaving]           = useState(false);
   const [saved, setSaved]             = useState<{ revenue: number; outlet: string } | null>(null);
   const [showAllRows, setShowAllRows] = useState(false);
+  const [duplicate, setDuplicate]     = useState<{
+    existingId: string; existingDate: string; existingRevenue: number; outletName: string;
+  } | null>(null);
   const { data: reports, refetch }    = useData<SavedReport[]>("/api/sales-report");
+  const { user } = useAuth();
 
   const processFile = useCallback(async (f: File) => {
     setFile(f); setFileName(f.name);
@@ -529,15 +533,22 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
     if (f && (f.name.endsWith(".xlsx") || f.name.endsWith(".xls"))) processFile(f);
     else setError("Please drop an Excel (.xlsx) file");
   }
-  async function handleSave() {
+  async function handleSave(force = false) {
     if (!file || !outletId) return;
     setSaving(true);
+    setDuplicate(null);
     try {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("outletId", outletId);
       if (salesDate) fd.append("salesDate", salesDate);
+      if (force) fd.append("force", "true");
       const res = await fetch("/api/sales-report", { method: "POST", body: fd });
+      if (res.status === 409) {
+        const d = await res.json();
+        setDuplicate(d);
+        return;
+      }
       if (!res.ok) {
         let msg = `Save failed (${res.status})`;
         try { const d = await res.json(); msg = d.error ?? msg; } catch { /* */ }
@@ -546,9 +557,16 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
       const outletName = outlets?.find(o => o.id === outletId)?.name ?? "outlet";
       setSaved({ revenue: preview?.revenue ?? 0, outlet: outletName });
       setFile(null); setFileName(null); setPreview(null); setOutletId(""); setSalesDate("");
+      setDuplicate(null);
       if (fileRef.current) fileRef.current.value = "";
       refetch();
     } finally { setSaving(false); }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this report?")) return;
+    await fetch(`/api/sales-report?id=${id}`, { method: "DELETE" });
+    refetch();
   }
   function resetUpload() {
     setFile(null); setFileName(null); setPreview(null);
@@ -578,6 +596,37 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
         <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl px-4 py-3 text-sm text-red-700">
           <AlertCircle size={16} className="flex-shrink-0" />{error}
           <button onClick={() => setError(null)} className="ml-auto"><X size={14} /></button>
+        </div>
+      )}
+
+      {duplicate && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <AlertCircle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-bold text-amber-800 text-sm">Report already uploaded</p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                {duplicate.outletName} · {duplicate.existingDate} · {fmt(duplicate.existingRevenue)} already exists in the system.
+              </p>
+            </div>
+            <button onClick={() => setDuplicate(null)}><X size={14} className="text-amber-400" /></button>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setDuplicate(null)}
+              className="btn-secondary text-xs px-4 py-2"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => handleSave(true)}
+              disabled={saving}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors"
+            >
+              <RefreshCw size={12} />
+              Replace existing report
+            </button>
+          </div>
         </div>
       )}
 
@@ -688,9 +737,14 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
 
       {!preview && (reports ?? []).length > 0 && (
         <div>
-          <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Recent Reports</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Recent Reports</h2>
+            {["admin", "manager"].includes(user?.role ?? "") && (
+              <p className="text-[11px] text-gray-400">Trash icon to delete duplicates</p>
+            )}
+          </div>
           <div className="space-y-2">
-            {(reports ?? []).slice(0, 8).map(r => (
+            {(reports ?? []).slice(0, 20).map(r => (
               <div key={r.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 flex items-center gap-3">
                 <div className="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
                   <FileSpreadsheet size={15} className="text-green-600" />
@@ -703,6 +757,15 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
                   <p className="font-black text-green-600 text-sm">{fmt(r.revenue)}</p>
                   <p className="text-xs text-blue-500">{fmt(r.totalProfit)} profit</p>
                 </div>
+                {["admin", "manager"].includes(user?.role ?? "") && (
+                  <button
+                    onClick={() => handleDelete(r.id)}
+                    className="text-gray-300 hover:text-red-400 transition-colors p-1 rounded flex-shrink-0"
+                    title="Delete report"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -725,7 +788,7 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Sales Date</label>
                 <input type="date" className="input text-sm" value={salesDate} onChange={e => setSalesDate(e.target.value)} />
               </div>
-              <button onClick={handleSave} disabled={!canSave}
+              <button onClick={() => handleSave()} disabled={!canSave}
                 className="flex-shrink-0 bg-brand-500 hover:bg-brand-600 disabled:opacity-40 text-white px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-colors">
                 {saving
                   ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving…</>

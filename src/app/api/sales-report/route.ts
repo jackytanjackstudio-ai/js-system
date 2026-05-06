@@ -97,6 +97,36 @@ export async function POST(req: Request) {
 
   if (!rows.length) return apiError("No data rows found in Excel file");
 
+  // ── Duplicate guard ────────────────────────────────────────────────────────
+  const force = formData.get("force") === "true";
+  const week  = weekStr ?? getISOWeek(salesDate ? new Date(salesDate) : new Date());
+
+  const existing = await prisma.salesReport.findFirst({
+    where: salesDate
+      ? { outletId, salesDate }
+      : { outletId, week },
+    include: { outlet: { select: { name: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (existing && !force) {
+    return Response.json(
+      {
+        error:          "duplicate",
+        existingId:     existing.id,
+        existingDate:   existing.salesDate ?? existing.week,
+        existingRevenue: existing.revenue,
+        outletName:     existing.outlet.name,
+      },
+      { status: 409 }
+    );
+  }
+
+  if (existing && force) {
+    await prisma.salesReport.delete({ where: { id: existing.id } });
+  }
+  // ──────────────────────────────────────────────────────────────────────────
+
   // Aggregates
   const revenue     = rows.reduce((s, r) => s + r.amount, 0);
   const totalProfit = rows.reduce((s, r) => s + r.profit, 0);
@@ -114,8 +144,6 @@ export async function POST(req: Request) {
   }
   const ranked = Object.entries(productMap).sort((a, b) => b[1].amount - a[1].amount);
   const topProducts = ranked.slice(0, 10).map(([name, d]) => `${name} (${d.qty}pcs · RM${d.amount.toFixed(0)})`);
-
-  const week = weekStr ?? getISOWeek(salesDate ? new Date(salesDate) : new Date());
 
   const user = await prisma.user.findFirst({ where: { id: session.id } });
   if (!user) return apiError("User not found", 404);
@@ -152,5 +180,35 @@ export async function POST(req: Request) {
     },
   });
 
+  // ── Write to DataHub — one entry per line item with qty > 0 ──
+  const dhMonth = (salesDate ? new Date(salesDate) : new Date()).getMonth() + 1;
+  const dhEntries = rows
+    .filter(r => r.qty > 0)
+    .map(r => ({
+      type:     "sales",
+      refId:    r.description,
+      outletId,
+      value:    r.qty,
+      meta:     JSON.stringify({ amount: r.amount, source: "excel_upload", warehouseName }),
+      week,
+      month:    dhMonth,
+    }));
+  if (dhEntries.length > 0) {
+    prisma.dataHubEntry.createMany({ data: dhEntries }).catch(() => { /* non-critical */ });
+  }
+
   return apiOk({ report, totalRows: rows.length, revenue, totalProfit, totalQty }, 201);
+}
+
+export async function DELETE(req: Request) {
+  const session = await getSession();
+  if (!session) return apiError("Unauthorized", 401);
+  if (!["admin", "manager"].includes(session.role)) return apiError("Forbidden", 403);
+
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
+  if (!id) return apiError("id required");
+
+  await prisma.salesReport.delete({ where: { id } });
+  return apiOk({ deleted: true });
 }

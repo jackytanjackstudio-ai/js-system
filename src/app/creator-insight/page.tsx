@@ -1,337 +1,469 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useData, apiFetch } from "@/hooks/useData";
-import { TrendingUp, MessageCircle, ShoppingBag, Loader2, Zap, ArrowUpRight, CheckCircle2, AlertCircle } from "lucide-react";
-import { useLang } from "@/context/LangContext";
+import {
+  Link2, Eye, Heart, MessageCircle, ShoppingBag, Zap,
+  Loader2, X, ArrowUpRight, Plus, Bookmark, Share2, Check,
+} from "lucide-react";
 
 type Content = {
-  id: string; title: string; platform: string; contentUrl: string | null;
-  contentType: string | null; productTags: string; views: number; likes: number;
-  comments: number; linkedSales: number; topComment: string | null;
-  productSignal: string | null; signalScore: number; aiSignals: string;
-  pushedToWarRoom: boolean; user: { name: string };
+  id: string;
+  title: string;
+  platform: string;
+  contentUrl: string | null;
+  views: number;
+  likes: number;
+  comments: number;
+  saves: number;
+  shares: number;
+  linkedSales: number;
+  topComment: string | null;
+  signalScore: number;
+  performanceLevel: string;
+  objective: string;
+  detectedKeywords: string;
+  aiSignals: string;
+  pushedToWarRoom: boolean;
+  productId: string | null;
+  user: { name: string };
 };
-
-const PLATFORMS = ["TikTok", "Instagram", "YouTube", "Rednote", "Facebook"];
-const CONTENT_TYPES = ["Unboxing", "Daily Use", "Work", "Travel", "Review", "Lifestyle"];
-const PRODUCT_TAGS = ["Wallet", "Bag", "Luggage", "Backpack", "Tote", "Crossbody", "Accessories"];
 
 function fmt(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000)     return `${(n / 1_000).toFixed(0)}K`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
   return String(n);
 }
 
-function detectPlatform(url: string): string {
-  if (url.includes("tiktok.com"))   return "TikTok";
-  if (url.includes("instagram.com")) return "Instagram";
-  if (url.includes("youtube.com") || url.includes("youtu.be")) return "YouTube";
-  if (url.includes("xiaohongshu") || url.includes("rednote")) return "Rednote";
-  if (url.includes("facebook.com")) return "Facebook";
-  return "TikTok";
+function detectPlatform(url: string): "tiktok" | "instagram" {
+  if (url.includes("instagram.com") || url.includes("ig.me")) return "instagram";
+  return "tiktok";
 }
 
-function scoreLabel(score: number): { label: string; color: string } {
-  if (score >= 70) return { label: "HIGH", color: "text-red-600 bg-red-50 border-red-200" };
-  if (score >= 40) return { label: "MEDIUM", color: "text-amber-600 bg-amber-50 border-amber-200" };
-  return { label: "LOW", color: "text-gray-500 bg-gray-50 border-gray-200" };
+function PerfBadge({ level, score }: { level: string; score: number }) {
+  if (level === "high")
+    return (
+      <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-red-600 border border-red-200">
+        🔥 HIGH · {score}
+      </span>
+    );
+  if (level === "medium")
+    return (
+      <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-600 border border-amber-200">
+        👍 MEDIUM · {score}
+      </span>
+    );
+  return (
+    <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-gray-50 text-gray-500 border border-gray-200">
+      ⚠️ LOW · {score}
+    </span>
+  );
 }
 
-const EMPTY = {
-  contentUrl: "", platform: "TikTok", title: "", contentType: "",
-  productTags: [] as string[], views: "", likes: "", comments: "",
-  linkedSales: "", topComment: "",
+function ObjBadge({ obj }: { obj: string }) {
+  const map: Record<string, string> = {
+    traffic: "bg-blue-50 text-blue-600",
+    trust: "bg-green-50 text-green-600",
+    conversion: "bg-purple-50 text-purple-600",
+  };
+  return (
+    <span className={`badge ${map[obj] ?? "bg-gray-100 text-gray-500"} capitalize`}>
+      {obj}
+    </span>
+  );
+}
+
+const OBJECTIVES = [
+  { value: "traffic",    label: "Traffic",    desc: "Views & reach" },
+  { value: "trust",      label: "Trust",      desc: "Education & review" },
+  { value: "conversion", label: "Conversion", desc: "Direct sales" },
+] as const;
+
+type FormState = {
+  views: string;
+  likes: string;
+  comments: string;
+  saves: string;
+  sales: string;
+  topComment: string;
+  objective: "traffic" | "trust" | "conversion";
 };
 
-export default function CreatorInsight() {
-  const { t } = useLang();
-  const { data: videos, loading, refetch } = useData<Content[]>("/api/creator");
-  const [step, setStep]     = useState<1 | 2 | "done">(1);
+const EMPTY_FORM: FormState = {
+  views: "", likes: "", comments: "", saves: "", sales: "",
+  topComment: "", objective: "traffic",
+};
+
+function QuickModal({
+  url,
+  platform,
+  onClose,
+  onSaved,
+}: {
+  url: string;
+  platform: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
-  const [form, setForm]     = useState(EMPTY);
-  const [result, setResult] = useState<{ aiSignals: string[]; signalScore: number; pushedToWarRoom: boolean } | null>(null);
 
-  function handleUrlChange(url: string) {
-    setForm(f => ({ ...f, contentUrl: url, platform: url ? detectPlatform(url) : f.platform }));
+  function num(v: string) {
+    return parseInt(v.replace(/[^0-9]/g, "") || "0");
   }
 
-  function toggleTag(tag: string) {
-    setForm(f => ({
-      ...f,
-      productTags: f.productTags.includes(tag)
-        ? f.productTags.filter(t => t !== tag)
-        : f.productTags.length < 2 ? [...f.productTags, tag] : f.productTags,
-    }));
-  }
-
-  async function handleSubmit() {
-    if (!form.title || !form.contentType) return;
+  async function handleSave() {
     setSaving(true);
     try {
-      const res = await apiFetch("/api/creator", {
+      await apiFetch("/api/creator", {
         method: "POST",
         body: JSON.stringify({
-          platform:    form.platform,
-          title:       form.title || form.contentUrl,
-          contentUrl:  form.contentUrl || null,
-          contentType: form.contentType,
-          productTags: form.productTags,
-          views:       parseInt(form.views || "0"),
-          likes:       parseInt(form.likes || "0"),
-          comments:    parseInt(form.comments || "0"),
-          linkedSales: parseInt(form.linkedSales || "0"),
-          topComment:  form.topComment || null,
+          platform: platform === "instagram" ? "Instagram" : "TikTok",
+          title: url,
+          contentUrl: url,
+          views: num(form.views),
+          likes: num(form.likes),
+          comments: num(form.comments),
+          saves: num(form.saves),
+          linkedSales: num(form.sales),
+          topComment: form.topComment || null,
+          objective: form.objective,
         }),
       });
-      setResult({ aiSignals: res.aiSignals ?? [], signalScore: res.signalScore ?? 0, pushedToWarRoom: res.pushedToWarRoom ?? false });
-      setStep("done");
-      refetch();
+      onSaved();
+      onClose();
     } finally {
       setSaving(false);
     }
   }
 
-  function reset() { setForm(EMPTY); setStep(1); setResult(null); }
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="page-title">{t("cr_title")}</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Content → Signal → War Room</p>
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold text-gray-900 text-sm">Quick Content Input</h2>
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              {platform === "instagram" ? "📷 Instagram" : "🎵 TikTok"} · 10 seconds
+            </p>
+          </div>
+          <button onClick={onClose}>
+            <X size={18} className="text-gray-400" />
+          </button>
         </div>
-        {step === "done" && (
-          <button className="btn-primary" onClick={reset}>+ Log Content</button>
-        )}
-      </div>
 
-      {/* Input Form */}
-      {step !== "done" && (
-        <div className="card space-y-5">
-          <div className="flex items-center gap-3 mb-1">
-            {[1, 2].map(s => (
-              <div key={s} className="flex items-center gap-1.5">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${step >= s ? "bg-brand-600 text-white" : "bg-gray-100 text-gray-400"}`}>{s}</div>
-                <span className={`text-xs font-medium ${step >= s ? "text-gray-800" : "text-gray-400"}`}>{s === 1 ? "内容信息" : "数据 & 评论"}</span>
-                {s === 1 && <div className="w-8 h-px bg-gray-200 mx-1" />}
+        <div className="p-4 space-y-4">
+          {/* Metrics grid */}
+          <div className="grid grid-cols-2 gap-2.5">
+            {([
+              { key: "views",    label: "👁 Views",    icon: Eye        },
+              { key: "likes",    label: "❤️ Likes",    icon: Heart      },
+              { key: "comments", label: "💬 Comments", icon: MessageCircle },
+              { key: "sales",    label: "💰 Sales",    icon: ShoppingBag },
+            ] as const).map(({ key, label }) => (
+              <div key={key}>
+                <label className="text-[11px] font-semibold text-gray-400 mb-1 block">
+                  {label}
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={form[key]}
+                  onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                  placeholder="0"
+                  className="input w-full text-sm text-center py-2"
+                />
               </div>
             ))}
           </div>
 
-          {step === 1 && (
-            <div className="space-y-4">
-              {/* URL */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Content Link</label>
-                <input className="input font-mono text-sm"
-                  placeholder="https://www.tiktok.com/@... or Instagram URL"
-                  value={form.contentUrl}
-                  onChange={e => handleUrlChange(e.target.value)} />
-                {form.contentUrl && (
-                  <p className="text-xs text-brand-600 mt-1 font-medium">✓ Platform: {form.platform}</p>
-                )}
-              </div>
+          {/* Top Comment */}
+          <div>
+            <label className="text-[11px] font-semibold text-gray-400 mb-1 block">
+              Top Comment
+            </label>
+            <textarea
+              value={form.topComment}
+              onChange={(e) => setForm((f) => ({ ...f, topComment: e.target.value }))}
+              placeholder='"Does it fit cabin size?"'
+              rows={2}
+              className="input w-full text-sm resize-none"
+            />
+          </div>
 
-              {/* Title */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Content Title / Description</label>
-                <input className="input" placeholder="e.g. Slim Wallet Unboxing – Summer Collection"
-                  value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
-              </div>
-
-              {/* Content Type */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Content Type</label>
-                <div className="flex flex-wrap gap-2">
-                  {CONTENT_TYPES.map(type => (
-                    <button key={type} onClick={() => setForm(f => ({ ...f, contentType: type }))}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${form.contentType === type ? "bg-brand-600 text-white border-brand-600" : "bg-white text-gray-600 border-gray-200 hover:border-brand-400"}`}>
-                      {type}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Product Tags */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Product Tags <span className="text-gray-400 font-normal">(max 2)</span></label>
-                <div className="flex flex-wrap gap-2">
-                  {PRODUCT_TAGS.map(tag => (
-                    <button key={tag} onClick={() => toggleTag(tag)}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${form.productTags.includes(tag) ? "bg-brand-600 text-white border-brand-600" : "bg-white text-gray-600 border-gray-200 hover:border-brand-400"}`}>
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <button className="btn-primary w-full"
-                onClick={() => setStep(2)}
-                disabled={!form.title || !form.contentType}>
-                Next → Add Stats
-              </button>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="space-y-4">
-              {/* Quick Stats */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Performance Stats</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {[
-                    { key: "views",       label: "Views",        icon: <TrendingUp size={12} /> },
-                    { key: "likes",       label: "Likes",        icon: null },
-                    { key: "comments",    label: "Comments",     icon: <MessageCircle size={12} /> },
-                    { key: "linkedSales", label: "Linked Sales", icon: <ShoppingBag size={12} /> },
-                  ].map(({ key, label, icon }) => (
-                    <div key={key}>
-                      <label className="flex items-center gap-1 text-xs text-gray-500 mb-1">{icon}{label}</label>
-                      <input type="number" className="input text-center" placeholder="0"
-                        value={form[key as keyof typeof form] as string}
-                        onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Top Comments */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                  Paste Top Comments <span className="text-gray-400 font-normal">(AI will extract signals)</span>
-                </label>
-                <textarea className="textarea" rows={3}
-                  placeholder={"\"Can this come in brown?\"\n\"Is it waterproof?\"\n\"Need bigger size for laptop\""}
-                  value={form.topComment}
-                  onChange={e => setForm(f => ({ ...f, topComment: e.target.value }))} />
-              </div>
-
-              <div className="flex gap-3">
-                <button className="btn-secondary flex-1" onClick={() => setStep(1)}>← Back</button>
-                <button className="btn-primary flex-2 flex items-center justify-center gap-2"
-                  onClick={handleSubmit} disabled={saving}>
-                  {saving && <Loader2 size={14} className="animate-spin" />}
-                  {saving ? "Analyzing..." : "Submit & Generate Signals →"}
+          {/* Objective */}
+          <div>
+            <label className="text-[11px] font-semibold text-gray-400 mb-1.5 block">
+              Objective
+            </label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {OBJECTIVES.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, objective: o.value }))}
+                  className={`rounded-xl border p-2 text-center transition-all ${
+                    form.objective === o.value
+                      ? "bg-brand-500 border-brand-500 text-white"
+                      : "border-gray-200 text-gray-600 hover:border-brand-300"
+                  }`}
+                >
+                  <div className="text-xs font-bold">{o.label}</div>
+                  <div className={`text-[10px] mt-0.5 ${form.objective === o.value ? "text-white/70" : "text-gray-400"}`}>
+                    {o.desc}
+                  </div>
                 </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Result Card */}
-      {step === "done" && result && (
-        <div className="card space-y-4 border-2 border-brand-200">
-          <div className="flex items-center gap-3">
-            <CheckCircle2 size={24} className="text-green-500" />
-            <div>
-              <p className="font-bold text-gray-900">Content logged!</p>
-              <p className="text-sm text-gray-500">Signal analysis complete</p>
-            </div>
-            <div className="ml-auto">
-              <span className={`px-3 py-1 rounded-full text-xs font-bold border ${scoreLabel(result.signalScore).color}`}>
-                {scoreLabel(result.signalScore).label} — {result.signalScore}/100
-              </span>
+              ))}
             </div>
           </div>
 
-          {result.aiSignals.length > 0 && (
-            <div className="bg-brand-50 border border-brand-100 rounded-xl p-4">
-              <p className="text-xs font-bold text-brand-600 mb-2 flex items-center gap-1"><Zap size={12} /> DETECTED SIGNALS</p>
-              <div className="space-y-1">
-                {result.aiSignals.map((s, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm text-brand-800">
-                    <span className="text-brand-400">→</span> {s}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="btn-primary w-full py-2.5 text-sm flex items-center justify-center gap-2"
+          >
+            {saving ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                Saving & extracting keywords…
+              </>
+            ) : (
+              <>
+                <Check size={14} />
+                Save
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-          {result.pushedToWarRoom && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-3">
-              <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
-              <p className="text-sm text-red-700 font-semibold">
-                Signal score ≥ 70 — Auto-pushed to Product War Room
-              </p>
-              <ArrowUpRight size={14} className="text-red-500 ml-auto" />
-            </div>
+function ContentCard({ item }: { item: Content }) {
+  const keywords: string[] = (() => {
+    try {
+      const dk = JSON.parse(item.detectedKeywords);
+      if (Array.isArray(dk) && dk.length > 0) return dk;
+      return JSON.parse(item.aiSignals);
+    } catch { return []; }
+  })();
+
+  return (
+    <div className="card space-y-3">
+      {/* Top row */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="badge bg-gray-100 text-gray-600">
+              {item.platform === "TikTok" ? "🎵" : "📷"} {item.platform}
+            </span>
+            <ObjBadge obj={item.objective} />
+            {item.pushedToWarRoom && (
+              <span className="badge bg-red-50 text-red-500 flex items-center gap-0.5">
+                <ArrowUpRight size={10} />
+                WAR ROOM
+              </span>
+            )}
+          </div>
+          {item.contentUrl ? (
+            <a
+              href={item.contentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-semibold text-gray-900 hover:text-brand-600 transition-colors mt-1 block truncate"
+            >
+              {item.title}
+            </a>
+          ) : (
+            <p className="text-sm font-semibold text-gray-900 mt-1 truncate">{item.title}</p>
           )}
+        </div>
+        <PerfBadge level={item.performanceLevel} score={Math.round(item.signalScore)} />
+      </div>
+
+      {/* Metrics */}
+      <div className="grid grid-cols-4 gap-1.5">
+        {[
+          { val: fmt(item.views),       label: "Views",    emoji: "👁" },
+          { val: fmt(item.likes),       label: "Likes",    emoji: "❤️" },
+          { val: fmt(item.comments),    label: "Comments", emoji: "💬" },
+          { val: String(item.linkedSales), label: "Sales", emoji: "💰" },
+        ].map(({ val, label, emoji }) => (
+          <div key={label} className="bg-gray-50 rounded-xl p-2 text-center">
+            <div className="text-xs font-bold text-gray-800">
+              {emoji} {val}
+            </div>
+            <div className="text-[10px] text-gray-400 mt-0.5">{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Top comment */}
+      {item.topComment && (
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
+          <p className="text-[10px] text-blue-400 font-bold mb-1">TOP COMMENT</p>
+          <p className="text-xs text-blue-800 italic leading-relaxed">
+            &ldquo;{item.topComment}&rdquo;
+          </p>
         </div>
       )}
 
-      {/* Content Feed */}
+      {/* Detected keywords */}
+      {keywords.length > 0 && (
+        <div>
+          <p className="text-[10px] text-gray-400 font-bold mb-1.5 flex items-center gap-1">
+            <Zap size={9} /> KEYWORDS
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {keywords.map((k, i) => (
+              <span
+                key={i}
+                className="text-xs bg-brand-50 border border-brand-100 text-brand-700 px-2 py-0.5 rounded-full"
+              >
+                {k}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function CreatorInsight() {
+  const { data: feed, loading, refetch } = useData<Content[]>("/api/creator");
+  const [urlInput, setUrlInput] = useState("");
+  const [modal, setModal] = useState<{ url: string; platform: string } | null>(null);
+  const [justSaved, setJustSaved] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function handleUrlChange(val: string) {
+    setUrlInput(val);
+    // Auto-open modal when URL looks complete
+    if (
+      val.includes("tiktok.com/") ||
+      val.includes("instagram.com/") ||
+      val.includes("vm.tiktok.com/") ||
+      val.includes("ig.me/")
+    ) {
+      setModal({ url: val, platform: detectPlatform(val) });
+    }
+  }
+
+  function handleSaved() {
+    setJustSaved(true);
+    setUrlInput("");
+    refetch();
+    setTimeout(() => setJustSaved(false), 2000);
+  }
+
+  const high   = feed?.filter((c) => c.performanceLevel === "high").length ?? 0;
+  const medium = feed?.filter((c) => c.performanceLevel === "medium").length ?? 0;
+  const low    = feed?.filter((c) => c.performanceLevel === "low").length ?? 0;
+
+  return (
+    <div className="p-6 space-y-5 max-w-5xl">
+      {/* Header */}
       <div>
-        <h2 className="font-semibold text-gray-800 mb-3">Content Signal Feed</h2>
+        <h1 className="text-xl font-bold text-gray-900">Creator Insight</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Content → Product Decision System</p>
+      </div>
+
+      {/* URL Paste Zone */}
+      <div className="card border-2 border-dashed border-brand-200 bg-brand-50/40">
+        <p className="text-xs font-semibold text-brand-600 mb-2 flex items-center gap-1.5">
+          <Link2 size={12} />
+          Paste TikTok / Instagram link to log content
+        </p>
+        <div className="flex gap-2">
+          <input
+            ref={inputRef}
+            value={urlInput}
+            onChange={(e) => handleUrlChange(e.target.value)}
+            placeholder="https://www.tiktok.com/@creator/video/..."
+            className="input flex-1 text-sm font-mono"
+          />
+          <button
+            onClick={() => {
+              if (urlInput.trim()) {
+                setModal({ url: urlInput.trim(), platform: detectPlatform(urlInput) });
+              }
+            }}
+            className="btn-primary px-4 text-sm flex items-center gap-1.5"
+          >
+            <Plus size={14} />
+            Log
+          </button>
+        </div>
+        {justSaved && (
+          <p className="text-xs text-green-600 font-semibold mt-2 flex items-center gap-1">
+            <Check size={12} />
+            Saved! Keywords extracted automatically.
+          </p>
+        )}
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="card text-center">
+          <div className="text-2xl font-bold text-red-500">{high}</div>
+          <div className="text-xs text-gray-400 mt-0.5">🔥 High</div>
+        </div>
+        <div className="card text-center">
+          <div className="text-2xl font-bold text-amber-500">{medium}</div>
+          <div className="text-xs text-gray-400 mt-0.5">👍 Medium</div>
+        </div>
+        <div className="card text-center">
+          <div className="text-2xl font-bold text-gray-400">{low}</div>
+          <div className="text-xs text-gray-400 mt-0.5">⚠️ Low</div>
+        </div>
+      </div>
+
+      {/* Feed */}
+      <div>
+        <h2 className="font-semibold text-gray-800 text-sm mb-3">
+          Content Signal Feed · Top {feed?.length ?? 0} ranked by score
+        </h2>
         {loading ? (
-          <div className="flex justify-center py-8"><Loader2 className="animate-spin text-gray-300" /></div>
+          <div className="flex justify-center py-12">
+            <Loader2 size={24} className="animate-spin text-gray-300" />
+          </div>
+        ) : !feed?.length ? (
+          <div className="card text-center py-12">
+            <Zap size={32} className="text-gray-200 mx-auto mb-3" />
+            <p className="text-gray-500 font-medium text-sm">No content logged yet</p>
+            <p className="text-gray-400 text-xs mt-1">
+              Paste a TikTok or Instagram link above to start
+            </p>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4">
-            {(videos ?? []).map(v => {
-              const signals: string[] = (() => { try { return JSON.parse(v.aiSignals); } catch { return []; } })();
-              const tags: string[]    = (() => { try { return JSON.parse(v.productTags); } catch { return []; } })();
-              const score             = scoreLabel(v.signalScore);
-              return (
-                <div key={v.id} className="card space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-gray-900 truncate">{v.title}</span>
-                        <span className="badge bg-gray-100 text-gray-600">{v.platform}</span>
-                        {v.contentType && <span className="badge bg-blue-50 text-blue-600">{v.contentType}</span>}
-                        {tags.map(tag => <span key={tag} className="badge bg-brand-50 text-brand-600">{tag}</span>)}
-                      </div>
-                      <div className="text-xs text-gray-400 mt-0.5">by {v.user.name}</div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${score.color}`}>
-                        {score.label} {v.signalScore > 0 ? v.signalScore : ""}
-                      </span>
-                      {v.pushedToWarRoom && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">WAR ROOM ↑</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-2">
-                    {[
-                      { val: fmt(v.views),       label: "Views",   color: "bg-gray-50"      },
-                      { val: fmt(v.likes),        label: "Likes",   color: "bg-gray-50"      },
-                      { val: fmt(v.comments),     label: "Comments", color: "bg-gray-50"     },
-                      { val: String(v.linkedSales), label: "Sales", color: "bg-brand-50 text-brand-700" },
-                    ].map(({ val, label, color }) => (
-                      <div key={label} className={`${color} rounded-xl p-2 text-center`}>
-                        <div className="text-sm font-bold">{val}</div>
-                        <div className="text-[10px] text-gray-400">{label}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {signals.length > 0 && (
-                    <div className="bg-brand-50 border border-brand-100 rounded-xl p-3">
-                      <p className="text-[10px] font-bold text-brand-500 mb-1.5 flex items-center gap-1"><Zap size={10} /> SIGNALS DETECTED</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {signals.map((s, i) => (
-                          <span key={i} className="text-xs bg-white border border-brand-200 text-brand-700 px-2 py-0.5 rounded-full">{s}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {v.topComment && !signals.length && (
-                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
-                      <p className="text-[10px] text-blue-400 font-semibold mb-1">TOP COMMENT</p>
-                      <p className="text-sm text-blue-800 italic">"{v.topComment}"</p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            {!videos?.length && <p className="text-sm text-gray-400 text-center py-6">No content logged yet</p>}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {feed.map((item) => (
+              <ContentCard key={item.id} item={item} />
+            ))}
           </div>
         )}
       </div>
+
+      {/* Quick Input Modal */}
+      {modal && (
+        <QuickModal
+          url={modal.url}
+          platform={modal.platform}
+          onClose={() => {
+            setModal(null);
+            setUrlInput("");
+          }}
+          onSaved={handleSaved}
+        />
+      )}
     </div>
   );
 }

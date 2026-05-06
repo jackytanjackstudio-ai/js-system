@@ -73,5 +73,32 @@ export async function POST(req: Request) {
     },
   });
 
+  // ── Write to DataHub (fire-and-forget, don't block response) ──
+  const dhOutlet = outletId ?? session.outletId ?? "";
+  Promise.all([
+    prisma.dataHubEntry.create({
+      data: {
+        type:    "sales",
+        refId:   productCode,
+        outletId: dhOutlet,
+        value:   1,
+        meta:    JSON.stringify({ productName: productName ?? "", category: category ?? "", source: "quick_log" }),
+        week,
+        month,
+      },
+    }),
+    prisma.dataHubEntry.create({
+      data: {
+        type:    "customer_reason",
+        refId:   productCode,
+        outletId: dhOutlet,
+        value:   1,
+        meta:    JSON.stringify({ reason: buyingTrigger, useCase, source: "quick_log" }),
+        week,
+        month,
+      },
+    }),
+  ]).catch(() => { /* non-critical */ });
+
   return apiOk(entry, 201);
 }

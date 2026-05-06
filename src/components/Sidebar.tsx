@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, MessageSquare, BarChart2, Video,
-  Database, Sword, CheckSquare, Trophy, Settings, Zap, Store, ShieldCheck, Menu, X, Users, ThumbsUp, Calendar, BookOpen,
+  Database, Sword, CheckSquare, Trophy, Settings, Zap, Store, ShieldCheck, Menu, X, Users, ThumbsUp, Calendar, BookOpen, Star, Sliders, Medal, BookMarked,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/context/LangContext";
@@ -37,12 +37,16 @@ export default function Sidebar() {
     { href: "/data-hub",           icon: Database,        labelKey: "nav_data_hub",          group: "core",     hide: isSales        },
     { href: "/leads",              icon: Users,           labelKey: "nav_leads",             group: "core",     hide: isSales        },
     { href: "/product-war-room",   icon: Sword,           labelKey: "nav_product_war_room",  group: "core",     hide: isSales        },
+    { href: "/product-war-room",   icon: BookMarked,      labelKey: "nav_product_feedback",  group: "core",     hide: !isSales       },
     { href: "/product-master",     icon: BookOpen,        labelKey: "nav_product_master",    group: "core",     hide: false          },
-    { href: "/product-feedback",   icon: ThumbsUp,        labelKey: "nav_product_feedback",  group: "core",     hide: !isSales       },
+    { href: "/reviews",            icon: Star,            labelKey: "nav_reviews",            group: "core",     hide: false          },
+    { href: "/product-feedback",   icon: ThumbsUp,        labelKey: "nav_product_feedback",  group: "core",     hide: isSales        },
     { href: "/campaign",            icon: Calendar,        labelKey: "nav_campaign",         group: "output",   hide: false          },
     { href: "/outlets",            icon: Store,           labelKey: "oc_title",             group: "output",   hide: isSales        },
     { href: "/execution",          icon: CheckSquare,     labelKey: "nav_execution",         group: "output",   hide: false          },
     { href: "/rewards",            icon: Trophy,          labelKey: "nav_rewards",           group: "output",   hide: false          },
+    { href: "/leaderboard",        icon: Medal,           labelKey: "nav_leaderboard",       group: "output",   hide: false          },
+    { href: "/strategy",           icon: Sliders,         labelKey: "nav_strategy",          group: "output",   hide: !["admin","manager"].includes(user?.role ?? "") },
     { href: "/settings",           icon: Settings,        labelKey: "nav_settings",          group: "system",   hide: false          },
     { href: "/admin",              icon: ShieldCheck,     labelKey: "nav_admin",             group: "system",   hide: false          },
   ] satisfies { href: string; icon: React.ElementType; labelKey: import("@/lib/i18n").TKey; group: string; hide: boolean }[];

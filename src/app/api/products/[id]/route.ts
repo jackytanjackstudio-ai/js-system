@@ -4,7 +4,7 @@ import { getSession, apiError, apiOk } from "@/lib/auth";
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session) return apiError("Unauthorized", 401);
-  if (!["admin", "product"].includes(session.role)) return apiError("Forbidden", 403);
+  if (!["admin", "product", "manager"].includes(session.role)) return apiError("Forbidden", 403);
 
   const body = await req.json();
 
@@ -36,6 +36,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       ...(body.promotions    !== undefined ? { promotions: JSON.stringify(body.promotions) }           : {}),
       ...(body.sellingPoints !== undefined ? { sellingPoints: JSON.stringify(body.sellingPoints) }   : {}),
       ...(body.demandScore  !== undefined ? { demandScore: body.demandScore }             : {}),
+      ...(body.priority     !== undefined ? { priority: body.priority }                 : {}),
     },
     include: { validations: true, reservations: true },
   });
