@@ -1,14 +1,68 @@
 "use client";
-import { Settings, Users, Bell, Shield, Database } from "lucide-react";
+import { useState } from "react";
+import { Settings, Users, Bell, Shield, Database, KeyRound, Loader2, CheckCircle2 } from "lucide-react";
 import { useLang } from "@/context/LangContext";
+import { apiFetch } from "@/hooks/useData";
 
-const members = [
-  { label: "Jack (Admin)", role: "Owner",         status: "Active" },
-  { label: "Jason Lim",    role: "Sales",         status: "Active" },
-  { label: "Ali Haikal",   role: "Creator",       status: "Active" },
-  { label: "Nurul Ain",    role: "Creator",       status: "Active" },
-  { label: "Siti Maryam", role: "Creator",        status: "Active" },
-];
+function ChangePasswordCard() {
+  const [form, setForm] = useState({ currentPassword: "", newPassword: "", confirm: "" });
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (form.newPassword !== form.confirm) { setMsg({ type: "err", text: "New passwords do not match." }); return; }
+    if (form.newPassword.length < 6) { setMsg({ type: "err", text: "Password must be at least 6 characters." }); return; }
+    setSaving(true); setMsg(null);
+    try {
+      await apiFetch("/api/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify({ currentPassword: form.currentPassword, newPassword: form.newPassword }),
+      });
+      setMsg({ type: "ok", text: "Password changed successfully!" });
+      setForm({ currentPassword: "", newPassword: "", confirm: "" });
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setMsg({ type: "err", text: e?.message ?? "Failed. Check your current password." });
+    } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="card space-y-4">
+      <h2 className="font-semibold text-gray-800 flex items-center gap-2">
+        <KeyRound size={16} className="text-gray-500" /> Change Password
+      </h2>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1.5">Current Password</label>
+          <input type="password" required className="input w-full"
+            value={form.currentPassword} onChange={e => setForm(f => ({ ...f, currentPassword: e.target.value }))} />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1.5">New Password</label>
+          <input type="password" required minLength={6} className="input w-full"
+            value={form.newPassword} onChange={e => setForm(f => ({ ...f, newPassword: e.target.value }))} />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1.5">Confirm New Password</label>
+          <input type="password" required className="input w-full"
+            value={form.confirm} onChange={e => setForm(f => ({ ...f, confirm: e.target.value }))} />
+        </div>
+        {msg && (
+          <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-xl ${msg.type === "ok" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
+            {msg.type === "ok" && <CheckCircle2 size={14} />}
+            {msg.text}
+          </div>
+        )}
+        <button type="submit" disabled={saving}
+          className="btn-primary flex items-center gap-2 text-sm px-4 py-2 disabled:opacity-60">
+          {saving && <Loader2 size={13} className="animate-spin" />}
+          Update Password
+        </button>
+      </form>
+    </div>
+  );
+}
 
 export default function SettingsPage() {
   const { t } = useLang();
@@ -108,6 +162,8 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      <ChangePasswordCard />
 
       <button className="btn-primary w-full py-3">{t("set_save")}</button>
     </div>

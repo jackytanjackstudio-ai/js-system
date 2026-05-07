@@ -44,6 +44,19 @@ export async function POST(req: Request) {
   return apiOk(user, 201);
 }
 
+export async function DELETE(req: Request) {
+  const session = await getSession();
+  if (!session) return apiError("Unauthorized", 401);
+  if (session.role !== "admin") return apiError("Forbidden", 403);
+
+  const { id } = await req.json();
+  if (!id) return apiError("id required");
+  if (id === session.id) return apiError("Cannot delete your own account", 400);
+
+  await prisma.user.delete({ where: { id } });
+  return apiOk({ deleted: id });
+}
+
 export async function PATCH(req: Request) {
   const session = await getSession();
   if (!session) return apiError("Unauthorized", 401);

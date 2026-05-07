@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import { useData, apiFetch } from "@/hooks/useData";
-import { Plus, Loader2, ToggleLeft, ToggleRight, Pencil, Check, X, KeyRound } from "lucide-react";
+import { Plus, Loader2, ToggleLeft, ToggleRight, Pencil, Check, X, KeyRound, Trash2 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 
 type Staff  = { id: string; name: string; email: string; role: string; outletId: string | null; isActive: boolean; outlet: { name: string } | null };
@@ -18,6 +19,7 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 export default function AdminStaff() {
+  const { user: me } = useAuth();
   const { data: staff,   loading: sl, refetch: refetchStaff }   = useData<Staff[]>("/api/staff");
   const { data: outlets, loading: ol }                           = useData<Outlet[]>("/api/outlets");
 
@@ -58,6 +60,12 @@ export default function AdminStaff() {
 
   async function toggleActive(s: Staff) {
     await apiFetch("/api/staff", { method: "PATCH", body: JSON.stringify({ id: s.id, isActive: !s.isActive }) });
+    refetchStaff();
+  }
+
+  async function deleteUser(s: Staff) {
+    if (!confirm(`Delete "${s.name}"? This cannot be undone.`)) return;
+    await apiFetch("/api/staff", { method: "DELETE", body: JSON.stringify({ id: s.id }) });
     refetchStaff();
   }
 
@@ -253,6 +261,12 @@ export default function AdminStaff() {
                           className="p-1.5 bg-stone-700 hover:bg-stone-600 text-stone-400 hover:text-white rounded-lg transition-colors" title={s.isActive ? "Deactivate" : "Activate"}>
                           {s.isActive ? <ToggleRight size={14} className="text-green-400" /> : <ToggleLeft size={14} />}
                         </button>
+                        {me?.id !== s.id && (
+                          <button onClick={() => deleteUser(s)}
+                            className="p-1.5 bg-stone-700 hover:bg-red-900/60 text-stone-400 hover:text-red-400 rounded-lg transition-colors" title="Delete user">
+                            <Trash2 size={12} />
+                          </button>
+                        )}
                       </div>
                     )}
                   </td>
