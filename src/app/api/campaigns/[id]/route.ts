@@ -36,7 +36,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (body.salesScript !== undefined) data.salesScript = body.salesScript;
   if (body.channels    !== undefined) data.channels    = JSON.stringify(body.channels);
   if (body.objective   !== undefined) data.objective   = JSON.stringify(body.objective);
-  if (body.mechanics   !== undefined) data.mechanics   = JSON.stringify(body.mechanics);
+  if (body.mechanics        !== undefined) data.mechanics        = JSON.stringify(body.mechanics);
+  if (body.mechanicsPhotos  !== undefined) data.mechanicsPhotos  = JSON.stringify(body.mechanicsPhotos);
   if (body.contentPlan !== undefined) data.contentPlan = JSON.stringify(body.contentPlan);
   if (body.owner       !== undefined) data.owner       = body.owner;
   if (body.scopeRegions !== undefined) data.scopeRegions = JSON.stringify(body.scopeRegions);

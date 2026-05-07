@@ -265,8 +265,9 @@ model Campaign {
   endDate      String
   channels     String   @default("[]")
   objective    String   @default("{}")
-  mechanics    String   @default("[]")
-  contentPlan  String   @default("{}")
+  mechanics        String   @default("[]")
+  mechanicsPhotos  String   @default("[]")
+  contentPlan      String   @default("{}")
   salesScript  String?
   status       String   @default("upcoming")
   scopeType    String   @default("all")

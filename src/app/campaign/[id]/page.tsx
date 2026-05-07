@@ -51,7 +51,7 @@ type CampaignOutlet = { id: string; outletId: string; outletName: string };
 
 type Campaign = {
   id: string; name: string; type: string; startDate: string; endDate: string;
-  channels: string; objective: string; mechanics: string;
+  channels: string; objective: string; mechanics: string; mechanicsPhotos: string;
   contentPlan: string; salesScript: string | null; status: string;
   scopeType: string; scopeRegions: string; owner: string;
   vmGuide: VMGuide | null;
@@ -588,11 +588,14 @@ function KPICard({ label, value }: { label: string; value: string }) {
 // ─── Mechanics Tab ────────────────────────────────────────────────────────────
 
 function MechanicsTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAdmin: boolean; refetch: () => void }) {
-  const [items, setItems] = useState<string[]>(() => parse<string[]>(campaign.mechanics, []));
-  const [newItem, setNewItem] = useState("");
-  const [saving, setSaving]   = useState(false);
+  const [items, setItems]   = useState<string[]>(() => parse<string[]>(campaign.mechanics, []));
+  const [photos, setPhotos] = useState<string[]>(() => parse<string[]>(campaign.mechanicsPhotos ?? "[]", []));
+  const [newItem, setNewItem]   = useState("");
+  const [saving, setSaving]     = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [lightbox, setLightbox]   = useState<string | null>(null);
 
-  async function save(list: string[]) {
+  async function saveItems(list: string[]) {
     setSaving(true);
     try {
       await apiFetch(`/api/campaigns/${campaign.id}`, { method: "PATCH", body: JSON.stringify({ mechanics: list }) });
@@ -600,44 +603,132 @@ function MechanicsTab({ campaign, isAdmin, refetch }: { campaign: Campaign; isAd
     } finally { setSaving(false); }
   }
 
+  async function savePhotos(list: string[]) {
+    await apiFetch(`/api/campaigns/${campaign.id}`, { method: "PATCH", body: JSON.stringify({ mechanicsPhotos: list }) });
+    refetch();
+  }
+
   function add() {
     if (!newItem.trim()) return;
     const next = [...items, newItem.trim()];
-    setItems(next); setNewItem(""); save(next);
+    setItems(next); setNewItem(""); saveItems(next);
   }
 
   function remove(i: number) {
     const next = items.filter((_, j) => j !== i);
-    setItems(next); save(next);
+    setItems(next); saveItems(next);
+  }
+
+  async function handlePhotoUpload(files: FileList | null) {
+    if (!files) return;
+    setUploading(true);
+    try {
+      const urls = await Promise.all(Array.from(files).map(f => uploadToCloudinary(f)));
+      const next = [...photos, ...urls];
+      setPhotos(next); savePhotos(next);
+    } finally { setUploading(false); }
+  }
+
+  function removePhoto(i: number) {
+    const next = photos.filter((_, j) => j !== i);
+    setPhotos(next); savePhotos(next);
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-gray-800">Sales Mechanics</h3>
-        {saving && <Loader2 size={14} className="animate-spin text-gray-400" />}
-      </div>
-      <div className="space-y-2">
-        {items.length === 0 && <p className="text-sm text-gray-400">No mechanics added yet.</p>}
-        {items.map((item, i) => (
-          <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2.5">
-            <span className="w-5 h-5 rounded-full bg-brand-100 text-brand-700 text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</span>
-            <span className="flex-1 text-sm text-gray-700">{item}</span>
-            {isAdmin && (
-              <button onClick={() => remove(i)} className="text-gray-300 hover:text-red-400"><X size={14} /></button>
-            )}
+    <div className="space-y-4">
+      {/* Mechanics list */}
+      <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-gray-800">Sales Mechanics</h3>
+          {saving && <Loader2 size={14} className="animate-spin text-gray-400" />}
+        </div>
+        <div className="space-y-2">
+          {items.length === 0 && <p className="text-sm text-gray-400">No mechanics added yet.</p>}
+          {items.map((item, i) => (
+            <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2.5">
+              <span className="w-5 h-5 rounded-full bg-brand-100 text-brand-700 text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</span>
+              <span className="flex-1 text-sm text-gray-700">{item}</span>
+              {isAdmin && <button onClick={() => remove(i)} className="text-gray-300 hover:text-red-400"><X size={14} /></button>}
+            </div>
+          ))}
+        </div>
+        {isAdmin && (
+          <div className="flex gap-2">
+            <input value={newItem} onChange={e => setNewItem(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && add()}
+              placeholder='e.g. "RM180 Free Gift"'
+              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400" />
+            <button onClick={add} className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg">
+              <Plus size={16} />
+            </button>
           </div>
-        ))}
+        )}
       </div>
-      {isAdmin && (
-        <div className="flex gap-2">
-          <input value={newItem} onChange={e => setNewItem(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && add()}
-            placeholder='e.g. "RM180 Free Gift"'
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400" />
-          <button onClick={add} className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg">
-            <Plus size={16} />
-          </button>
+
+      {/* Pop Card / Design Photos */}
+      <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-gray-800">Pop Card & Design References</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Upload pop card designs, display references, and visuals for the designer.</p>
+          </div>
+          {isAdmin && (
+            <label className={cn(
+              "flex items-center gap-2 px-3 py-2 bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-semibold rounded-lg cursor-pointer transition-colors",
+              uploading && "opacity-60 pointer-events-none"
+            )}>
+              {uploading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+              {uploading ? "Uploading…" : "Upload Photos"}
+              <input type="file" accept="image/*" multiple className="hidden"
+                onChange={e => handlePhotoUpload(e.target.files)} />
+            </label>
+          )}
+        </div>
+
+        {photos.length === 0 ? (
+          <div className="border-2 border-dashed border-gray-200 rounded-xl py-10 text-center">
+            <ImageIcon size={28} className="text-gray-200 mx-auto mb-2" />
+            <p className="text-sm text-gray-400">No design photos yet</p>
+            {isAdmin && <p className="text-xs text-gray-300 mt-1">Click "Upload Photos" to add pop card designs</p>}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {photos.map((url, i) => (
+              <div key={i} className="relative group rounded-xl overflow-hidden border border-gray-100 aspect-square">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={`Design ${i + 1}`} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                  <button onClick={() => setLightbox(url)}
+                    className="p-1.5 bg-white rounded-lg text-gray-700 hover:text-brand-600 transition-colors">
+                    <ZoomIn size={14} />
+                  </button>
+                  {isAdmin && (
+                    <button onClick={() => removePhoto(i)}
+                      className="p-1.5 bg-white rounded-lg text-gray-700 hover:text-red-500 transition-colors">
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+                <div className="absolute bottom-1.5 right-1.5 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded font-semibold">
+                  {i + 1}/{photos.length}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+          <div className="relative max-w-3xl max-h-[90vh]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={lightbox} alt="Pop card design" className="max-w-full max-h-[90vh] object-contain rounded-xl" />
+            <button onClick={() => setLightbox(null)}
+              className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full hover:bg-black/70">
+              <X size={16} />
+            </button>
+          </div>
         </div>
       )}
     </div>
