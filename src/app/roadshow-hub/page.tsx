@@ -540,13 +540,151 @@ function RoadshowModal({ initial, onSave, onClose }: {
   );
 }
 
+// ─── Calendar View ────────────────────────────────────────────────────────────
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MISSION_DOT: Record<string, string> = {
+  branding:   "bg-purple-400",
+  conversion: "bg-green-400",
+  clearance:  "bg-orange-400",
+};
+
+function CalendarView({ list }: { list: Roadshow[] }) {
+  const [year, setYear]   = useState(2026);
+  const [month, setMonth] = useState(new Date().getMonth()); // 0-indexed
+
+  function prevMonth() { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); }
+  function nextMonth() { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); }
+
+  // Days in month grid
+  const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  // Shift so Monday=0
+  const startOffset = (firstDay + 6) % 7;
+
+  // Get roadshows active on a given day
+  function activeOn(day: number): Roadshow[] {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    return list.filter(r => r.startDate <= dateStr && r.endDate >= dateStr);
+  }
+
+  // Month summary: all roadshows that overlap this month
+  const monthStart = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const monthEnd   = `${year}-${String(month + 1).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+  const monthShows = list.filter(r => r.startDate <= monthEnd && r.endDate >= monthStart);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  return (
+    <div className="space-y-4">
+      {/* Month nav */}
+      <div className="flex items-center justify-between">
+        <button onClick={prevMonth} className="p-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors text-gray-600 font-bold">‹</button>
+        <div className="text-center">
+          <div className="font-black text-gray-900 text-lg">{MONTHS[month]} {year}</div>
+          <div className="text-xs text-gray-400">{monthShows.length} roadshow{monthShows.length !== 1 ? "s" : ""} this month</div>
+        </div>
+        <button onClick={nextMonth} className="p-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors text-gray-600 font-bold">›</button>
+      </div>
+
+      {/* Day grid */}
+      <div className="card p-0 overflow-hidden">
+        {/* Header row */}
+        <div className="grid grid-cols-7 border-b border-gray-100">
+          {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => (
+            <div key={d} className="text-center text-[10px] font-bold text-gray-400 py-2">{d}</div>
+          ))}
+        </div>
+
+        {/* Day cells */}
+        <div className="grid grid-cols-7">
+          {/* Empty cells before start */}
+          {Array.from({ length: startOffset }).map((_, i) => (
+            <div key={`empty-${i}`} className="min-h-[80px] border-b border-r border-gray-50 bg-gray-50/50" />
+          ))}
+
+          {/* Day cells */}
+          {Array.from({ length: daysInMonth }).map((_, i) => {
+            const day = i + 1;
+            const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const shows = activeOn(day);
+            const isToday = dateStr === todayStr;
+            const col = (startOffset + i) % 7;
+            const isWeekend = col >= 5;
+
+            return (
+              <div key={day} className={cn(
+                "min-h-[80px] border-b border-r border-gray-100 p-1.5 transition-colors",
+                isWeekend ? "bg-gray-50/40" : "bg-white",
+                shows.length > 0 && "bg-brand-50/20"
+              )}>
+                <div className={cn(
+                  "text-xs font-bold mb-1 w-6 h-6 flex items-center justify-center rounded-full",
+                  isToday ? "bg-brand-500 text-white" : "text-gray-600"
+                )}>{day}</div>
+                <div className="space-y-0.5">
+                  {shows.slice(0, 3).map(r => (
+                    <div key={r.id} className={cn(
+                      "text-[9px] font-semibold px-1 py-0.5 rounded text-white truncate",
+                      r.mission === "branding" ? "bg-purple-400" : r.mission === "clearance" ? "bg-orange-400" : "bg-green-500"
+                    )} title={r.mallName}>
+                      {r.mallName.replace(" Mall","").replace(" University","U.").split(" ").slice(0,2).join(" ")}
+                    </div>
+                  ))}
+                  {shows.length > 3 && (
+                    <div className="text-[9px] text-gray-400 font-semibold">+{shows.length - 3} more</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Month roadshow list */}
+      {monthShows.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{MONTHS[month]} Roadshows</p>
+          {[...monthShows].sort((a, b) => a.startDate.localeCompare(b.startDate)).map(r => {
+            const mission = MISSION_CONFIG[r.mission as keyof typeof MISSION_CONFIG] ?? MISSION_CONFIG.conversion;
+            const status  = STATUS_CONFIG[r.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.pending;
+            return (
+              <div key={r.id} className="card py-2.5 flex items-center gap-3">
+                <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", MISSION_DOT[r.mission] ?? "bg-gray-300")} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-gray-900 text-sm">{r.mallName}</span>
+                    <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-full", mission.color)}>{mission.label}</span>
+                    <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-full", status.color)}>{status.label}</span>
+                  </div>
+                  <div className="text-xs text-gray-400 mt-0.5">
+                    {fmt(r.startDate)} – {fmt(r.endDate)}
+                    {r.notes && <span> · {r.notes}</span>}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 text-xs text-gray-500">
+        <span className="font-semibold">Legend:</span>
+        {[["conversion","bg-green-500","Conversion"],["branding","bg-purple-400","Branding"],["clearance","bg-orange-400","Clearance"]].map(([,bg,label])=>(
+          <span key={label} className="flex items-center gap-1.5"><span className={cn("w-3 h-3 rounded-sm",bg)} />{label}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function RoadshowHubPage() {
   const { user } = useAuth();
   const { data, loading, refetch } = useData<Roadshow[]>("/api/roadshows");
   const [showModal, setShowModal] = useState(false);
   const [editTarget, setEditTarget] = useState<Roadshow | null>(null);
-  const [tab, setTab] = useState<"all" | "upcoming" | "completed">("all");
+  const [tab, setTab] = useState<"all" | "upcoming" | "completed" | "calendar">("all");
 
   const canEdit = ["admin", "manager"].includes(user?.role ?? "");
   const list = data ?? [];
@@ -597,19 +735,27 @@ export default function RoadshowHubPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
-        {(["all", "upcoming", "completed"] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={cn("flex-1 py-2 rounded-lg text-xs font-semibold transition-all capitalize",
-              tab === t ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
-            {t} {t === "all" ? `(${list.length})` : t === "upcoming" ? `(${list.filter(r => r.status !== "completed" && r.endDate >= today).length})` : `(${list.filter(r => r.status === "completed" || r.endDate < today).length})`}
+        {([
+          { key: "all",       label: `All (${list.length})` },
+          { key: "upcoming",  label: `Upcoming (${list.filter(r => r.status !== "completed" && r.endDate >= today).length})` },
+          { key: "completed", label: `Completed (${list.filter(r => r.status === "completed" || r.endDate < today).length})` },
+          { key: "calendar",  label: "📅 Calendar" },
+        ] as const).map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            className={cn("flex-1 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap",
+              tab === t.key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
+            {t.label}
           </button>
         ))}
       </div>
 
+      {/* Calendar View */}
+      {tab === "calendar" && <CalendarView list={list} />}
+
       {/* Cards */}
-      {loading ? (
+      {tab !== "calendar" && loading ? (
         <div className="flex justify-center py-16"><Loader2 className="animate-spin text-gray-300" size={28} /></div>
-      ) : filtered.length === 0 ? (
+      ) : tab !== "calendar" && filtered.length === 0 ? (
         <div className="card text-center py-14 border-2 border-dashed border-gray-200">
           <MapPin size={32} className="text-gray-200 mx-auto mb-3" />
           <p className="font-semibold text-gray-500">No roadshows yet</p>
@@ -621,7 +767,7 @@ export default function RoadshowHubPage() {
             </button>
           )}
         </div>
-      ) : (
+      ) : tab !== "calendar" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map(r => (
             <RoadshowCard key={r.id} r={r} canEdit={canEdit}
@@ -629,7 +775,7 @@ export default function RoadshowHubPage() {
               onDelete={() => handleDelete(r.id)} />
           ))}
         </div>
-      )}
+      ) : null}
 
       {showModal && (
         <RoadshowModal
