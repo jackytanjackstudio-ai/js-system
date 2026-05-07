@@ -160,37 +160,9 @@ export default function AdminStaff() {
         </div>
       )}
 
-      {/* Search + Filters */}
-      <div className="space-y-2">
-        <input className="w-full bg-stone-800 border border-stone-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-brand-500 placeholder-stone-500"
-          placeholder="Search by name or email…" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <div className="flex flex-wrap gap-2">
-          <select value={filterRole} onChange={e => setFilterRole(e.target.value)}
-            className="bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-stone-300 text-xs focus:outline-none focus:border-brand-500">
-            <option value="">All Roles</option>
-            {ROLES.map(r => <option key={r} value={r} className="bg-stone-900 capitalize">{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
-          </select>
-          <select value={filterOutlet} onChange={e => setFilterOutlet(e.target.value)}
-            className="bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-stone-300 text-xs focus:outline-none focus:border-brand-500">
-            <option value="">All Outlets</option>
-            <option value="" disabled>──</option>
-            {(outlets ?? []).map(o => <option key={o.id} value={o.id} className="bg-stone-900">{o.name}</option>)}
-          </select>
-          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-            className="bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-stone-300 text-xs focus:outline-none focus:border-brand-500">
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-          {(filterRole || filterOutlet || filterStatus) && (
-            <button onClick={() => { setFilterRole(""); setFilterOutlet(""); setFilterStatus(""); }}
-              className="px-3 py-2 bg-stone-700 hover:bg-stone-600 text-stone-400 text-xs rounded-lg transition-colors">
-              Clear
-            </button>
-          )}
-          <span className="ml-auto text-xs text-stone-500 self-center">{filtered.length} user{filtered.length !== 1 ? "s" : ""}</span>
-        </div>
-      </div>
+      {/* Search */}
+      <input className="w-full bg-stone-800 border border-stone-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-brand-500 placeholder-stone-500"
+        placeholder="Search by name or email…" value={search} onChange={(e) => setSearch(e.target.value)} />
 
       {/* Table */}
       {sl || ol ? (
@@ -199,12 +171,38 @@ export default function AdminStaff() {
         <div className="bg-stone-800 border border-stone-700 rounded-xl overflow-hidden overflow-x-auto">
           <table className="w-full min-w-[640px]">
             <thead>
-              <tr className="border-b border-stone-700">
-                <th className="text-left text-xs text-stone-500 font-semibold px-5 py-3">User</th>
-                <th className="text-left text-xs text-stone-500 font-semibold px-5 py-3">Role</th>
-                <th className="text-left text-xs text-stone-500 font-semibold px-5 py-3">Outlet</th>
-                <th className="text-right text-xs text-stone-500 font-semibold px-5 py-3">Status</th>
-                <th className="px-5 py-3"></th>
+              <tr className="border-b border-stone-700/50">
+                <th className="text-left text-xs text-stone-500 font-semibold px-5 py-3">
+                  User <span className="text-stone-600 font-normal">({filtered.length})</span>
+                </th>
+                <th className="text-left px-5 py-3">
+                  <select value={filterRole} onChange={e => setFilterRole(e.target.value)}
+                    className="bg-stone-700 border border-stone-600 rounded-md px-2 py-1 text-stone-300 text-xs focus:outline-none focus:border-brand-500 w-full">
+                    <option value="">All Roles</option>
+                    {ROLES.map(r => <option key={r} value={r} className="bg-stone-900 capitalize">{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
+                  </select>
+                </th>
+                <th className="text-left px-5 py-3">
+                  <select value={filterOutlet} onChange={e => setFilterOutlet(e.target.value)}
+                    className="bg-stone-700 border border-stone-600 rounded-md px-2 py-1 text-stone-300 text-xs focus:outline-none focus:border-brand-500 w-full">
+                    <option value="">All Outlets</option>
+                    {(outlets ?? []).map(o => <option key={o.id} value={o.id} className="bg-stone-900">{o.name}</option>)}
+                  </select>
+                </th>
+                <th className="text-right px-5 py-3">
+                  <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+                    className="bg-stone-700 border border-stone-600 rounded-md px-2 py-1 text-stone-300 text-xs focus:outline-none focus:border-brand-500">
+                    <option value="">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </th>
+                <th className="px-5 py-3 text-right">
+                  {(filterRole || filterOutlet || filterStatus) && (
+                    <button onClick={() => { setFilterRole(""); setFilterOutlet(""); setFilterStatus(""); }}
+                      className="text-xs text-stone-500 hover:text-stone-300 transition-colors">Clear</button>
+                  )}
+                </th>
               </tr>
             </thead>
             <tbody>
