@@ -64,6 +64,14 @@ function ChangePasswordCard() {
   );
 }
 
+const members = [
+  { label: "Jack (Admin)", role: "Owner",   status: "Active" },
+  { label: "Jason Lim",    role: "Sales",   status: "Active" },
+  { label: "Ali Haikal",   role: "Creator", status: "Active" },
+  { label: "Nurul Ain",    role: "Creator", status: "Active" },
+  { label: "Siti Maryam",  role: "Creator", status: "Active" },
+];
+
 export default function SettingsPage() {
   const { t } = useLang();
 
