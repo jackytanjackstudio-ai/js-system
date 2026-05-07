@@ -49,7 +49,7 @@ export const translations = {
     nav_leads:            "Customer Leads",
     nav_reviews:          "Review Dashboard",
     nav_leaderboard:      "Leaderboard",
-    nav_strategy:         "Strategy Setup",
+    nav_strategy:         "Strategy Hub",
     nav_group_overview:   "Overview",
     nav_group_input:      "Input Layer",
     nav_group_core:       "Core Engine",
