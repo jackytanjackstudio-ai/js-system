@@ -551,6 +551,7 @@ const MISSION_DOT: Record<string, string> = {
 function CalendarView({ list }: { list: Roadshow[] }) {
   const [year, setYear]   = useState(2026);
   const [month, setMonth] = useState(new Date().getMonth()); // 0-indexed
+  const [selectedDay, setSelectedDay] = useState<{ day: number; shows: Roadshow[] } | null>(null);
 
   function prevMonth() { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); }
   function nextMonth() { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); }
@@ -612,11 +613,13 @@ function CalendarView({ list }: { list: Roadshow[] }) {
             const isWeekend = col >= 5;
 
             return (
-              <div key={day} className={cn(
-                "min-h-[80px] border-b border-r border-gray-100 p-1.5 transition-colors",
-                isWeekend ? "bg-gray-50/40" : "bg-white",
-                shows.length > 0 && "bg-brand-50/20"
-              )}>
+              <div key={day}
+                onClick={() => shows.length > 0 && setSelectedDay({ day, shows })}
+                className={cn(
+                  "min-h-[80px] border-b border-r border-gray-100 p-1.5 transition-colors",
+                  isWeekend ? "bg-gray-50/40" : "bg-white",
+                  shows.length > 0 && "bg-brand-50/20 cursor-pointer hover:bg-brand-50/40"
+                )}>
                 <div className={cn(
                   "text-xs font-bold mb-1 w-6 h-6 flex items-center justify-center rounded-full",
                   isToday ? "bg-brand-500 text-white" : "text-gray-600"
@@ -631,7 +634,7 @@ function CalendarView({ list }: { list: Roadshow[] }) {
                     </div>
                   ))}
                   {shows.length > 3 && (
-                    <div className="text-[9px] text-gray-400 font-semibold">+{shows.length - 3} more</div>
+                    <div className="text-[9px] text-brand-600 font-bold">+{shows.length - 3} more</div>
                   )}
                 </div>
               </div>
@@ -639,6 +642,42 @@ function CalendarView({ list }: { list: Roadshow[] }) {
           })}
         </div>
       </div>
+
+      {/* Day click popup */}
+      {selectedDay && (
+        <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4" onClick={() => setSelectedDay(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <div className="font-black text-gray-900">{selectedDay.day} {MONTHS[month]} {year}</div>
+                <div className="text-xs text-gray-400 mt-0.5">{selectedDay.shows.length} roadshow{selectedDay.shows.length !== 1 ? "s" : ""} running</div>
+              </div>
+              <button onClick={() => setSelectedDay(null)} className="p-1.5 text-gray-400 hover:text-gray-600 bg-gray-100 rounded-lg"><X size={14} /></button>
+            </div>
+            <div className="p-4 space-y-2.5 max-h-80 overflow-y-auto">
+              {selectedDay.shows.map(r => {
+                const mission = MISSION_CONFIG[r.mission as keyof typeof MISSION_CONFIG] ?? MISSION_CONFIG.conversion;
+                const status  = STATUS_CONFIG[r.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.pending;
+                return (
+                  <div key={r.id} className="flex items-start gap-3 bg-gray-50 rounded-xl p-3">
+                    <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1", MISSION_DOT[r.mission] ?? "bg-gray-300")} />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-gray-900 text-sm">{r.mallName}</div>
+                      <div className="flex gap-1.5 mt-1 flex-wrap">
+                        <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-full", mission.color)}>{mission.label}</span>
+                        <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-full", status.color)}>{status.label}</span>
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">{fmt(r.startDate)} – {fmt(r.endDate)}</div>
+                      {r.notes && <div className="text-xs text-gray-500 mt-0.5">{r.notes}</div>}
+                      {r.pic && <div className="text-xs text-gray-400 mt-0.5">PIC: {r.pic}</div>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Month roadshow list */}
       {monthShows.length > 0 && (
