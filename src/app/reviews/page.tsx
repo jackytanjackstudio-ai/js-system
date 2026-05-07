@@ -167,6 +167,42 @@ function ReviewCard({
   );
 }
 
+// ── Smart parse from Google review paste ──────────────────────────────────────
+function parseGooglePaste(raw: string): { rating: number; text: string } {
+  // Google copies look like:
+  // "Jacky Tan\n5 stars\n2 weeks ago\nGreat quality belt, love it!"
+  // OR Chinese: "张三\n5颗星\n3天前\n质量很好，皮带非常耐用"
+  // OR just star symbols: ★★★★★ or ⭐⭐⭐⭐⭐
+  let rating = 5;
+  let text = raw.trim();
+
+  // Detect star count from digits before "star" / "星" / "颗星"
+  const numStarMatch = raw.match(/(\d)\s*(?:stars?|颗星|星|⭐)/i);
+  if (numStarMatch) rating = parseInt(numStarMatch[1]);
+
+  // Detect from ★ / ⭐ symbols
+  const starSymbols = (raw.match(/[★⭐]/g) ?? []).length;
+  if (!numStarMatch && starSymbols > 0) rating = Math.min(starSymbols, 5);
+
+  // Strip metadata lines: name, date lines, star lines
+  const lines = raw.split("\n").map(l => l.trim()).filter(Boolean);
+  const bodyLines = lines.filter(l => {
+    if (/^\d\s*(?:stars?|颗星|星)/i.test(l)) return false;  // "5 stars"
+    if (/^[★⭐\s]+$/.test(l)) return false;                  // "★★★★★"
+    if (/^\d+\s*(?:week|month|day|year|hour|minute|天|周|月|年|小时|分钟|前)/i.test(l)) return false; // "2 weeks ago"
+    if (/^(?:reviewed|发布于|撰写于)/i.test(l)) return false;
+    return true;
+  });
+
+  // Heuristic: first line is often the reviewer's name — skip if short and no spaces
+  if (bodyLines.length > 1 && bodyLines[0].length < 30 && !bodyLines[0].includes(" ") && !/[，。！？,.!?]/.test(bodyLines[0])) {
+    bodyLines.shift();
+  }
+
+  text = bodyLines.join(" ").trim() || raw.trim();
+  return { rating, text };
+}
+
 function AddModal({
   outlets,
   onClose,
@@ -176,22 +212,25 @@ function AddModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [form, setForm] = useState({
-    store: "",
-    rating: 5,
-    reviewText: "",
-    productTag: "",
-  });
+  const [tab, setTab] = useState<"paste" | "manual">("paste");
+  const [pasteRaw, setPasteRaw] = useState("");
+  const [parsed, setParsed] = useState<{ rating: number; text: string } | null>(null);
+  const [form, setForm] = useState({ store: "", rating: 5, reviewText: "", productTag: "" });
   const [submitting, setSubmitting] = useState(false);
+
+  function handleParse() {
+    if (!pasteRaw.trim()) return;
+    const result = parseGooglePaste(pasteRaw);
+    setParsed(result);
+    setForm(f => ({ ...f, rating: result.rating, reviewText: result.text }));
+    setTab("manual");
+  }
 
   async function handleSubmit() {
     if (!form.store || !form.reviewText || !form.productTag) return;
     setSubmitting(true);
     try {
-      await apiFetch("/api/reviews", {
-        method: "POST",
-        body: JSON.stringify(form),
-      });
+      await apiFetch("/api/reviews", { method: "POST", body: JSON.stringify(form) });
       onSaved();
       onClose();
     } finally {
@@ -202,97 +241,123 @@ function AddModal({
   const valid = form.store && form.reviewText.trim() && form.productTag.trim();
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="font-semibold text-gray-900">Add Review</h2>
-          <button onClick={onClose}>
-            <X size={18} className="text-gray-400 hover:text-gray-600" />
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="p-5 border-b border-gray-100 flex items-center justify-between shrink-0">
+          <h2 className="font-semibold text-gray-900">Add Google Review</h2>
+          <button onClick={onClose}><X size={18} className="text-gray-400 hover:text-gray-600" /></button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-gray-100 shrink-0">
+          <button onClick={() => setTab("paste")}
+            className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${tab === "paste" ? "text-brand-600 border-b-2 border-brand-500" : "text-gray-400 hover:text-gray-600"}`}>
+            📋 Paste from Google
+          </button>
+          <button onClick={() => setTab("manual")}
+            className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${tab === "manual" ? "text-brand-600 border-b-2 border-brand-500" : "text-gray-400 hover:text-gray-600"}`}>
+            ✏️ Manual Entry
           </button>
         </div>
-        <div className="p-5 space-y-4">
-          {/* Store */}
-          <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1.5 block">Store</label>
-            {outlets.length > 0 ? (
-              <select
-                value={form.store}
-                onChange={(e) => setForm((f) => ({ ...f, store: e.target.value }))}
-                className="input w-full text-sm"
-              >
-                <option value="">Select store…</option>
-                {outlets.map((o) => (
-                  <option key={o.id} value={o.name}>
-                    {o.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                value={form.store}
-                onChange={(e) => setForm((f) => ({ ...f, store: e.target.value }))}
-                placeholder="e.g. Sunway"
-                className="input w-full text-sm"
-              />
-            )}
-          </div>
 
-          {/* Rating */}
-          <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1.5 block">
-              Rating
-            </label>
-            <StarRow
-              rating={form.rating}
-              onChange={(r) => setForm((f) => ({ ...f, rating: r }))}
-            />
-          </div>
+        <div className="p-5 space-y-4 overflow-y-auto flex-1">
 
-          {/* Review Text */}
-          <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1.5 block">
-              Review Text
-            </label>
-            <textarea
-              value={form.reviewText}
-              onChange={(e) => setForm((f) => ({ ...f, reviewText: e.target.value }))}
-              placeholder="Paste or type what the customer said…"
-              rows={4}
-              className="input w-full text-sm resize-none"
-            />
-          </div>
+          {/* ── Paste Tab ── */}
+          {tab === "paste" && (
+            <>
+              <div className="bg-blue-50 rounded-xl p-4 space-y-1.5">
+                <p className="text-xs font-bold text-blue-700">How to copy from Google Maps:</p>
+                <ol className="text-xs text-blue-600 space-y-1 list-decimal list-inside">
+                  <li>Open Google Maps → find your store</li>
+                  <li>Tap the review → <strong>copy all text</strong></li>
+                  <li>Paste below — we auto-detect rating ★ & review text</li>
+                </ol>
+                <p className="text-xs text-blue-500 mt-1">✓ Works for Chinese reviews 中文评价</p>
+              </div>
 
-          {/* Product Tag */}
-          <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1.5 block">
-              Product Tag
-            </label>
-            <input
-              value={form.productTag}
-              onChange={(e) => setForm((f) => ({ ...f, productTag: e.target.value }))}
-              placeholder="e.g. belt, wallet, backpack"
-              className="input w-full text-sm"
-            />
-          </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500 mb-1.5 block">
+                  Paste Google review here
+                </label>
+                <textarea
+                  value={pasteRaw}
+                  onChange={e => setPasteRaw(e.target.value)}
+                  placeholder={"Jacky Tan\n5 stars\n2 weeks ago\nLove the belt, great quality!\n\n或粘贴中文评价：\n张三\n5颗星\n3天前\n质量很好，非常耐用"}
+                  rows={7}
+                  className="input w-full text-sm resize-none font-mono"
+                />
+              </div>
 
-          <button
-            onClick={handleSubmit}
-            disabled={submitting || !valid}
-            className="btn-primary w-full py-2.5 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {submitting ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <Plus size={14} />
-            )}
-            Add Review
-          </button>
+              <button
+                onClick={handleParse}
+                disabled={!pasteRaw.trim()}
+                className="btn-primary w-full py-2.5 text-sm flex items-center justify-center gap-2 disabled:opacity-40">
+                <Zap size={14} /> Extract & Continue →
+              </button>
+            </>
+          )}
+
+          {/* ── Manual Tab ── */}
+          {tab === "manual" && (
+            <>
+              {parsed && (
+                <div className="flex items-center gap-2 bg-green-50 rounded-xl px-3 py-2">
+                  <CheckCircle2 size={14} className="text-green-500" />
+                  <span className="text-xs font-semibold text-green-700">Auto-extracted from paste — review below</span>
+                </div>
+              )}
+
+              {/* Store */}
+              <div>
+                <label className="text-xs font-semibold text-gray-500 mb-1.5 block">Store *</label>
+                {outlets.length > 0 ? (
+                  <select value={form.store} onChange={e => setForm(f => ({ ...f, store: e.target.value }))} className="input w-full text-sm">
+                    <option value="">Select store…</option>
+                    {outlets.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+                  </select>
+                ) : (
+                  <input value={form.store} onChange={e => setForm(f => ({ ...f, store: e.target.value }))} placeholder="e.g. AEON Bukit Tinggi" className="input w-full text-sm" />
+                )}
+              </div>
+
+              {/* Rating */}
+              <div>
+                <label className="text-xs font-semibold text-gray-500 mb-1.5 block">Rating</label>
+                <StarRow rating={form.rating} onChange={r => setForm(f => ({ ...f, rating: r }))} />
+              </div>
+
+              {/* Review Text */}
+              <div>
+                <label className="text-xs font-semibold text-gray-500 mb-1.5 block">Review Text *</label>
+                <textarea
+                  value={form.reviewText}
+                  onChange={e => setForm(f => ({ ...f, reviewText: e.target.value }))}
+                  placeholder="Customer review in any language…"
+                  rows={4}
+                  className="input w-full text-sm resize-none"
+                />
+              </div>
+
+              {/* Product Tag */}
+              <div>
+                <label className="text-xs font-semibold text-gray-500 mb-1.5 block">Product Tag *</label>
+                <input
+                  value={form.productTag}
+                  onChange={e => setForm(f => ({ ...f, productTag: e.target.value }))}
+                  placeholder="e.g. belt / 皮带 / wallet"
+                  className="input w-full text-sm"
+                />
+              </div>
+
+              <button onClick={handleSubmit} disabled={submitting || !valid}
+                className="btn-primary w-full py-2.5 text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+                {submitting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                Save Review
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

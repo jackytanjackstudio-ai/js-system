@@ -504,10 +504,16 @@ function ValidationTab({ products, outlets, onSubmitValidation, onAdvance, canEd
                     </div>
                   </div>
                   {canEdit && (
-                    <button onClick={() => onAdvance(p.id, "Reserving")}
-                      className="text-xs font-semibold px-3 py-1.5 bg-brand-100 hover:bg-brand-200 text-brand-700 rounded-lg transition-colors flex-shrink-0">
-                      → Reserve
-                    </button>
+                    <div className="flex gap-1.5 flex-shrink-0">
+                      <button onClick={() => onAdvance(p.id, "Sourcing")}
+                        className="text-xs font-semibold px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors">
+                        ✕ Cancel
+                      </button>
+                      <button onClick={() => onAdvance(p.id, "Reserving")}
+                        className="text-xs font-semibold px-3 py-1.5 bg-brand-100 hover:bg-brand-200 text-brand-700 rounded-lg transition-colors">
+                        → Reserve
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1414,10 +1420,20 @@ function ReservationTab({ products, outlets, onSubmitReservation, onAdvance, onS
             )}
 
             {canEdit && (
-              <button onClick={() => onAdvance(p.id, "Watchlist")}
-                className="w-full py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-                Ready for Decision <ArrowRight size={14} />
-              </button>
+              <div className="flex gap-2">
+                <button onClick={() => onAdvance(p.id, "Validating")}
+                  className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5">
+                  <ChevronLeft size={13} /> Back to Validation
+                </button>
+                <button onClick={() => onAdvance(p.id, "Sourcing")}
+                  className="flex-1 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5">
+                  <XCircle size={13} /> Cancel
+                </button>
+                <button onClick={() => onAdvance(p.id, "Watchlist")}
+                  className="flex-1 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5">
+                  Decision <ArrowRight size={13} />
+                </button>
+              </div>
             )}
           </div>
         );
