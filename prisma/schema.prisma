@@ -475,6 +475,32 @@ model DataHubEntry {
   @@index([week])
 }
 
+// ─── Roadshow Hub ──────────────────────────────────────────────────────────────
+
+model Roadshow {
+  id            String   @id @default(cuid())
+  mallName      String
+  startDate     String   // YYYY-MM-DD
+  endDate       String   // YYYY-MM-DD
+  sqFt          Int?
+  mission       String   @default("conversion") // branding | conversion | clearance
+  status        String   @default("pending")    // pending | confirmed | completed
+  pic           String?
+  expectedSales Float?
+  actualSales   Float?
+  floorPlanUrls String   @default("[]") // JSON string[]
+  photoUrls     String   @default("[]") // JSON string[]
+  notes         String?
+  postMortem    String?  // JSON: { topCategory, weakCategory, bestSeller, trafficObservation, customerBehavior, competitorObservation, partnerPerformance }
+  partners      String   @default("[]") // JSON: [{ brandName, category, attractionPower, salesContribution, trafficEffect, repeatWorthy }]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([startDate])
+  @@index([status])
+  @@index([mission])
+}
+
 // ─── Seasonal Strategy Hub ─────────────────────────────────────────────────────
 
 model SeasonalStrategy {

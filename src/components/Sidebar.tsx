@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, MessageSquare, BarChart2, Video,
-  Database, Sword, CheckSquare, Trophy, Settings, Zap, Store, ShieldCheck, Menu, X, Users, ThumbsUp, Calendar, BookOpen, Star, Sliders, Medal, BookMarked,
+  Database, Sword, CheckSquare, Trophy, Settings, Zap, Store, ShieldCheck, Menu, X, Users, ThumbsUp, Calendar, BookOpen, Star, Sliders, Medal, BookMarked, MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/context/LangContext";
@@ -41,7 +41,8 @@ export default function Sidebar() {
     { href: "/product-master",     icon: BookOpen,        labelKey: "nav_product_master",    group: "core",     hide: false          },
     { href: "/reviews",            icon: Star,            labelKey: "nav_reviews",            group: "core",     hide: false          },
     { href: "/product-feedback",   icon: ThumbsUp,        labelKey: "nav_product_feedback",  group: "core",     hide: isSales        },
-    { href: "/campaign",            icon: Calendar,        labelKey: "nav_campaign",         group: "output",   hide: false          },
+    { href: "/campaign",             icon: Calendar,        labelKey: "nav_campaign",         group: "output",   hide: false          },
+    { href: "/roadshow-hub",        icon: MapPin,          labelKey: "nav_roadshow_hub",     group: "output",   hide: isSales        },
     { href: "/outlets",            icon: Store,           labelKey: "oc_title",             group: "output",   hide: isSales        },
     { href: "/execution",          icon: CheckSquare,     labelKey: "nav_execution",         group: "output",   hide: false          },
     { href: "/rewards",            icon: Trophy,          labelKey: "nav_rewards",           group: "output",   hide: false          },
