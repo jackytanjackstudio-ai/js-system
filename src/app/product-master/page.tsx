@@ -782,12 +782,19 @@ export default function ProductMasterPage() {
             {canEdit ? "Content production engine" : "Product catalog & sales scripts"} — {products.length} product{products.length !== 1 ? "s" : ""}
           </p>
         </div>
-        {canEdit && (
-          <button onClick={() => { setEditTarget(null); setShowModal(true); }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
-            <Plus size={16} /> Add Product
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          <a href="https://drive.google.com/drive/folders/1uPpcv2CyJ14PTzjlDbZ1D_pf0MRA5DzS?usp=sharing"
+            target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-xl transition-colors">
+            <ExternalLink size={15} /> Product Photos
+          </a>
+          {canEdit && (
+            <button onClick={() => { setEditTarget(null); setShowModal(true); }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
+              <Plus size={16} /> Add Product
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Search */}
