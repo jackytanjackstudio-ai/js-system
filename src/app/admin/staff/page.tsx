@@ -29,6 +29,9 @@ export default function AdminStaff() {
   const [editForm, setEditForm]   = useState({ name: "", role: "", outletId: "" });
   const [newForm, setNewForm]     = useState({ name: "", email: "", role: "sales", outletId: "", password: "" });
   const [search, setSearch]       = useState("");
+  const [filterRole, setFilterRole]     = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterOutlet, setFilterOutlet] = useState("");
   const [resetId, setResetId]     = useState<string | null>(null);
   const [newPw, setNewPw]         = useState("");
 
@@ -84,10 +87,14 @@ export default function AdminStaff() {
     setEditForm({ name: s.name, role: s.role, outletId: s.outletId ?? "" });
   }
 
-  const filtered = (staff ?? []).filter(s =>
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.email.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = (staff ?? []).filter(s => {
+    if (search && !s.name.toLowerCase().includes(search.toLowerCase()) && !s.email.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filterRole && s.role !== filterRole) return false;
+    if (filterStatus === "active" && !s.isActive) return false;
+    if (filterStatus === "inactive" && s.isActive) return false;
+    if (filterOutlet && (s.outletId ?? "") !== filterOutlet) return false;
+    return true;
+  });
 
   const inputCls = "w-full bg-stone-700 border border-stone-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-brand-500 placeholder-stone-500";
 
@@ -153,9 +160,37 @@ export default function AdminStaff() {
         </div>
       )}
 
-      {/* Search */}
-      <input className="w-full bg-stone-800 border border-stone-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-brand-500 placeholder-stone-500"
-        placeholder="Search by name or email…" value={search} onChange={(e) => setSearch(e.target.value)} />
+      {/* Search + Filters */}
+      <div className="space-y-2">
+        <input className="w-full bg-stone-800 border border-stone-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-brand-500 placeholder-stone-500"
+          placeholder="Search by name or email…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <div className="flex flex-wrap gap-2">
+          <select value={filterRole} onChange={e => setFilterRole(e.target.value)}
+            className="bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-stone-300 text-xs focus:outline-none focus:border-brand-500">
+            <option value="">All Roles</option>
+            {ROLES.map(r => <option key={r} value={r} className="bg-stone-900 capitalize">{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
+          </select>
+          <select value={filterOutlet} onChange={e => setFilterOutlet(e.target.value)}
+            className="bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-stone-300 text-xs focus:outline-none focus:border-brand-500">
+            <option value="">All Outlets</option>
+            <option value="" disabled>──</option>
+            {(outlets ?? []).map(o => <option key={o.id} value={o.id} className="bg-stone-900">{o.name}</option>)}
+          </select>
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+            className="bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-stone-300 text-xs focus:outline-none focus:border-brand-500">
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          {(filterRole || filterOutlet || filterStatus) && (
+            <button onClick={() => { setFilterRole(""); setFilterOutlet(""); setFilterStatus(""); }}
+              className="px-3 py-2 bg-stone-700 hover:bg-stone-600 text-stone-400 text-xs rounded-lg transition-colors">
+              Clear
+            </button>
+          )}
+          <span className="ml-auto text-xs text-stone-500 self-center">{filtered.length} user{filtered.length !== 1 ? "s" : ""}</span>
+        </div>
+      </div>
 
       {/* Table */}
       {sl || ol ? (

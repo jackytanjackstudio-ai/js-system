@@ -53,7 +53,16 @@ export async function DELETE(req: Request) {
   if (!id) return apiError("id required");
   if (id === session.id) return apiError("Cannot delete your own account", 400);
 
-  await prisma.user.delete({ where: { id } });
+  await prisma.$transaction([
+    prisma.customerInput.deleteMany({ where: { userId: id } }),
+    prisma.salesReport.deleteMany({ where: { userId: id } }),
+    prisma.creatorContent.deleteMany({ where: { userId: id } }),
+    prisma.saleEntry.deleteMany({ where: { userId: id } }),
+    prisma.rewardPoint.deleteMany({ where: { userId: id } }),
+    prisma.systemFeedback.deleteMany({ where: { userId: id } }),
+    prisma.user.delete({ where: { id } }),
+  ]);
+
   return apiOk({ deleted: id });
 }
 
