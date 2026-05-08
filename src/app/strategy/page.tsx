@@ -320,10 +320,11 @@ import { useEffect } from "react";
 type WeightConfig = { id: string; osWeights: string; startDate: string; endDate: string; isActive: boolean };
 
 const WEIGHT_FIELDS = [
-  { key: "customer_input" as const, label: "Customer Input" },
-  { key: "quick_log"      as const, label: "Sales Report"   },
-  { key: "content"        as const, label: "Creator Insight" },
-  { key: "campaign"       as const, label: "Campaign"        },
+  { key: "customer_input" as const, label: "Customer Input"  },
+  { key: "quick_log"      as const, label: "Quick Log"        },
+  { key: "content"        as const, label: "Creator Insight"  },
+  { key: "review"         as const, label: "Review"           },
+  { key: "campaign"       as const, label: "Campaign"         },
 ];
 
 function IncentiveSetup() {
@@ -331,7 +332,7 @@ function IncentiveSetup() {
   const { data: configs, loading, refetch } = useData<WeightConfig[]>("/api/strategies");
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [weights, setWeights] = useState({ customer_input: 25, quick_log: 25, content: 25, campaign: 25 });
+  const [weights, setWeights] = useState({ customer_input: 20, quick_log: 20, content: 20, review: 20, campaign: 20 });
   const [startDate, setStartDate] = useState("");
   const [endDate,   setEndDate]   = useState("");
 
@@ -344,10 +345,11 @@ function IncentiveSetup() {
     try {
       const w = JSON.parse(active.osWeights);
       setWeights({
-        customer_input: w.customer_input ?? 25,
-        quick_log:      w.quick_log      ?? 25,
-        content:        (w.content ?? 0) + (w.review ?? 0),
-        campaign:       w.campaign       ?? 25,
+        customer_input: w.customer_input ?? 20,
+        quick_log:      w.quick_log      ?? 20,
+        content:        w.content        ?? 20,
+        review:         w.review         ?? 20,
+        campaign:       w.campaign       ?? 20,
       });
     } catch {}
     setStartDate(active.startDate ?? "");
@@ -356,7 +358,7 @@ function IncentiveSetup() {
 
   if (!isAdmin) return null;
 
-  const total = weights.customer_input + weights.quick_log + weights.content + weights.campaign;
+  const total = weights.customer_input + weights.quick_log + weights.content + weights.review + weights.campaign;
   const ok = Math.abs(total - 100) < 0.1;
 
   async function handleSave() {
@@ -367,7 +369,7 @@ function IncentiveSetup() {
         body: JSON.stringify({
           startDate,
           endDate,
-          osWeights: { customer_input: weights.customer_input, quick_log: weights.quick_log, content: weights.content, review: 0, campaign: weights.campaign },
+          osWeights: { customer_input: weights.customer_input, quick_log: weights.quick_log, content: weights.content, review: weights.review, campaign: weights.campaign },
         }),
       });
       refetch();

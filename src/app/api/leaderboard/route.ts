@@ -67,7 +67,7 @@ export async function GET(req: Request) {
     }),
     prisma.customerInput.findMany({
       where: { createdAt: { gte: start, lte: end } },
-      select: { userId: true, outletId: true },
+      select: { userId: true, outletId: true, customerName: true, customerPhone: true },
     }),
     prisma.creatorContent.findMany({
       where: { createdAt: { gte: start, lte: end } },
@@ -91,10 +91,12 @@ export async function GET(req: Request) {
     mposPctMap[m.outletId] = m.achievementPercent;
   }
 
-  // Customer Input: per user (each submission = 3 pts, no cap — already limited by reality)
+  // Customer Input: 3 pts base; +2 bonus if both customerName AND customerPhone are filled
   const ciByUser: Record<string, number> = {};
   for (const ci of customerInputs) {
-    ciByUser[ci.userId] = (ciByUser[ci.userId] ?? 0) + 3;
+    const base  = 3;
+    const bonus = (ci.customerName && ci.customerPhone) ? 2 : 0;
+    ciByUser[ci.userId] = (ciByUser[ci.userId] ?? 0) + base + bonus;
   }
 
   // Quick Log: per user, with daily cap
