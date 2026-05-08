@@ -168,7 +168,8 @@ model Product {
   useCase      String   @default("[]")
   style        String?
   material     String?
-  colours      String   @default("[]")
+  colours           String   @default("[]")
+  cancelledColours  String   @default("[]") // JSON: colours admin marked as not ordering
   targetQty    Int?
   brand        String?
   promotions    String   @default("[]")
@@ -514,6 +515,8 @@ model SeasonalStrategy {
   vmDirection       String   @default("")   // "Urban café movement"
   keySignal         String   @default("")   // "Customer wants lightweight carry"
   backupStrategy    String   @default("")   // "If sling weak: push combo bundle"
+  startDate         String   @default("")   // "2026-05-01" — manual campaign start date
+  campaignType      String   @default("")   // "Branding", auto-set when startDate is picked
   isActive          Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

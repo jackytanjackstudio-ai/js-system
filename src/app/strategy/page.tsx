@@ -13,6 +13,7 @@ type Season = {
   id: string; quarter: string; theme: string; heroProduct: string;
   supportingItems: string; contentDirections: string;
   vmDirection: string; keySignal: string; backupStrategy: string;
+  startDate: string; campaignType: string;
   isActive: boolean; createdAt: string;
 };
 
@@ -48,7 +49,7 @@ function TagInput({ values, onChange, placeholder }: { values: string[]; onChang
 }
 
 // ─── Form state ───────────────────────────────────────────────────────────────
-const EMPTY = { quarter: "", theme: "", heroProduct: "", supportingItems: [] as string[], contentDirections: [] as string[], vmDirection: "", keySignal: "", backupStrategy: "", isActive: false };
+const EMPTY = { quarter: "", theme: "", heroProduct: "", supportingItems: [] as string[], contentDirections: [] as string[], vmDirection: "", keySignal: "", backupStrategy: "", startDate: "", campaignType: "", isActive: false };
 
 // ─── Season Form Modal ────────────────────────────────────────────────────────
 function SeasonModal({ initial, onSave, onClose }: {
@@ -61,7 +62,9 @@ function SeasonModal({ initial, onSave, onClose }: {
     supportingItems: parseArr(initial.supportingItems),
     contentDirections: parseArr(initial.contentDirections),
     vmDirection: initial.vmDirection, keySignal: initial.keySignal,
-    backupStrategy: initial.backupStrategy, isActive: initial.isActive,
+    backupStrategy: initial.backupStrategy,
+    startDate: initial.startDate ?? "", campaignType: initial.campaignType ?? "",
+    isActive: initial.isActive,
   } : { ...EMPTY });
   const [saving, setSaving] = useState(false);
 
@@ -131,6 +134,28 @@ function SeasonModal({ initial, onSave, onClose }: {
             <label className={labelCls}>Backup Strategy</label>
             <textarea rows={2} className={inputCls + " resize-none"} placeholder="e.g. If sling weak: push combo bundle"
               value={form.backupStrategy} onChange={e => setForm(f => ({ ...f, backupStrategy: e.target.value }))} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Campaign Start Date</label>
+              <input type="date" className={inputCls}
+                value={form.startDate}
+                onChange={e => {
+                  const date = e.target.value;
+                  setForm(f => ({
+                    ...f,
+                    startDate: date,
+                    campaignType: date && !f.campaignType ? "Branding" : f.campaignType,
+                  }));
+                }} />
+            </div>
+            <div>
+              <label className={labelCls}>Campaign Type</label>
+              <input className={inputCls} placeholder="e.g. Branding"
+                value={form.campaignType}
+                onChange={e => setForm(f => ({ ...f, campaignType: e.target.value }))} />
+            </div>
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -260,56 +285,64 @@ function PastSeasonRow({ s, canEdit, onEdit, onDelete, onActivate }: {
   );
 }
 
-// ─── Incentive Setup (existing) ───────────────────────────────────────────────
+// ─── Incentive Setup ──────────────────────────────────────────────────────────
 import { useEffect } from "react";
 
-type WeightConfig = {
-  id: string; name: string; startDate: string; endDate: string;
-  mposWeight: number; osWeights: string; isActive: boolean;
-  mposScores: { outletId: string; outletName: string; achievementPercent: number; score: number }[];
-};
-type Outlet = { id: string; name: string };
-const DEFAULT_OS = { customer_input: 20, quick_log: 20, content: 20, review: 20, campaign: 20 };
-type OsKey = keyof typeof DEFAULT_OS;
+type WeightConfig = { id: string; osWeights: string; startDate: string; endDate: string; isActive: boolean };
+
+const WEIGHT_FIELDS = [
+  { key: "customer_input" as const, label: "Customer Input" },
+  { key: "quick_log"      as const, label: "Sales Report"   },
+  { key: "content"        as const, label: "Creator Insight" },
+  { key: "campaign"       as const, label: "Campaign"        },
+];
 
 function IncentiveSetup() {
   const { user } = useAuth();
-  const { data: strategies, loading, refetch } = useData<WeightConfig[]>("/api/strategies");
-  const { data: outlets } = useData<Outlet[]>("/api/outlets");
+  const { data: configs, loading, refetch } = useData<WeightConfig[]>("/api/strategies");
   const [open, setOpen] = useState(false);
-  const [showCreate, setShowCreate] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [mposInput, setMposInput] = useState<Record<string, string>>({});
-  const [mposSaving, setMposSaving] = useState<Record<string, boolean>>({});
-  const [form, setForm] = useState({ name: "", startDate: "", endDate: "", mposWeight: 50, osWeights: { ...DEFAULT_OS } });
+  const [weights, setWeights] = useState({ customer_input: 25, quick_log: 25, content: 25, campaign: 25 });
+  const [startDate, setStartDate] = useState("");
+  const [endDate,   setEndDate]   = useState("");
 
   const isAdmin = ["admin", "manager"].includes(user?.role ?? "");
+
+  useEffect(() => {
+    if (!configs?.length) return;
+    const active = configs.find(c => c.isActive) ?? configs[0];
+    if (!active) return;
+    try {
+      const w = JSON.parse(active.osWeights);
+      setWeights({
+        customer_input: w.customer_input ?? 25,
+        quick_log:      w.quick_log      ?? 25,
+        content:        (w.content ?? 0) + (w.review ?? 0),
+        campaign:       w.campaign       ?? 25,
+      });
+    } catch {}
+    setStartDate(active.startDate ?? "");
+    setEndDate(active.endDate ?? "");
+  }, [configs]);
+
   if (!isAdmin) return null;
 
-  const osSum = Object.values(form.osWeights).reduce((s, n) => s + n, 0);
-  const duration = form.startDate && form.endDate
-    ? Math.round((new Date(form.endDate).getTime() - new Date(form.startDate).getTime()) / 86400000) : 0;
-  const canCreate = form.name.trim() && form.startDate && form.endDate && duration >= 7 && Math.abs(osSum - 100) < 1;
+  const total = weights.customer_input + weights.quick_log + weights.content + weights.campaign;
+  const ok = Math.abs(total - 100) < 0.1;
 
-  async function handleCreate() {
+  async function handleSave() {
     setSaving(true);
     try {
-      await apiFetch("/api/strategies", { method: "POST", body: JSON.stringify({ name: form.name.trim(), startDate: form.startDate, endDate: form.endDate, mposWeight: form.mposWeight, osWeights: form.osWeights }) });
-      setShowCreate(false);
-      setForm({ name: "", startDate: "", endDate: "", mposWeight: 50, osWeights: { ...DEFAULT_OS } });
+      await apiFetch("/api/strategies", {
+        method: "PATCH",
+        body: JSON.stringify({
+          startDate,
+          endDate,
+          osWeights: { customer_input: weights.customer_input, quick_log: weights.quick_log, content: weights.content, review: 0, campaign: weights.campaign },
+        }),
+      });
       refetch();
     } finally { setSaving(false); }
-  }
-
-  async function saveMpos(strategyId: string, outletId: string, outletName: string) {
-    const key = `${strategyId}-${outletId}`;
-    const pct = parseFloat(mposInput[key] ?? "");
-    if (isNaN(pct)) return;
-    setMposSaving(p => ({ ...p, [key]: true }));
-    try {
-      await apiFetch("/api/mpos-scores", { method: "POST", body: JSON.stringify({ outletId, outletName, periodId: strategyId, achievementPercent: pct }) });
-      refetch();
-    } finally { setMposSaving(p => ({ ...p, [key]: false })); }
   }
 
   return (
@@ -324,61 +357,41 @@ function IncentiveSetup() {
       </button>
 
       {open && (
-        <div className="mt-4 space-y-4 pt-4 border-t border-gray-100">
-          <button onClick={() => setShowCreate(v => !v)} className="btn-secondary text-xs flex items-center gap-1.5 px-3 py-2">
-            <Plus size={12} /> New Period
-          </button>
-
-          {showCreate && (
-            <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-              <input className="input w-full text-sm" placeholder="Period name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+        <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+          {loading ? (
+            <div className="flex justify-center py-3"><Loader2 className="animate-spin text-gray-300" size={18} /></div>
+          ) : (
+            <>
               <div className="grid grid-cols-2 gap-2">
-                <input type="date" className="input text-sm" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} />
-                <input type="date" className="input text-sm" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} />
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Start Date</label>
+                  <input type="date" className="input w-full text-sm py-1.5"
+                    value={startDate} onChange={e => setStartDate(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">End Date</label>
+                  <input type="date" className="input w-full text-sm py-1.5"
+                    value={endDate} onChange={e => setEndDate(e.target.value)} />
+                </div>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => setShowCreate(false)} className="btn-secondary flex-1 text-xs py-2">Cancel</button>
-                <button onClick={handleCreate} disabled={!canCreate || saving} className="btn-primary flex-1 text-xs py-2 flex items-center justify-center gap-1 disabled:opacity-50">
-                  {saving ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />} Save
-                </button>
+              {WEIGHT_FIELDS.map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-3">
+                  <span className="text-sm text-gray-600 w-36 flex-shrink-0">{label}</span>
+                  <input type="number" min={0} max={100}
+                    value={weights[key]}
+                    onChange={e => setWeights(w => ({ ...w, [key]: Number(e.target.value) }))}
+                    className="input w-20 text-sm text-center py-1.5" />
+                  <span className="text-sm text-gray-400">%</span>
+                </div>
+              ))}
+              <div className={cn("text-xs font-semibold", ok ? "text-green-600" : "text-red-500")}>
+                Total: {total}%{!ok && " — must equal 100%"}
               </div>
-            </div>
-          )}
-
-          {loading ? <div className="flex justify-center py-4"><Loader2 className="animate-spin text-gray-300" size={20} /></div> : (
-            <div className="space-y-2">
-              {(strategies ?? []).map(s => {
-                const today = new Date().toISOString().slice(0, 10);
-                const isLive = today >= s.startDate && today <= s.endDate;
-                return (
-                  <div key={s.id} className={`rounded-xl border p-3 text-xs ${isLive ? "border-brand-200 bg-brand-50" : "border-gray-100 bg-white"}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-gray-800">{s.name}</span>
-                      {isLive && <span className="badge bg-green-100 text-green-700">Live</span>}
-                    </div>
-                    <div className="space-y-1.5">
-                      {(outlets ?? []).map(o => {
-                        const key = `${s.id}-${o.id}`;
-                        const ex = s.mposScores?.find(m => m.outletId === o.id);
-                        return (
-                          <div key={o.id} className="flex items-center gap-2">
-                            <span className="w-32 truncate text-gray-600 flex-shrink-0">{o.name}</span>
-                            <input type="number" min={0} max={200} placeholder="%" defaultValue={ex?.achievementPercent} key={ex?.achievementPercent}
-                              onChange={e => setMposInput(p => ({ ...p, [key]: e.target.value }))}
-                              className="input w-16 text-xs text-center py-1" />
-                            <button onClick={() => saveMpos(s.id, o.id, o.name)} disabled={mposSaving[key]}
-                              className="btn-secondary text-xs px-2 py-1 flex items-center gap-1">
-                              {mposSaving[key] ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
-                            </button>
-                            {ex && <span className="text-gray-400">{ex.achievementPercent}% → <strong className="text-brand-600">{ex.score}pts</strong></span>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+              <button onClick={handleSave} disabled={!ok || saving}
+                className="btn-primary text-xs px-4 py-2 flex items-center gap-1.5 disabled:opacity-50">
+                {saving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />} Save Weights
+              </button>
+            </>
           )}
         </div>
       )}

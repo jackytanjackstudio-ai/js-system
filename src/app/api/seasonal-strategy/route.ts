@@ -29,6 +29,8 @@ export async function POST(req: Request) {
       vmDirection:       body.vmDirection ?? "",
       keySignal:         body.keySignal ?? "",
       backupStrategy:    body.backupStrategy ?? "",
+      startDate:         body.startDate ?? "",
+      campaignType:      body.campaignType ?? "",
       isActive:          body.isActive ?? false,
     },
   });
@@ -56,6 +58,8 @@ export async function PATCH(req: Request) {
       ...(body.vmDirection !== undefined && { vmDirection: body.vmDirection }),
       ...(body.keySignal !== undefined && { keySignal: body.keySignal }),
       ...(body.backupStrategy !== undefined && { backupStrategy: body.backupStrategy }),
+      ...(body.startDate !== undefined && { startDate: body.startDate }),
+      ...(body.campaignType !== undefined && { campaignType: body.campaignType }),
       ...(body.isActive !== undefined && { isActive: body.isActive }),
     },
   });

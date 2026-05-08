@@ -160,11 +160,15 @@ function getCampaignSpanInWeek(
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+type ActiveStrategy = { id: string; quarter: string; theme: string; campaignType: string; startDate: string };
+
 export default function CampaignCalendar() {
   const router   = useRouter();
   const { user } = useAuth();
   const { data: campaigns, loading, refetch } = useData<Campaign[]>("/api/campaigns");
   const { data: outlets } = useData<Outlet[]>("/api/outlets");
+  const { data: strategies } = useData<ActiveStrategy[]>("/api/seasonal-strategy");
+  const activeStrategy = (strategies ?? []).find(s => (s as any).isActive && (s as any).campaignType);
 
   const today = new Date();
   const [year,  setYear]  = useState(today.getFullYear());
@@ -268,6 +272,35 @@ export default function CampaignCalendar() {
           </button>
         )}
       </div>
+
+      {/* Active Strategy Banner */}
+      {activeStrategy?.campaignType && (
+        <div className="flex items-center gap-3 bg-brand-50 border border-brand-200 rounded-xl px-4 py-2.5 text-sm">
+          <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse flex-shrink-0" />
+          <span className="text-brand-700 font-semibold">{activeStrategy.quarter} · {activeStrategy.theme}</span>
+          <span className="text-gray-400">·</span>
+          <span className="text-xs font-bold uppercase tracking-wide text-brand-600">{activeStrategy.campaignType}</span>
+          {activeStrategy.startDate && (
+            <span className="text-xs text-gray-500 ml-1">from {activeStrategy.startDate}</span>
+          )}
+          {canCreate && (
+            <button
+              onClick={() => {
+                setForm(f => ({
+                  ...f,
+                  name: activeStrategy.theme,
+                  type: activeStrategy.campaignType.toLowerCase().replace(/\s+/g, "_"),
+                  startDate: activeStrategy.startDate ?? "",
+                }));
+                setShowNew(true);
+              }}
+              className="ml-auto text-xs font-semibold text-brand-600 hover:text-brand-800 underline underline-offset-2"
+            >
+              + Create Campaign from Strategy
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Legend */}
       <div className="flex flex-wrap gap-4">

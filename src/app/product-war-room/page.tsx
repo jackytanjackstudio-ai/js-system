@@ -29,7 +29,7 @@ type Product = {
   targetPrice: number | null; cost: number | null; imageUrl: string | null;
   imageUrls: string; productCode: string | null;
   useCase: string; style: string | null; material: string | null;
-  colours: string; targetQty: number | null;
+  colours: string; cancelledColours: string; targetQty: number | null;
   brand: string | null; promotions: string; sellingPoints: string; demandScore: number;
   priority: string;
   validations: ValidationEntry[];
@@ -1154,11 +1154,12 @@ function StoreMode({ products, myOutletId, myOutletName, myUserName, onSaveReser
 }
 
 // ─── Tab 3: Reservation (HQ) ─────────────────────────────────────────────────
-function ReservationTab({ products, outlets, onSubmitReservation, onAdvance, onSetPriority, canEdit }: {
+function ReservationTab({ products, outlets, onSubmitReservation, onAdvance, onSetPriority, onToggleCancelColour, canEdit }: {
   products: Product[]; outlets: Outlet[];
   onSubmitReservation: (id: string, data: object) => Promise<void>;
   onAdvance: (id: string, status: string) => Promise<void>;
   onSetPriority: (id: string, priority: string) => Promise<void>;
+  onToggleCancelColour: (productId: string, colour: string, currentCancelled: string[]) => Promise<void>;
   canEdit: boolean;
 }) {
   const [qtys, setQtys]     = useState<Record<string, Record<string, string>>>({});
@@ -1196,6 +1197,7 @@ function ReservationTab({ products, outlets, onSubmitReservation, onAdvance, onS
         const totalRes = p.reservations.reduce((s, r) => s + r.quantity, 0);
         const activeOutlets = outlets.filter(o => o.isActive);
         const colours: string[] = (() => { try { return JSON.parse(p.colours || "[]"); } catch { return []; } })();
+        const cancelledColours: string[] = (() => { try { return JSON.parse(p.cancelledColours || "[]"); } catch { return []; } })();
         const hasColours = colours.length > 0;
         const priority = (p.priority ?? "B") as "A" | "B" | "C";
 
@@ -1269,9 +1271,27 @@ function ReservationTab({ products, outlets, onSubmitReservation, onAdvance, onS
                   <thead>
                     <tr className="bg-gray-50">
                       <th className="text-left px-3 py-2 font-semibold text-gray-500 rounded-tl-xl w-32">Store</th>
-                      {colours.map(c => (
-                        <th key={c} className="px-2 py-2 font-semibold text-gray-600 text-center min-w-[70px]">{c}</th>
-                      ))}
+                      {colours.map(c => {
+                        const isCancelled = cancelledColours.includes(c);
+                        return (
+                          <th key={c} className={cn("px-2 py-2 text-center min-w-[70px] group/col", isCancelled ? "text-gray-300" : "font-semibold text-gray-600")}>
+                            <span className={isCancelled ? "line-through" : ""}>{c}</span>
+                            {canEdit && (
+                              <button
+                                onClick={() => onToggleCancelColour(p.id, c, cancelledColours)}
+                                className={cn(
+                                  "block mx-auto mt-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded transition-all",
+                                  "opacity-0 group-hover/col:opacity-100",
+                                  isCancelled
+                                    ? "bg-green-100 text-green-600 hover:bg-green-200"
+                                    : "bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600"
+                                )}>
+                                {isCancelled ? "Restore" : "Cancel"}
+                              </button>
+                            )}
+                          </th>
+                        );
+                      })}
                       <th className="px-3 py-2 font-bold text-brand-600 text-center rounded-tr-xl">Total</th>
                       <th className="w-14" />
                     </tr>
@@ -1283,23 +1303,33 @@ function ReservationTab({ products, outlets, onSubmitReservation, onAdvance, onS
                         try { return JSON.parse(existing?.colourBreakdown ?? "{}"); } catch { return {}; }
                       })();
                       const key = `${p.id}-${outlet.id}`;
-                      const total = rowTotal(p.id, outlet.id, colours);
+                      const activeColours = colours.filter(c => !cancelledColours.includes(c));
+                      const total = rowTotal(p.id, outlet.id, activeColours);
                       const isSaving = saving[key];
                       const isLast = ri === activeOutlets.length - 1;
 
                       return (
                         <tr key={outlet.id} className={`border-t border-gray-100 hover:bg-gray-50/50 ${isLast ? "" : ""}`}>
                           <td className="px-3 py-2 font-medium text-gray-700 truncate max-w-[8rem]">{outlet.name}</td>
-                          {colours.map(c => (
-                            <td key={c} className="px-1 py-1.5 text-center">
-                              <input
-                                type="number" min="0"
-                                className="w-16 text-center text-xs border border-gray-200 rounded-lg px-1 py-1.5 focus:outline-none focus:border-brand-400"
-                                value={getCell(p.id, outlet.id, c, existingBreakdown[c] ?? 0)}
-                                onChange={e => setCell(p.id, outlet.id, c, e.target.value)}
-                              />
-                            </td>
-                          ))}
+                          {colours.map(c => {
+                            const isCancelled = cancelledColours.includes(c);
+                            return (
+                              <td key={c} className={cn("px-1 py-1.5 text-center", isCancelled && "bg-gray-50")}>
+                                <input
+                                  type="number" min="0"
+                                  disabled={isCancelled}
+                                  className={cn(
+                                    "w-16 text-center text-xs border rounded-lg px-1 py-1.5 focus:outline-none",
+                                    isCancelled
+                                      ? "border-gray-100 bg-gray-100 text-gray-300 cursor-not-allowed"
+                                      : "border-gray-200 focus:border-brand-400"
+                                  )}
+                                  value={isCancelled ? "—" : getCell(p.id, outlet.id, c, existingBreakdown[c] ?? 0)}
+                                  onChange={e => !isCancelled && setCell(p.id, outlet.id, c, e.target.value)}
+                                />
+                              </td>
+                            );
+                          })}
                           <td className="px-3 py-2 text-center font-black text-brand-600">{total}</td>
                           <td className="px-2 py-1.5">
                             <button disabled={isSaving}
@@ -1323,16 +1353,20 @@ function ReservationTab({ products, outlets, onSubmitReservation, onAdvance, onS
                     })}
                     <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold">
                       <td className="px-3 py-2 text-xs text-gray-500 font-bold">TOTAL</td>
-                      {colours.map(c => (
-                        <td key={c} className="px-1 py-2 text-center text-xs text-gray-700">
-                          {colTotal(p.id, c, activeOutlets.map(o => o.id)) ||
-                            p.reservations.reduce((s, r) => {
-                              const bd: Record<string, number> = (() => { try { return JSON.parse(r.colourBreakdown ?? "{}"); } catch { return {}; } })();
-                              return s + (bd[c] ?? 0);
-                            }, 0)
-                          }
-                        </td>
-                      ))}
+                      {colours.map(c => {
+                        const isCancelled = cancelledColours.includes(c);
+                        return (
+                          <td key={c} className={cn("px-1 py-2 text-center text-xs", isCancelled ? "text-gray-300 line-through" : "text-gray-700")}>
+                            {isCancelled ? "✕" : (
+                              colTotal(p.id, c, activeOutlets.map(o => o.id)) ||
+                              p.reservations.reduce((s, r) => {
+                                const bd: Record<string, number> = (() => { try { return JSON.parse(r.colourBreakdown ?? "{}"); } catch { return {}; } })();
+                                return s + (bd[c] ?? 0);
+                              }, 0)
+                            )}
+                          </td>
+                        );
+                      })}
                       <td className="px-3 py-2 text-center text-sm font-black text-brand-600">{totalRes}</td>
                       <td />
                     </tr>
@@ -2146,6 +2180,17 @@ export default function ProductWarRoom() {
     refetch();
   }
 
+  async function toggleCancelColour(productId: string, colour: string, currentCancelled: string[]) {
+    const next = currentCancelled.includes(colour)
+      ? currentCancelled.filter(c => c !== colour)
+      : [...currentCancelled, colour];
+    await apiFetch(`/api/products/${productId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ cancelledColours: next }),
+    });
+    refetch();
+  }
+
   async function addProduct(data: object) {
     await apiFetch("/api/products", { method: "POST", body: JSON.stringify(data) });
     refetch();
@@ -2208,7 +2253,7 @@ export default function ProductWarRoom() {
           {activeTab === "reservation" && (
             <ReservationTab products={reserving} outlets={outlets ?? []}
               onSubmitReservation={submitReservation} onAdvance={advanceStatus}
-              onSetPriority={setPriority} canEdit={canEdit} />
+              onSetPriority={setPriority} onToggleCancelColour={toggleCancelColour} canEdit={canEdit} />
           )}
           {activeTab === "decision" && (
             <DecisionTab products={watchlist}
