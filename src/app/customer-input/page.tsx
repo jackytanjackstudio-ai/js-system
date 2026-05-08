@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
-import { CheckCircle, Clock, Loader2, ChevronDown, ChevronUp, Zap, Camera, X, ImageIcon } from "lucide-react";
+import { CheckCircle, Clock, Loader2, ChevronDown, ChevronUp, Zap, Camera, X, ImageIcon, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { useLang } from "@/context/LangContext";
 import { useData, apiFetch } from "@/hooks/useData";
 import { useAuth } from "@/context/AuthContext";
@@ -43,6 +43,14 @@ type Input  = {
   staffName: string | null; lookingFor: string; nobuReasons: string;
   outlet: { name: string }; user: { name: string };
 };
+type Signal = { tag: string; count: number; category: string; emoji: string; delta: number };
+type SignalStats = { signals: Signal[]; totalThisWeek: number };
+
+const CAT_COLOR: Record<string, string> = {
+  product:  "bg-blue-100 text-blue-700",
+  customer: "bg-amber-100 text-amber-700",
+  trend:    "bg-green-100 text-green-700",
+};
 type SubmitResult = { weekCount: number; topDemand: string | null };
 
 function toggle(arr: string[], val: string) {
@@ -58,6 +66,7 @@ export default function CustomerInput() {
   const { user } = useAuth();
   const { data: outlets, loading: outLoading }                  = useData<Outlet[]>("/api/outlets");
   const { data: recentInputs, loading: inputsLoading, refetch } = useData<Input[]>("/api/inputs?limit=20");
+  const { data: signalStats }                                    = useData<SignalStats>("/api/inputs/signal-stats");
 
   const [result, setResult]         = useState<SubmitResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -205,6 +214,54 @@ export default function CustomerInput() {
         <h1 className="page-title">{t("ci_title")}</h1>
         <p className="text-sm text-gray-400 mt-0.5">{t("ci_subtitle")}</p>
       </div>
+
+      {/* ── This Week's Signals ── */}
+      {(signalStats?.signals?.length ?? 0) > 0 && (
+        <div className="card space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-gray-800 flex items-center gap-2">
+              <Zap size={15} className="text-amber-500" /> This Week&apos;s Signals
+            </h2>
+            <span className="text-xs text-gray-400">{signalStats!.totalThisWeek} inputs · last 7 days</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {signalStats!.signals.slice(0, 15).map(s => (
+              <div key={s.tag} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold ${CAT_COLOR[s.category] ?? "bg-gray-100 text-gray-600"}`}>
+                {s.emoji && <span>{s.emoji}</span>}
+                <span>{s.tag}</span>
+                <span className="font-black">{s.count}</span>
+                {s.delta > 0
+                  ? <TrendingUp size={11} className="text-green-600" />
+                  : s.delta < 0
+                  ? <TrendingDown size={11} className="text-red-400" />
+                  : <Minus size={11} className="opacity-30" />}
+              </div>
+            ))}
+          </div>
+          {/* Bar chart */}
+          <div className="space-y-1.5 pt-1">
+            {signalStats!.signals.slice(0, 8).map(s => {
+              const max = signalStats!.signals[0]?.count ?? 1;
+              const pct = Math.round((s.count / max) * 100);
+              return (
+                <div key={s.tag} className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-32 truncate flex-shrink-0">{s.emoji} {s.tag}</span>
+                  <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${s.category === "product" ? "bg-blue-400" : s.category === "customer" ? "bg-amber-400" : "bg-green-400"}`}
+                      style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-xs font-bold text-gray-600 w-6 text-right">{s.count}</span>
+                  {s.delta !== 0 && (
+                    <span className={`text-[10px] font-bold w-8 text-right ${s.delta > 0 ? "text-green-500" : "text-red-400"}`}>
+                      {s.delta > 0 ? `+${s.delta}` : s.delta}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="card space-y-6">
         {/* Store selector */}

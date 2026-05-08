@@ -10,7 +10,7 @@ import {
 import {
   TrendingUp, AlertTriangle, Users, ShoppingBag, RefreshCw,
   Target, ArrowUpRight, Loader2, Zap, Package, Brain,
-  Compass, Star, Megaphone, Shield,
+  Compass, Star, Megaphone, Shield, TrendingDown, Minus,
 } from "lucide-react";
 
 type DashData = {
@@ -52,6 +52,10 @@ export default function Dashboard() {
   const { data: signal, loading: sl } = useData<SignalData>("/api/data-hub/signal");
   const { data: strategies }        = useData<ActiveStrategy[]>("/api/seasonal-strategy");
   const activeStrategy = (strategies ?? []).find(s => s.isActive);
+  type Signal = { tag: string; count: number; category: string; emoji: string; delta: number };
+  const { data: signalStats } = useData<{ signals: Signal[]; totalThisWeek: number }>("/api/inputs/signal-stats");
+  const CAT_COLOR: Record<string, string> = { product: "bg-blue-100 text-blue-700", customer: "bg-amber-100 text-amber-700", trend: "bg-green-100 text-green-700" };
+  const CAT_BAR:   Record<string, string> = { product: "bg-blue-400", customer: "bg-amber-400", trend: "bg-green-400" };
 
   const stats = data?.stats;
 
@@ -377,6 +381,41 @@ export default function Dashboard() {
             </div>
           )}
         </>
+      )}
+
+      {/* ── Market Signals This Week ── */}
+      {(signalStats?.signals?.length ?? 0) > 0 && (
+        <div className="card space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-gray-800 flex items-center gap-2">
+              <Zap size={15} className="text-amber-500" /> Market Signals · This Week
+            </h2>
+            <span className="text-xs text-gray-400">{signalStats!.totalThisWeek} customer inputs</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
+            {signalStats!.signals.slice(0, 10).map(s => {
+              const max = signalStats!.signals[0]?.count ?? 1;
+              const pct = Math.round((s.count / max) * 100);
+              return (
+                <div key={s.tag} className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-28 truncate flex-shrink-0">{s.emoji} {s.tag}</span>
+                  <div className="flex-1 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                    <div className={`h-full rounded-full ${CAT_BAR[s.category] ?? "bg-gray-300"}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-xs font-bold text-gray-700 w-4 text-right">{s.count}</span>
+                  <span className={`text-[10px] font-bold w-6 text-right ${s.delta > 0 ? "text-green-500" : s.delta < 0 ? "text-red-400" : "text-gray-300"}`}>
+                    {s.delta > 0 ? `+${s.delta}` : s.delta < 0 ? s.delta : "—"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex gap-3 text-[10px] text-gray-400 pt-1 border-t border-gray-100">
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block" /> Product</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" /> Customer</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-400 inline-block" /> Trend</span>
+          </div>
+        </div>
       )}
 
       {/* System Feedback */}
