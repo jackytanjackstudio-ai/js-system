@@ -13,8 +13,24 @@ type Season = {
   id: string; quarter: string; theme: string; heroProduct: string;
   supportingItems: string; contentDirections: string;
   vmDirection: string; keySignal: string; backupStrategy: string;
-  startDate: string; campaignType: string;
+  startDate: string; endDate: string; campaignType: string;
   isActive: boolean; createdAt: string;
+};
+
+function strategyStatus(s: Season): "active" | "upcoming" | "archived" {
+  const today = new Date().toISOString().slice(0, 10);
+  if (s.startDate && s.endDate) {
+    if (today >= s.startDate && today <= s.endDate) return "active";
+    if (s.startDate > today) return "upcoming";
+    if (s.endDate < today) return "archived";
+  }
+  return s.isActive ? "active" : "archived";
+}
+
+const STATUS_CFG = {
+  active:   { label: "Active",    cls: "bg-green-100 text-green-700"  },
+  upcoming: { label: "Upcoming",  cls: "bg-blue-100 text-blue-700"    },
+  archived: { label: "Archived",  cls: "bg-gray-100 text-gray-500"    },
 };
 
 function parseArr(s: string): string[] {
@@ -49,7 +65,7 @@ function TagInput({ values, onChange, placeholder }: { values: string[]; onChang
 }
 
 // ─── Form state ───────────────────────────────────────────────────────────────
-const EMPTY = { quarter: "", theme: "", heroProduct: "", supportingItems: [] as string[], contentDirections: [] as string[], vmDirection: "", keySignal: "", backupStrategy: "", startDate: "", campaignType: "", isActive: false };
+const EMPTY = { quarter: "", theme: "", heroProduct: "", supportingItems: [] as string[], contentDirections: [] as string[], vmDirection: "", keySignal: "", backupStrategy: "", startDate: "", endDate: "", campaignType: "", isActive: false };
 
 // ─── Season Form Modal ────────────────────────────────────────────────────────
 function SeasonModal({ initial, onSave, onClose }: {
@@ -63,7 +79,7 @@ function SeasonModal({ initial, onSave, onClose }: {
     contentDirections: parseArr(initial.contentDirections),
     vmDirection: initial.vmDirection, keySignal: initial.keySignal,
     backupStrategy: initial.backupStrategy,
-    startDate: initial.startDate ?? "", campaignType: initial.campaignType ?? "",
+    startDate: initial.startDate ?? "", endDate: initial.endDate ?? "", campaignType: initial.campaignType ?? "",
     isActive: initial.isActive,
   } : { ...EMPTY });
   const [saving, setSaving] = useState(false);
@@ -138,7 +154,7 @@ function SeasonModal({ initial, onSave, onClose }: {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Campaign Start Date</label>
+              <label className={labelCls}>Start Date</label>
               <input type="date" className={inputCls}
                 value={form.startDate}
                 onChange={e => {
@@ -151,11 +167,18 @@ function SeasonModal({ initial, onSave, onClose }: {
                 }} />
             </div>
             <div>
-              <label className={labelCls}>Campaign Type</label>
-              <input className={inputCls} placeholder="e.g. Branding"
-                value={form.campaignType}
-                onChange={e => setForm(f => ({ ...f, campaignType: e.target.value }))} />
+              <label className={labelCls}>End Date</label>
+              <input type="date" className={inputCls}
+                value={form.endDate}
+                onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} />
             </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Campaign Type</label>
+            <input className={inputCls} placeholder="e.g. Branding"
+              value={form.campaignType}
+              onChange={e => setForm(f => ({ ...f, campaignType: e.target.value }))} />
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -180,6 +203,8 @@ function SeasonModal({ initial, onSave, onClose }: {
 
 // ─── Active Season Hero Card ──────────────────────────────────────────────────
 function ActiveSeasonCard({ s, canEdit, onEdit }: { s: Season; canEdit: boolean; onEdit: () => void }) {
+  const status = strategyStatus(s);
+  const stCfg  = STATUS_CFG[status];
   const supporting = parseArr(s.supportingItems);
   const content    = parseArr(s.contentDirections);
 
@@ -190,8 +215,11 @@ function ActiveSeasonCard({ s, canEdit, onEdit }: { s: Season; canEdit: boolean;
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-bold bg-white/20 px-2.5 py-1 rounded-full">{s.quarter}</span>
-            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-            <span className="text-xs text-white/70 font-semibold">ACTIVE</span>
+            {status === "active" && <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />}
+            <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full", stCfg.cls)}>{stCfg.label.toUpperCase()}</span>
+            {s.startDate && s.endDate && (
+              <span className="text-xs text-white/50">{s.startDate} → {s.endDate}</span>
+            )}
           </div>
           <h2 className="text-3xl font-black tracking-tight">{s.theme}</h2>
         </div>
@@ -266,6 +294,7 @@ function PastSeasonRow({ s, canEdit, onEdit, onDelete, onActivate }: {
           <span className="text-xs font-bold text-gray-400">{s.quarter}</span>
           <span className="font-semibold text-gray-800 text-sm">{s.theme}</span>
           <span className="text-xs text-gray-400">· {s.heroProduct}</span>
+          {(() => { const st = strategyStatus(s); const cfg = STATUS_CFG[st]; return <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full", cfg.cls)}>{cfg.label}</span>; })()}
         </div>
       </div>
       {canEdit && (

@@ -2,6 +2,7 @@
 import { useLang } from "@/context/LangContext";
 import { useData } from "@/hooks/useData";
 import SystemFeedback from "@/components/SystemFeedback";
+import Link from "next/link";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Cell,
@@ -9,6 +10,7 @@ import {
 import {
   TrendingUp, AlertTriangle, Users, ShoppingBag, RefreshCw,
   Target, ArrowUpRight, Loader2, Zap, Package, Brain,
+  Compass, Star, Megaphone, Shield,
 } from "lucide-react";
 
 type DashData = {
@@ -38,10 +40,18 @@ const REASON_COLORS = [
   "#c8811f", "#e8a43a", "#3b82f6", "#10b981", "#8b5cf6", "#ef4444", "#06b6d4", "#f59e0b",
 ];
 
+type ActiveStrategy = {
+  id: string; quarter: string; theme: string; heroProduct: string;
+  vmDirection: string; contentDirections: string; campaignType: string;
+  startDate: string; endDate: string; isActive: boolean;
+};
+
 export default function Dashboard() {
   const { t } = useLang();
   const { data, loading }           = useData<DashData>("/api/dashboard");
   const { data: signal, loading: sl } = useData<SignalData>("/api/data-hub/signal");
+  const { data: strategies }        = useData<ActiveStrategy[]>("/api/seasonal-strategy");
+  const activeStrategy = (strategies ?? []).find(s => s.isActive);
 
   const stats = data?.stats;
 
@@ -67,6 +77,52 @@ export default function Dashboard() {
           {t("dash_live")}
         </span>
       </div>
+
+      {/* Current Strategy — cockpit header */}
+      {activeStrategy ? (
+        <div className="rounded-2xl bg-gradient-to-r from-brand-700 to-brand-900 text-white px-5 py-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-2 mb-2">
+              <Compass size={14} className="text-white/60" />
+              <span className="text-xs font-bold text-white/60 uppercase tracking-widest">Current Strategy</span>
+              <span className="text-xs font-bold bg-green-400/20 text-green-300 px-2 py-0.5 rounded-full ml-1">
+                {activeStrategy.startDate && activeStrategy.endDate
+                  ? `${activeStrategy.startDate} → ${activeStrategy.endDate}`
+                  : activeStrategy.quarter}
+              </span>
+            </div>
+            <Link href="/strategy" className="text-[10px] font-bold text-white/40 hover:text-white/70 transition-colors">
+              Edit →
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+              <div className="text-[10px] text-white/50 uppercase tracking-widest mb-0.5">Theme</div>
+              <div className="text-lg font-black leading-tight">{activeStrategy.theme}</div>
+            </div>
+            <div>
+              <div className="text-[10px] text-white/50 uppercase tracking-widest mb-0.5 flex items-center gap-1"><Star size={8} /> Hero Product</div>
+              <div className="text-sm font-bold text-white/90">{activeStrategy.heroProduct}</div>
+            </div>
+            <div>
+              <div className="text-[10px] text-white/50 uppercase tracking-widest mb-0.5 flex items-center gap-1"><Megaphone size={8} /> Campaign</div>
+              <div className="text-sm font-bold text-white/90">{activeStrategy.campaignType || activeStrategy.vmDirection || "—"}</div>
+            </div>
+            <div>
+              <div className="text-[10px] text-white/50 uppercase tracking-widest mb-0.5 flex items-center gap-1"><Shield size={8} /> Quarter</div>
+              <div className="text-sm font-bold text-white/90">{activeStrategy.quarter}</div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-2xl border-2 border-dashed border-gray-200 px-5 py-4 flex items-center gap-3">
+          <Compass size={18} className="text-gray-300" />
+          <div>
+            <div className="text-sm font-semibold text-gray-400">No active strategy set</div>
+            <Link href="/strategy" className="text-xs text-brand-500 hover:underline">Set strategy in Strategy Hub →</Link>
+          </div>
+        </div>
+      )}
 
       {(stats?.overdueTasks ?? 0) > 0 && (
         <div className="alert-warning">

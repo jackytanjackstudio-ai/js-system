@@ -29,35 +29,43 @@ export default function Sidebar() {
 
   const isSales = user?.role === "sales";
 
+  const isAdmin = ["admin", "manager"].includes(user?.role ?? "");
+
   const nav = [
-    { href: "/",                   icon: LayoutDashboard, labelKey: "nav_dashboard",        group: "overview", hide: false          },
-    { href: "/customer-input",     icon: MessageSquare,   labelKey: "nav_customer_input",   group: "input",    hide: false          },
-    { href: "/sales-report",       icon: BarChart2,       labelKey: "nav_sales_report",     group: "input",    hide: false          },
-    { href: "/creator-insight",    icon: Video,           labelKey: "nav_creator_insight",  group: "input",    hide: false          },
-    { href: "/data-hub",           icon: Database,        labelKey: "nav_data_hub",          group: "core",     hide: isSales        },
-    { href: "/leads",              icon: Users,           labelKey: "nav_leads",             group: "core",     hide: isSales        },
-    { href: "/product-war-room",   icon: Sword,           labelKey: "nav_product_war_room",  group: "core",     hide: isSales        },
-    { href: "/product-war-room",   icon: BookMarked,      labelKey: "nav_product_feedback",  group: "core",     hide: !isSales       },
-    { href: "/product-master",     icon: BookOpen,        labelKey: "nav_product_master",    group: "core",     hide: false          },
-    { href: "/reviews",            icon: Star,            labelKey: "nav_reviews",            group: "core",     hide: false          },
-    { href: "/product-feedback",   icon: ThumbsUp,        labelKey: "nav_product_feedback",  group: "core",     hide: isSales        },
-    { href: "/campaign",             icon: Calendar,        labelKey: "nav_campaign",         group: "output",   hide: false          },
-    { href: "/roadshow-hub",        icon: MapPin,          labelKey: "nav_roadshow_hub",     group: "output",   hide: isSales        },
-    { href: "/outlets",            icon: Store,           labelKey: "oc_title",             group: "output",   hide: isSales        },
-    { href: "/execution",          icon: CheckSquare,     labelKey: "nav_execution",         group: "output",   hide: false          },
-    { href: "/rewards",            icon: Trophy,          labelKey: "nav_rewards",           group: "output",   hide: false          },
-    { href: "/leaderboard",        icon: Medal,           labelKey: "nav_leaderboard",       group: "output",   hide: false          },
-    { href: "/strategy",           icon: Sliders,         labelKey: "nav_strategy",          group: "output",   hide: !["admin","manager"].includes(user?.role ?? "") },
-    { href: "/settings",           icon: Settings,        labelKey: "nav_settings",          group: "system",   hide: false          },
-    { href: "/admin",              icon: ShieldCheck,     labelKey: "nav_admin",             group: "system",   hide: false          },
+    // OVERVIEW
+    { href: "/",                  icon: LayoutDashboard, labelKey: "nav_dashboard",        group: "overview",   hide: false      },
+    // STRATEGY
+    { href: "/strategy",          icon: Sliders,         labelKey: "nav_strategy",         group: "strategy",   hide: !isAdmin   },
+    // SIGNALS
+    { href: "/customer-input",    icon: MessageSquare,   labelKey: "nav_customer_input",   group: "signals",    hide: false      },
+    { href: "/sales-report",      icon: BarChart2,       labelKey: "nav_sales_report",     group: "signals",    hide: false      },
+    { href: "/creator-insight",   icon: Video,           labelKey: "nav_creator_insight",  group: "signals",    hide: false      },
+    { href: "/reviews",           icon: Star,            labelKey: "nav_reviews",           group: "signals",    hide: false      },
+    { href: "/data-hub",          icon: Database,        labelKey: "nav_data_hub",          group: "signals",    hide: isSales    },
+    // EXECUTION
+    { href: "/campaign",          icon: Calendar,        labelKey: "nav_campaign",          group: "execution",  hide: false      },
+    { href: "/roadshow-hub",      icon: MapPin,          labelKey: "nav_roadshow_hub",      group: "execution",  hide: isSales    },
+    { href: "/product-war-room",  icon: Sword,           labelKey: "nav_product_war_room",  group: "execution",  hide: isSales    },
+    { href: "/product-war-room",  icon: BookMarked,      labelKey: "nav_product_feedback",  group: "execution",  hide: !isSales   },
+    { href: "/product-master",    icon: BookOpen,        labelKey: "nav_product_master",    group: "execution",  hide: false      },
+    { href: "/outlets",           icon: Store,           labelKey: "oc_title",              group: "execution",  hide: isSales    },
+    { href: "/leads",             icon: Users,           labelKey: "nav_leads",             group: "execution",  hide: isSales    },
+    { href: "/execution",         icon: CheckSquare,     labelKey: "nav_execution",         group: "execution",  hide: false      },
+    // CULTURE
+    { href: "/rewards",           icon: Trophy,          labelKey: "nav_rewards",           group: "culture",    hide: false      },
+    { href: "/leaderboard",       icon: Medal,           labelKey: "nav_leaderboard",       group: "culture",    hide: false      },
+    // SYSTEM
+    { href: "/settings",          icon: Settings,        labelKey: "nav_settings",          group: "system",     hide: false      },
+    { href: "/admin",             icon: ShieldCheck,     labelKey: "nav_admin",             group: "system",     hide: !isAdmin   },
   ] satisfies { href: string; icon: React.ElementType; labelKey: import("@/lib/i18n").TKey; group: string; hide: boolean }[];
 
   const groups = [
-    { key: "overview", labelKey: "nav_group_overview" },
-    { key: "input",    labelKey: "nav_group_input"    },
-    { key: "core",     labelKey: "nav_group_core"     },
-    { key: "output",   labelKey: "nav_group_output"   },
-    { key: "system",   labelKey: "nav_group_system"   },
+    { key: "overview",   labelKey: "nav_group_overview"   },
+    { key: "strategy",   labelKey: "nav_group_strategy"   },
+    { key: "signals",    labelKey: "nav_group_signals"     },
+    { key: "execution",  labelKey: "nav_group_execution"   },
+    { key: "culture",    labelKey: "nav_group_culture"     },
+    { key: "system",     labelKey: "nav_group_system"      },
   ] as const;
 
   const sidebarContent = (
