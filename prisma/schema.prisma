@@ -518,6 +518,9 @@ model SeasonalStrategy {
   startDate         String   @default("")   // "2026-05-01"
   endDate           String   @default("")   // "2026-06-30"
   campaignType      String   @default("")   // "Branding"
+  coverImage        String   @default("")   // Cloudinary URL — main mood image
+  moodboard         String   @default("[]") // JSON: [url, url, ...] — visual references
+  videoLinks        String   @default("[]") // JSON: [url, url, ...] — YouTube/TikTok refs
   isActive          Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

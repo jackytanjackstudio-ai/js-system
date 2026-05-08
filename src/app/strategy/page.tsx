@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import {
   Compass, Plus, Pencil, Check, X, Loader2, Star, Zap, Sliders,
   ChevronDown, ChevronUp, Calendar, AlertCircle, Save, Trash2,
+  Camera, Film, Link2, Upload, Play,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +15,7 @@ type Season = {
   supportingItems: string; contentDirections: string;
   vmDirection: string; keySignal: string; backupStrategy: string;
   startDate: string; endDate: string; campaignType: string;
+  coverImage: string; moodboard: string; videoLinks: string;
   isActive: boolean; createdAt: string;
 };
 
@@ -64,8 +66,25 @@ function TagInput({ values, onChange, placeholder }: { values: string[]; onChang
   );
 }
 
+// ─── Cloudinary upload ────────────────────────────────────────────────────────
+async function uploadImage(file: File): Promise<string> {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("upload_preset", "jackstudio_upload");
+  const r = await fetch("https://api.cloudinary.com/v1_1/ds0ka66z1/image/upload", { method: "POST", body: fd });
+  if (!r.ok) throw new Error("Upload failed");
+  return (await r.json()).secure_url as string;
+}
+
+function detectVideoPlatform(url: string): string {
+  if (url.includes("youtube.com") || url.includes("youtu.be")) return "YouTube";
+  if (url.includes("tiktok.com")) return "TikTok";
+  if (url.includes("instagram.com") || url.includes("ig.me")) return "Instagram";
+  return "Video";
+}
+
 // ─── Form state ───────────────────────────────────────────────────────────────
-const EMPTY = { quarter: "", theme: "", heroProduct: "", supportingItems: [] as string[], contentDirections: [] as string[], vmDirection: "", keySignal: "", backupStrategy: "", startDate: "", endDate: "", campaignType: "", isActive: false };
+const EMPTY = { quarter: "", theme: "", heroProduct: "", supportingItems: [] as string[], contentDirections: [] as string[], vmDirection: "", keySignal: "", backupStrategy: "", startDate: "", endDate: "", campaignType: "", coverImage: "", moodboard: [] as string[], videoLinks: [] as string[], isActive: false };
 
 // ─── Season Form Modal ────────────────────────────────────────────────────────
 function SeasonModal({ initial, onSave, onClose }: {
@@ -80,11 +99,40 @@ function SeasonModal({ initial, onSave, onClose }: {
     vmDirection: initial.vmDirection, keySignal: initial.keySignal,
     backupStrategy: initial.backupStrategy,
     startDate: initial.startDate ?? "", endDate: initial.endDate ?? "", campaignType: initial.campaignType ?? "",
+    coverImage: initial.coverImage ?? "",
+    moodboard: parseArr(initial.moodboard),
+    videoLinks: parseArr(initial.videoLinks),
     isActive: initial.isActive,
   } : { ...EMPTY });
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving]       = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [videoInput, setVideoInput] = useState("");
 
   const valid = form.quarter.trim() && form.theme.trim() && form.heroProduct.trim();
+
+  async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return;
+    setUploading(true);
+    try { setForm(f => ({ ...f, coverImage: "" })); const url = await uploadImage(file); setForm(f => ({ ...f, coverImage: url })); }
+    finally { setUploading(false); }
+  }
+
+  async function handleMoodboardUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    setUploading(true);
+    try {
+      const urls = await Promise.all(files.slice(0, 6).map(uploadImage));
+      setForm(f => ({ ...f, moodboard: [...f.moodboard, ...urls].slice(0, 9) }));
+    } finally { setUploading(false); }
+  }
+
+  function addVideoLink() {
+    const url = videoInput.trim();
+    if (!url || form.videoLinks.includes(url)) return;
+    setForm(f => ({ ...f, videoLinks: [...f.videoLinks, url] }));
+    setVideoInput("");
+  }
 
   async function handleSave() {
     if (!valid) return;
@@ -181,6 +229,87 @@ function SeasonModal({ initial, onSave, onClose }: {
               onChange={e => setForm(f => ({ ...f, campaignType: e.target.value }))} />
           </div>
 
+          {/* ── Visual / Media ── */}
+          <div className="space-y-3 pt-1">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5"><Camera size={11} /> Visual Direction</p>
+
+            {/* Cover Image */}
+            <div>
+              <label className={labelCls}>Cover Image</label>
+              <label className="cursor-pointer block">
+                {form.coverImage ? (
+                  <div className="relative rounded-xl overflow-hidden h-36 bg-gray-100 group">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={form.coverImage} alt="cover" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                      <span className="text-white text-xs font-semibold flex items-center gap-1"><Upload size={12} /> Change</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-gray-200 rounded-xl h-24 flex flex-col items-center justify-center gap-1.5 hover:border-brand-300 transition-colors">
+                    <Camera size={18} className="text-gray-300" />
+                    <span className="text-xs text-gray-400">Upload cover image</span>
+                  </div>
+                )}
+                <input type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
+              </label>
+            </div>
+
+            {/* Moodboard */}
+            <div>
+              <label className={labelCls}>Moodboard (up to 9 images)</label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {form.moodboard.map((url, i) => (
+                  <div key={i} className="relative rounded-lg overflow-hidden aspect-square bg-gray-100 group">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                    <button type="button" onClick={() => setForm(f => ({ ...f, moodboard: f.moodboard.filter((_, j) => j !== i) }))}
+                      className="absolute top-0.5 right-0.5 w-5 h-5 bg-black/60 rounded-full text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                      <X size={10} />
+                    </button>
+                  </div>
+                ))}
+                {form.moodboard.length < 9 && (
+                  <label className="cursor-pointer aspect-square rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center hover:border-brand-300 transition-colors">
+                    <Plus size={16} className="text-gray-300" />
+                    <input type="file" accept="image/*" multiple className="hidden" onChange={handleMoodboardUpload} />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            {/* Video Links */}
+            <div>
+              <label className={labelCls}>Video / Reference Links</label>
+              <div className="flex gap-2">
+                <input className={inputCls + " flex-1"} placeholder="Paste YouTube / TikTok / Instagram URL"
+                  value={videoInput} onChange={e => setVideoInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addVideoLink(); } }} />
+                <button type="button" onClick={addVideoLink} disabled={!videoInput.trim()}
+                  className="btn-secondary text-xs px-3 py-1.5 disabled:opacity-40"><Plus size={12} /></button>
+              </div>
+              {form.videoLinks.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {form.videoLinks.map((url, i) => (
+                    <div key={i} className="flex items-center gap-1 bg-gray-100 rounded-lg px-2 py-1 text-xs">
+                      <Play size={9} className="text-gray-500" />
+                      <span className="font-semibold text-gray-600">{detectVideoPlatform(url)}</span>
+                      <a href={url} target="_blank" rel="noreferrer" className="text-brand-500 hover:underline truncate max-w-[120px]">{url.replace(/https?:\/\/(www\.)?/, "")}</a>
+                      <button onClick={() => setForm(f => ({ ...f, videoLinks: f.videoLinks.filter((_, j) => j !== i) }))}
+                        className="text-gray-400 hover:text-red-500 ml-0.5"><X size={9} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {uploading && (
+              <div className="flex items-center gap-2 text-xs text-brand-500">
+                <Loader2 size={11} className="animate-spin" /> Uploading...
+              </div>
+            )}
+          </div>
+
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <input type="checkbox" checked={form.isActive} onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))}
               className="w-4 h-4 rounded accent-brand-500" />
@@ -203,13 +332,24 @@ function SeasonModal({ initial, onSave, onClose }: {
 
 // ─── Active Season Hero Card ──────────────────────────────────────────────────
 function ActiveSeasonCard({ s, canEdit, onEdit }: { s: Season; canEdit: boolean; onEdit: () => void }) {
-  const status = strategyStatus(s);
-  const stCfg  = STATUS_CFG[status];
+  const status     = strategyStatus(s);
+  const stCfg      = STATUS_CFG[status];
   const supporting = parseArr(s.supportingItems);
   const content    = parseArr(s.contentDirections);
+  const moodboard  = parseArr(s.moodboard);
+  const videoLinks = parseArr(s.videoLinks);
 
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-brand-600 to-brand-800 text-white p-6 space-y-5 shadow-lg">
+    <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-brand-600 to-brand-800 text-white shadow-lg">
+      {/* Cover Image */}
+      {s.coverImage && (
+        <div className="relative h-48 w-full">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={s.coverImage} alt="cover" className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-brand-900/80 via-brand-900/20 to-transparent" />
+        </div>
+      )}
+    <div className="p-6 space-y-5">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -278,6 +418,43 @@ function ActiveSeasonCard({ s, canEdit, onEdit }: { s: Season; canEdit: boolean;
           <div className="text-sm text-white/80">{s.backupStrategy}</div>
         </div>
       )}
+
+      {/* Moodboard */}
+      {moodboard.length > 0 && (
+        <div>
+          <div className="text-[10px] font-bold text-white/50 uppercase tracking-widest mb-2 flex items-center gap-1">
+            <Camera size={9} /> Moodboard
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {moodboard.slice(0, 9).map((url, i) => (
+              <div key={i} className="rounded-lg overflow-hidden aspect-square bg-white/10">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Video Links */}
+      {videoLinks.length > 0 && (
+        <div>
+          <div className="text-[10px] font-bold text-white/50 uppercase tracking-widest mb-2 flex items-center gap-1">
+            <Film size={9} /> Reference Videos
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {videoLinks.map((url, i) => (
+              <a key={i} href={url} target="_blank" rel="noreferrer"
+                className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
+                <Play size={10} className="text-white/70" />
+                {detectVideoPlatform(url)}
+                <span className="text-white/50 text-[10px] max-w-[100px] truncate">{url.replace(/https?:\/\/(www\.)?/, "")}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
     </div>
   );
 }
