@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef } from "react";
 import { useData, apiFetch } from "@/hooks/useData";
+import StrategyBar from "@/components/StrategyBar";
 import {
   Link2, Eye, Heart, MessageCircle, ShoppingBag, Zap,
   Loader2, X, ArrowUpRight, Plus, Bookmark, Share2, Check,
@@ -375,6 +376,8 @@ export default function CreatorInsight() {
         <h1 className="text-xl font-bold text-gray-900">Creator Insight</h1>
         <p className="text-sm text-gray-500 mt-0.5">Content → Product Decision System</p>
       </div>
+
+      <StrategyBar show="content" />
 
       {/* URL Paste Zone */}
       <div className="card border-2 border-dashed border-brand-200 bg-brand-50/40">

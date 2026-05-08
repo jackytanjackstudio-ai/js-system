@@ -2,6 +2,7 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import { useData, apiFetch } from "@/hooks/useData";
+import StrategyBar from "@/components/StrategyBar";
 import { useAuth } from "@/context/AuthContext";
 import {
   Sword, PackagePlus, FlaskConical, BookMarked, Brain, BarChart3,
@@ -2212,6 +2213,8 @@ export default function ProductWarRoom() {
           </button>
         )}
       </div>
+
+      <StrategyBar show="hero" />
 
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 overflow-x-auto">
         {tabs.map(tab => (

@@ -2,6 +2,7 @@
 import { useState, useRef } from "react";
 import { useData, apiFetch } from "@/hooks/useData";
 import { useAuth } from "@/context/AuthContext";
+import StrategyBar from "@/components/StrategyBar";
 import {
   MapPin, Plus, Pencil, Trash2, X, Loader2, Camera, FileText,
   Users, BarChart3, Check, ChevronDown, ChevronUp, Upload, Star,
@@ -768,6 +769,8 @@ export default function RoadshowHubPage() {
           </button>
         )}
       </div>
+
+      <StrategyBar show="mission" />
 
       {/* KPI */}
       {list.length > 0 && <KpiBar list={list} />}
