@@ -50,6 +50,7 @@ type SignalTag = { id: string; name: string; category: string; emoji: string; is
 const CAT_COLOR: Record<string, string> = {
   product:  "bg-blue-100 text-blue-700",
   customer: "bg-amber-100 text-amber-700",
+  usage:    "bg-purple-100 text-purple-700",
   trend:    "bg-green-100 text-green-700",
 };
 type SubmitResult = { weekCount: number; topDemand: string | null };
@@ -252,7 +253,7 @@ export default function CustomerInput() {
                 <div key={s.tag} className="flex items-center gap-2">
                   <span className="text-xs text-gray-500 w-32 truncate flex-shrink-0">{s.emoji} {s.tag}</span>
                   <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
-                    <div className={`h-full rounded-full transition-all ${s.category === "product" ? "bg-blue-400" : s.category === "customer" ? "bg-amber-400" : "bg-green-400"}`}
+                    <div className={`h-full rounded-full transition-all ${s.category === "product" ? "bg-blue-400" : s.category === "customer" ? "bg-amber-400" : s.category === "usage" ? "bg-purple-400" : "bg-green-400"}`}
                       style={{ width: `${pct}%` }} />
                   </div>
                   <span className="text-xs font-bold text-gray-600 w-6 text-right">{s.count}</span>
@@ -351,11 +352,11 @@ export default function CustomerInput() {
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">
               Market Signals <span className="text-gray-400 normal-case font-normal">(what did you observe?)</span>
             </label>
-            {(["product", "customer", "trend"] as const).map(cat => {
+            {(["product", "customer", "usage", "trend"] as const).map(cat => {
               const cfg = CAT_COLOR[cat] ?? "bg-gray-100 text-gray-600";
               const catTags = activeSignalTags.filter(t => t.category === cat);
               if (!catTags.length) return null;
-              const catLabel = { product: "🔍 Product", customer: "👤 Customer", trend: "📈 Trend" }[cat];
+              const catLabel = { product: "🔍 Product", customer: "👤 Customer", usage: "📌 Usage", trend: "📈 Trend" }[cat];
               return (
                 <div key={cat} className="space-y-1.5">
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{catLabel}</p>

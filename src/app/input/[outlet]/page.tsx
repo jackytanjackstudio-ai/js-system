@@ -46,9 +46,10 @@ function cleanInput(text: string): string {
 type SubmitResult = { weekCount: number; topDemand: string | null };
 type SignalTag = { id: string; name: string; category: string; emoji: string; isActive: boolean };
 const CATEGORY_CONFIG: Record<string, { label: string; color: string; active: string }> = {
-  product:  { label: "🔍 Product Signals",  color: "border-blue-100",   active: "bg-blue-500 text-white border-blue-500"   },
-  customer: { label: "👤 Customer Signals", color: "border-amber-100",  active: "bg-amber-500 text-white border-amber-500"  },
-  trend:    { label: "📈 Trend Signals",    color: "border-green-100",  active: "bg-green-500 text-white border-green-500"  },
+  product:  { label: "🔍 Product",  color: "border-blue-100",   active: "bg-blue-500 text-white border-blue-500"     },
+  customer: { label: "👤 Customer", color: "border-amber-100",  active: "bg-amber-500 text-white border-amber-500"   },
+  usage:    { label: "📌 Usage",    color: "border-purple-100", active: "bg-purple-500 text-white border-purple-500" },
+  trend:    { label: "📈 Trend",    color: "border-green-100",  active: "bg-green-500 text-white border-green-500"   },
 };
 
 export default function MobileInputPage({ params }: { params: { outlet: string } }) {
@@ -272,26 +273,38 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
           </div>
         </div>
 
-        {/* Use case */}
-        <div>
-          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-            Use case <span className="text-gray-400 normal-case font-normal">(optional)</span>
-          </label>
-          <div className="grid grid-cols-4 gap-2">
-            {useCases.map(c => {
-              const on = useCase.includes(c.label);
+        {/* 🔥 Market Signal Tags — Quick Mode — moved up for fast entry */}
+        {allSignalTags.length > 0 && (
+          <div className="space-y-3">
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">
+              What did you observe? <span className="text-gray-400 normal-case font-normal">(tap all that apply)</span>
+            </label>
+            {(["product", "customer", "usage", "trend"] as const).map(cat => {
+              const cfg     = CATEGORY_CONFIG[cat];
+              const catTags = allSignalTags.filter(t => t.category === cat);
+              if (!catTags.length) return null;
               return (
-                <button key={c.label} onClick={() => setUseCase(toggle(useCase, c.label))}
-                  className={`py-3 rounded-xl text-sm font-semibold border-2 transition-all flex flex-col items-center gap-1 ${
-                    on ? "bg-purple-500 text-white border-purple-500 shadow-md" : "bg-white text-gray-600 border-gray-100 active:border-purple-300"
-                  }`}>
-                  <span className="text-lg">{c.emoji}</span>
-                  <span className="text-xs">{c.label}</span>
-                </button>
+                <div key={cat} className={`border-2 rounded-2xl p-3 space-y-2.5 ${cfg.color}`}>
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{cfg.label}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {catTags.map(tag => {
+                      const on = signalTags.includes(tag.name);
+                      return (
+                        <button key={tag.id} onClick={() => setSignalTags(toggle(signalTags, tag.name))}
+                          className={`px-4 py-2.5 rounded-2xl text-sm font-semibold border-2 transition-all active:scale-95 flex items-center gap-1.5 ${
+                            on ? cfg.active + " shadow-md scale-[1.02]" : "bg-white text-gray-600 border-gray-100 active:border-brand-300"
+                          }`}>
+                          {tag.emoji && <span className="text-base leading-none">{tag.emoji}</span>}
+                          <span>{tag.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               );
             })}
           </div>
-        </div>
+        )}
 
         {/* Why didn't buy */}
         <div>
@@ -312,39 +325,6 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
             })}
           </div>
         </div>
-
-        {/* 🔥 Market Signal Tags */}
-        {allSignalTags.length > 0 && (
-          <div className="space-y-3">
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">
-              Market Signals <span className="text-gray-400 normal-case font-normal">(what did you observe?)</span>
-            </label>
-            {(["product", "customer", "trend"] as const).map(cat => {
-              const cfg  = CATEGORY_CONFIG[cat];
-              const catTags = allSignalTags.filter(t => t.category === cat);
-              if (!catTags.length) return null;
-              return (
-                <div key={cat} className={`border rounded-2xl p-3 space-y-2 ${cfg.color}`}>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{cfg.label}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {catTags.map(tag => {
-                      const on = signalTags.includes(tag.name);
-                      return (
-                        <button key={tag.id} onClick={() => setSignalTags(toggle(signalTags, tag.name))}
-                          className={`px-3.5 py-2 rounded-xl text-sm font-semibold border-2 transition-all flex items-center gap-1.5 ${
-                            on ? cfg.active + " shadow-md" : "bg-white text-gray-600 border-gray-100 active:border-brand-300"
-                          }`}>
-                          {tag.emoji && <span className="text-base">{tag.emoji}</span>}
-                          <span>{tag.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
 
         {/* Suggestions (auto-appear) */}
         {showSuggestions && (

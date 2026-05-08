@@ -7,9 +7,10 @@ import { cn } from "@/lib/utils";
 type SignalTag = { id: string; name: string; category: string; emoji: string; isActive: boolean };
 
 const CATEGORIES = [
-  { key: "product",  label: "Product Signal",  color: "bg-blue-50 border-blue-200",   dot: "bg-blue-400",   pill: "bg-blue-100 text-blue-700",   desc: "Features customers ask about"  },
-  { key: "customer", label: "Customer Signal",  color: "bg-amber-50 border-amber-200", dot: "bg-amber-400",  pill: "bg-amber-100 text-amber-700",  desc: "Customer behavior & reasons"   },
-  { key: "trend",    label: "Trend Signal",     color: "bg-green-50 border-green-200", dot: "bg-green-400",  pill: "bg-green-100 text-green-700",  desc: "Market trends observed"        },
+  { key: "product",  label: "Product Signal",  color: "bg-blue-50 border-blue-200",    dot: "bg-blue-400",    pill: "bg-blue-100 text-blue-700",    desc: "Features customers ask about"    },
+  { key: "customer", label: "Customer Signal",  color: "bg-amber-50 border-amber-200",  dot: "bg-amber-400",   pill: "bg-amber-100 text-amber-700",   desc: "Customer behavior & reasons"     },
+  { key: "usage",    label: "Usage Signal",     color: "bg-purple-50 border-purple-200",dot: "bg-purple-400",  pill: "bg-purple-100 text-purple-700", desc: "How customer intends to use it"  },
+  { key: "trend",    label: "Trend Signal",     color: "bg-green-50 border-green-200",  dot: "bg-green-400",   pill: "bg-green-100 text-green-700",   desc: "Market trends observed"          },
 ];
 
 const DEFAULT_TAGS: Record<string, { name: string; emoji: string }[]> = {
