@@ -46,6 +46,16 @@ model Outlet {
   campaignOutlets CampaignOutlet[]
 }
 
+model SignalTag {
+  id        String   @id @default(cuid())
+  name      String
+  category  String   // "product" | "customer" | "trend"
+  emoji     String   @default("")
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
 model CustomerInput {
   id            String   @id @default(cuid())
   userId        String
@@ -53,6 +63,7 @@ model CustomerInput {
   staffName     String?
   lookingFor    String   @default("[]")
   nobuReasons   String   @default("[]")
+  signalTags    String   @default("[]") // JSON: ["RFID","Lightweight","Gift Purchase"]
   suggestions   String   @default("[]")
   quote         String?
   week          String?

@@ -44,6 +44,12 @@ function cleanInput(text: string): string {
 }
 
 type SubmitResult = { weekCount: number; topDemand: string | null };
+type SignalTag = { id: string; name: string; category: string; emoji: string; isActive: boolean };
+const CATEGORY_CONFIG: Record<string, { label: string; color: string; active: string }> = {
+  product:  { label: "🔍 Product Signals",  color: "border-blue-100",   active: "bg-blue-500 text-white border-blue-500"   },
+  customer: { label: "👤 Customer Signals", color: "border-amber-100",  active: "bg-amber-500 text-white border-amber-500"  },
+  trend:    { label: "📈 Trend Signals",    color: "border-green-100",  active: "bg-green-500 text-white border-green-500"  },
+};
 
 export default function MobileInputPage({ params }: { params: { outlet: string } }) {
   const { outlet: outletId } = params;
@@ -62,6 +68,8 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
   const [showContact,  setShowContact]  = useState(false);
   const [custName,     setCustName]     = useState("");
   const [custPhone,    setCustPhone]    = useState("");
+
+  const [signalTags, setSignalTags] = useState<string[]>([]);
 
   // Image state
   const [imageData,  setImageData]  = useState<string | null>(null); // Cloudinary URL after upload
@@ -100,6 +108,13 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
     const data = await res.json();
     return data.secure_url as string;
   }
+
+  const [allSignalTags, setAllSignalTags] = useState<SignalTag[]>([]);
+  useEffect(() => {
+    fetch("/api/signal-tags").then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.data) setAllSignalTags((d.data as SignalTag[]).filter(t => t.isActive));
+    });
+  }, []);
 
   useEffect(() => {
     fetch(`/api/outlets/${outletId}/staff`)
@@ -159,6 +174,7 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
           customerPhone: cleanInput(custPhone) || null,
           imageUrl:      imageData || null,
           imageTags,
+          signalTags,
         }),
       });
       if (res.ok) {
@@ -173,7 +189,7 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
   function reset() {
     setResult(null);
     setLooking([]); setUseCase([]); setReasons([]); setSug([]); setQuote("");
-    setStaffName(""); setCustName(""); setCustPhone(""); setShowContact(false);
+    setStaffName(""); setCustName(""); setCustPhone(""); setShowContact(false); setSignalTags([]);
     removeImage();
   }
 
@@ -296,6 +312,39 @@ export default function MobileInputPage({ params }: { params: { outlet: string }
             })}
           </div>
         </div>
+
+        {/* 🔥 Market Signal Tags */}
+        {allSignalTags.length > 0 && (
+          <div className="space-y-3">
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">
+              Market Signals <span className="text-gray-400 normal-case font-normal">(what did you observe?)</span>
+            </label>
+            {(["product", "customer", "trend"] as const).map(cat => {
+              const cfg  = CATEGORY_CONFIG[cat];
+              const catTags = allSignalTags.filter(t => t.category === cat);
+              if (!catTags.length) return null;
+              return (
+                <div key={cat} className={`border rounded-2xl p-3 space-y-2 ${cfg.color}`}>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{cfg.label}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {catTags.map(tag => {
+                      const on = signalTags.includes(tag.name);
+                      return (
+                        <button key={tag.id} onClick={() => setSignalTags(toggle(signalTags, tag.name))}
+                          className={`px-3.5 py-2 rounded-xl text-sm font-semibold border-2 transition-all flex items-center gap-1.5 ${
+                            on ? cfg.active + " shadow-md" : "bg-white text-gray-600 border-gray-100 active:border-brand-300"
+                          }`}>
+                          {tag.emoji && <span className="text-base">{tag.emoji}</span>}
+                          <span>{tag.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Suggestions (auto-appear) */}
         {showSuggestions && (

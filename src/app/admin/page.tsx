@@ -161,6 +161,14 @@ export default function AdminOverview() {
           </div>
           <p className="text-stone-500 text-sm">Manage login accounts, roles, and outlet assignments.</p>
         </Link>
+
+        <Link href="/admin/signal-tags" className="bg-stone-800 border border-stone-700 hover:border-green-600 rounded-xl p-5 group transition-all">
+          <div className="flex items-center gap-3 mb-2">
+            <Activity size={18} className="text-green-400" />
+            <span className="text-white font-semibold group-hover:text-green-400 transition-colors">Signal Tags</span>
+          </div>
+          <p className="text-stone-500 text-sm">Manage dynamic market signal tags for Customer Input — Product, Customer & Trend signals.</p>
+        </Link>
       </div>
 
       {/* SKU Catalog import */}
