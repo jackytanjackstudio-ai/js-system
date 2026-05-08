@@ -45,6 +45,7 @@ type Input  = {
 };
 type Signal = { tag: string; count: number; category: string; emoji: string; delta: number };
 type SignalStats = { signals: Signal[]; totalThisWeek: number };
+type SignalTag = { id: string; name: string; category: string; emoji: string; isActive: boolean };
 
 const CAT_COLOR: Record<string, string> = {
   product:  "bg-blue-100 text-blue-700",
@@ -67,10 +68,13 @@ export default function CustomerInput() {
   const { data: outlets, loading: outLoading }                  = useData<Outlet[]>("/api/outlets");
   const { data: recentInputs, loading: inputsLoading, refetch } = useData<Input[]>("/api/inputs?limit=20");
   const { data: signalStats }                                    = useData<SignalStats>("/api/inputs/signal-stats");
+  const { data: allSignalTagsData }                              = useData<SignalTag[]>("/api/signal-tags");
+  const activeSignalTags = (allSignalTagsData ?? []).filter(t => t.isActive);
 
   const [result, setResult]         = useState<SubmitResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [outletId, setOutletId]     = useState("");
+  const [signalTags, setSignalTags] = useState<string[]>([]);
   const [looking,  setLooking]      = useState<string[]>([]);
   const [useCase,  setUseCase]      = useState<string[]>([]);
   const [reasons,  setReasons]      = useState<string[]>([]);
@@ -159,6 +163,7 @@ export default function CustomerInput() {
           customerPhone: cleanInput(custPhone) || null,
           imageUrl:      imageData || null,
           imageTags,
+          signalTags,
         }),
       });
       setResult({ weekCount: data.weekCount ?? 1, topDemand: data.topDemand ?? null });
@@ -170,7 +175,7 @@ export default function CustomerInput() {
 
   function reset() {
     setResult(null);
-    setOutletId(""); setLooking([]); setUseCase([]); setReasons([]); setSug([]); setQuote("");
+    setOutletId(""); setLooking([]); setUseCase([]); setReasons([]); setSug([]); setQuote(""); setSignalTags([]);
     setCustName(""); setCustPhone(""); setShowContact(false);
     removeImage();
   }
@@ -339,6 +344,40 @@ export default function CustomerInput() {
             })}
           </div>
         </div>
+
+        {/* Market Signal Tags */}
+        {activeSignalTags.length > 0 && (
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">
+              Market Signals <span className="text-gray-400 normal-case font-normal">(what did you observe?)</span>
+            </label>
+            {(["product", "customer", "trend"] as const).map(cat => {
+              const cfg = CAT_COLOR[cat] ?? "bg-gray-100 text-gray-600";
+              const catTags = activeSignalTags.filter(t => t.category === cat);
+              if (!catTags.length) return null;
+              const catLabel = { product: "🔍 Product", customer: "👤 Customer", trend: "📈 Trend" }[cat];
+              return (
+                <div key={cat} className="space-y-1.5">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{catLabel}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {catTags.map(tag => {
+                      const on = signalTags.includes(tag.name);
+                      return (
+                        <button key={tag.id} type="button" onClick={() => setSignalTags(toggle(signalTags, tag.name))}
+                          className={`px-3 py-2 rounded-xl text-sm font-semibold border-2 transition-all flex items-center gap-1.5 ${
+                            on ? cfg.replace("bg-", "bg-").replace("text-", "text-") + " border-transparent shadow-sm " + cfg : "bg-white text-gray-600 border-gray-100 hover:border-brand-200"
+                          }`}>
+                          {tag.emoji && <span>{tag.emoji}</span>}
+                          <span>{tag.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Step 3 — Suggestions (auto-appear) */}
         {showSuggestions && (
