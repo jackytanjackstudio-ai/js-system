@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { Loader2, ChevronLeft, ChevronDown, ChevronUp, ScanLine, X, AlertCircle, Camera, ImageIcon } from "lucide-react";
 import { useData, apiFetch } from "@/hooks/useData";
 import { useAuth } from "@/context/AuthContext";
+import { useLang } from "@/context/LangContext";
 
 // ─── Per-category config ───────────────────────────────────────────────────────
 const CATEGORY_CONFIG = {
@@ -166,6 +167,7 @@ function ChipBtn({ label, selected, color, onClick }: {
 
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function CustomerLog() {
+  const { t } = useLang();
   const { user } = useAuth();
   const { data: outlets, loading: outLoading } = useData<Outlet[]>("/api/outlets");
 
@@ -335,13 +337,15 @@ export default function CustomerLog() {
         <div className="text-6xl">{outcome === "sold" ? "🎉" : "📝"}</div>
         <div>
           <h2 className="text-2xl font-black text-gray-900">
-            {outcome === "sold" ? "Sale Logged!" : "Feedback Saved!"}
+            {outcome === "sold" ? t("cl_sale_logged") : t("cl_feedback_saved")}
           </h2>
-          <p className="text-sm text-gray-500 mt-1">Great work — every entry counts.</p>
+          <p className="text-sm text-gray-500 mt-1">
+            {outcome === "sold" ? t("cl_sale_logged_sub") : t("cl_feedback_saved_sub")}
+          </p>
         </div>
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-8 py-4">
-          <div className="text-3xl font-black text-amber-600">🔥 {result.todayCount}</div>
-          <div className="text-sm text-gray-500">logs today</div>
+        <div className="bg-brand-50 border border-brand-200 rounded-2xl px-8 py-4">
+          <div className="text-3xl font-black text-brand-600">🔥 {result.todayCount}</div>
+          <div className="text-sm text-gray-500">{t("cl_logs_today")}</div>
         </div>
         <div className="flex flex-wrap gap-2 justify-center">
           {category && <span className="badge bg-brand-100 text-brand-700">{catCfg?.emoji} {category}</span>}
@@ -354,7 +358,7 @@ export default function CustomerLog() {
             &ldquo;{customerSaid.trim()}&rdquo;
           </p>
         )}
-        <button className="btn-primary w-full py-3" onClick={reset}>Log Next Customer →</button>
+        <button className="btn-primary w-full py-3" onClick={reset}>{t("cl_log_next")}</button>
       </div>
     );
   }
@@ -364,7 +368,7 @@ export default function CustomerLog() {
     <div className="max-w-lg space-y-4">
       <div>
         <h1 className="page-title">Customer Log</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Every customer interaction counts</p>
+        <p className="text-sm text-gray-400 mt-0.5">{t("cl_subtitle")}</p>
       </div>
 
       <div className="card">
@@ -376,10 +380,10 @@ export default function CustomerLog() {
             <h2 className="text-lg font-black text-gray-900 text-center">What happened?</h2>
             <div className="grid grid-cols-2 gap-3">
               {([
-                { value: "sold",     emoji: "✅", label: "Sale Closed",
+                { value: "sold",     emoji: "✅", label: t("cl_sale_closed"), sub: t("cl_sale_closed_sub"),
                   base: "border-green-200 hover:border-green-400",
                   active: "bg-green-500 text-white border-green-500 shadow-md" },
-                { value: "not_sold", emoji: "📋", label: "No Sale",
+                { value: "not_sold", emoji: "📋", label: t("cl_no_sale"), sub: t("cl_no_sale_sub"),
                   base: "border-red-200 hover:border-red-400",
                   active: "bg-red-500 text-white border-red-500 shadow-md" },
               ] as const).map(opt => (
@@ -390,6 +394,7 @@ export default function CustomerLog() {
                   }`}>
                   <span className="text-5xl">{opt.emoji}</span>
                   <span>{opt.label}</span>
+                  <span className={`text-xs font-normal ${outcome === opt.value ? "opacity-80" : "text-gray-400"}`}>{opt.sub}</span>
                 </button>
               ))}
             </div>
@@ -403,7 +408,7 @@ export default function CustomerLog() {
               <button onClick={() => setStep(0)} className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
                 <ChevronLeft size={18} />
               </button>
-              <h2 className="text-lg font-black text-gray-900">Where &amp; What?</h2>
+              <h2 className="text-lg font-black text-gray-900">{t("cl_where_what")}</h2>
             </div>
 
             {/* Outlet — hidden for staff with fixed outlet */}
@@ -491,7 +496,7 @@ export default function CustomerLog() {
               <button onClick={() => setStep(1)} className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
                 <ChevronLeft size={18} />
               </button>
-              <h2 className="text-lg font-black text-gray-900">Use Case?</h2>
+              <h2 className="text-lg font-black text-gray-900">{t("cl_use_case")}</h2>
             </div>
             <div className="grid grid-cols-2 gap-3">
               {USE_CASES.map(uc => {
@@ -521,7 +526,7 @@ export default function CustomerLog() {
               <button onClick={() => setStep(2)} className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
                 <ChevronLeft size={18} />
               </button>
-              <h2 className="text-lg font-black text-gray-900">Why Did They Buy?</h2>
+              <h2 className="text-lg font-black text-gray-900">{t("cl_why_buy")}</h2>
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
@@ -569,7 +574,8 @@ export default function CustomerLog() {
               <button onClick={() => setStep(2)} className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
                 <ChevronLeft size={18} />
               </button>
-              <h2 className="text-lg font-black text-gray-900">Why No Sale?</h2>
+              <h2 className="text-lg font-black text-gray-900">{t("cl_why_no_sale")}</h2>
+              {category && <p className="text-xs text-gray-400 -mt-3">{t("cl_no_sale_hint")} <span className="font-semibold text-gray-600">{category}s</span>.</p>}
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
@@ -606,17 +612,21 @@ export default function CustomerLog() {
               <button onClick={() => setStep(3)} className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
                 <ChevronLeft size={18} />
               </button>
-              <h2 className="text-lg font-black text-gray-900">Customer Said…</h2>
+              <h2 className="text-lg font-black text-gray-900">{t("cl_customer_said")}</h2>
+            </div>
+
+            <div className="bg-brand-50 border border-brand-100 rounded-xl px-4 py-2.5 text-sm text-brand-700 font-medium">
+              {t("cl_said_hint")}
             </div>
 
             <div>
-              <textarea className="textarea" rows={4}
-                placeholder={outcome === "sold"
-                  ? "e.g. I like how clean and professional it looks"
-                  : "e.g. I need something bigger, for my laptop also"}
+              <textarea className="textarea" rows={4} maxLength={200}
+                placeholder={outcome === "sold" ? t("cl_said_ph_sold") : t("cl_said_ph_nosale")}
                 value={customerSaid}
                 onChange={e => setCustomerSaid(e.target.value)} />
-              <p className="text-xs text-gray-400 mt-1.5">Write their exact words — even one sentence is gold.</p>
+              <p className="text-xs text-gray-400 mt-1.5 text-right">
+                {customerSaid.length}/200 · optional but valuable
+              </p>
             </div>
 
             {/* Photo upload — no-sale only */}
@@ -681,7 +691,9 @@ export default function CustomerLog() {
 
             <button onClick={handleSubmit} disabled={submitting}
               className="btn-primary w-full py-3 flex items-center justify-center gap-2 disabled:opacity-40">
-              {submitting ? <><Loader2 size={16} className="animate-spin" /> Saving…</> : "Submit →"}
+              {submitting
+                ? <><Loader2 size={16} className="animate-spin" /> Saving…</>
+                : outcome === "sold" ? t("cl_submit_sale") : t("cl_submit_feedback")}
             </button>
           </div>
         )}
