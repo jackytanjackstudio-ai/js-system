@@ -47,13 +47,14 @@ model Outlet {
 }
 
 model SignalTag {
-  id        String   @id @default(cuid())
-  name      String
-  category  String   // "product" | "customer" | "trend"
-  emoji     String   @default("")
-  isActive  Boolean  @default(true)
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  name        String
+  category    String   // "product" | "customer" | "usage" | "trend"
+  emoji       String   @default("")
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  subcategory String   @default("[]") // JSON: ["Wallet","Bag"] — empty = show for all product categories
+  createdAt   DateTime @default(now())
 }
 
 model CustomerInput {
@@ -61,10 +62,14 @@ model CustomerInput {
   userId        String
   outletId      String
   staffName     String?
-  lookingFor    String   @default("[]")
-  nobuReasons   String   @default("[]")
-  signalTags    String   @default("[]") // JSON: ["RFID","Lightweight","Gift Purchase"]
+  outcome       String   @default("not_sold") // "sold" | "not_sold"
+  lookingFor    String   @default("[]")       // JSON: [category]
+  nobuReasons   String   @default("[]")       // JSON: [lostReason]
+  signalTags    String   @default("[]")       // JSON: marketSignals[]
   suggestions   String   @default("[]")
+  buyTrigger    String?                        // "Design"|"Function"|"Price"|"Staff"
+  customerType  String?                        // "First Time"|"Repeat"|"Tourist"
+  addOns        String   @default("[]")       // JSON: add-on products[]
   quote         String?
   week          String?
   month         Int?

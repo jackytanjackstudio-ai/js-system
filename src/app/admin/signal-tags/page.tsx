@@ -4,7 +4,12 @@ import { useData, apiFetch } from "@/hooks/useData";
 import { Plus, Trash2, Loader2, Tag, ToggleLeft, ToggleRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type SignalTag = { id: string; name: string; category: string; emoji: string; isActive: boolean };
+type SignalTag = { id: string; name: string; category: string; emoji: string; isActive: boolean; subcategory: string };
+
+const PRODUCT_CATS = ["Wallet", "Card Holder", "Bag", "Luggage", "Accessories", "Gift"] as const;
+const PRODUCT_SHORTS: Record<string, string> = {
+  "Wallet": "W", "Card Holder": "CH", "Bag": "B", "Luggage": "L", "Accessories": "A", "Gift": "G",
+};
 
 const CATEGORIES = [
   { key: "product",  label: "Product Signal",  color: "bg-blue-50 border-blue-200",    dot: "bg-blue-400",    pill: "bg-blue-100 text-blue-700",    desc: "Features customers ask about"    },
@@ -67,6 +72,13 @@ export default function SignalTagsAdmin() {
     refetch();
   }
 
+  async function toggleSubcat(tagId: string, currentSubcat: string, cat: string) {
+    const cats: string[] = JSON.parse(currentSubcat || "[]");
+    const next = cats.includes(cat) ? cats.filter(c => c !== cat) : [...cats, cat];
+    await apiFetch("/api/signal-tags", { method: "PATCH", body: JSON.stringify({ id: tagId, subcategory: JSON.stringify(next) }) });
+    refetch();
+  }
+
   async function deleteTag(id: string) {
     if (!confirm("Delete this tag?")) return;
     setDeleting(p => ({ ...p, [id]: true }));
@@ -107,22 +119,39 @@ export default function SignalTagsAdmin() {
 
             {/* Existing tags */}
             <div className="flex flex-wrap gap-2">
-              {catTags.map(tag => (
-                <div key={tag.id} className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold border transition-all",
-                  tag.isActive ? cat.pill + " border-transparent" : "bg-gray-100 text-gray-400 border-gray-200 opacity-60"
-                )}>
-                  {tag.emoji && <span>{tag.emoji}</span>}
-                  <span>{tag.name}</span>
-                  <button onClick={() => toggleTag(tag.id, tag.isActive)} className="ml-0.5 opacity-60 hover:opacity-100">
-                    {tag.isActive ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
-                  </button>
-                  <button onClick={() => deleteTag(tag.id)} disabled={deleting[tag.id]}
-                    className="opacity-40 hover:opacity-100 hover:text-red-500 transition-opacity">
-                    {deleting[tag.id] ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
-                  </button>
-                </div>
-              ))}
+              {catTags.map(tag => {
+                const tagCats: string[] = JSON.parse(tag.subcategory || "[]");
+                return (
+                  <div key={tag.id} className={cn(
+                    "flex flex-col gap-1 px-3 py-1.5 rounded-xl text-sm font-semibold border transition-all",
+                    tag.isActive ? cat.pill + " border-transparent" : "bg-gray-100 text-gray-400 border-gray-200 opacity-60"
+                  )}>
+                    <div className="flex items-center gap-1.5">
+                      {tag.emoji && <span>{tag.emoji}</span>}
+                      <span>{tag.name}</span>
+                      <button onClick={() => toggleTag(tag.id, tag.isActive)} className="ml-0.5 opacity-60 hover:opacity-100">
+                        {tag.isActive ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
+                      </button>
+                      <button onClick={() => deleteTag(tag.id)} disabled={deleting[tag.id]}
+                        className="opacity-40 hover:opacity-100 hover:text-red-500 transition-opacity">
+                        {deleting[tag.id] ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                      </button>
+                    </div>
+                    <div className="flex gap-0.5">
+                      {PRODUCT_CATS.map(pc => (
+                        <button key={pc} title={pc} onClick={() => toggleSubcat(tag.id, tag.subcategory, pc)}
+                          className={cn(
+                            "text-[9px] font-bold px-1 py-0.5 rounded transition-colors",
+                            tagCats.includes(pc) ? "bg-gray-700 text-white" : "bg-white/60 text-gray-400 hover:bg-gray-200"
+                          )}>
+                          {PRODUCT_SHORTS[pc]}
+                        </button>
+                      ))}
+                      {tagCats.length === 0 && <span className="text-[9px] text-gray-400 italic ml-0.5">all</span>}
+                    </div>
+                  </div>
+                );
+              })}
               {catTags.length === 0 && <p className="text-xs text-gray-400 italic">No tags yet — add below or seed defaults</p>}
             </div>
 

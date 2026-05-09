@@ -4,7 +4,7 @@ export const translations = {
   en: {
     // Sidebar
     nav_dashboard:        "Dashboard",
-    nav_customer_input:   "Customer Input",
+    nav_customer_input:   "Customer Log",
     nav_sales_report:     "Sales Report",
     nav_creator_insight:  "Creator Insight",
     nav_data_hub:         "Data Hub",
@@ -287,7 +287,7 @@ export const translations = {
 
   zh: {
     nav_dashboard:        "总览",
-    nav_customer_input:   "客户反馈",
+    nav_customer_input:   "客户记录",
     nav_sales_report:     "销售报告",
     nav_creator_insight:  "内容洞察",
     nav_data_hub:         "数据中枢",
@@ -557,7 +557,7 @@ export const translations = {
 
   ms: {
     nav_dashboard:        "Papan Pemuka",
-    nav_customer_input:   "Input Pelanggan",
+    nav_customer_input:   "Log Pelanggan",
     nav_sales_report:     "Laporan Jualan",
     nav_creator_insight:  "Insight Kreator",
     nav_data_hub:         "Hab Data",

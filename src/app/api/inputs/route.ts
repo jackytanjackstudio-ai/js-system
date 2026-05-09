@@ -42,7 +42,12 @@ export async function GET(req: Request) {
 // POST is public — used from /input/[outlet] by staff without accounts
 export async function POST(req: Request) {
   const body = await req.json();
-  const { outletId, staffName, lookingFor, nobuReasons, suggestions, quote, customerName, customerPhone, imageUrl, imageTags, useCase, signalTags } = body;
+  const {
+    outletId, staffName,
+    outcome, lookingFor, nobuReasons, suggestions, quote,
+    customerName, customerPhone, imageUrl, imageTags, useCase, signalTags,
+    buyTrigger, customerType, addOns,
+  } = body;
 
   if (!outletId || !staffName) return apiError("outletId and staffName required");
 
@@ -61,9 +66,13 @@ export async function POST(req: Request) {
         userId:        user.id,
         outletId,
         staffName:     staffName ?? null,
+        outcome:       outcome ?? "not_sold",
         lookingFor:    JSON.stringify(lookingFor ?? []),
         nobuReasons:   JSON.stringify(nobuReasons ?? []),
         suggestions:   JSON.stringify(suggestions ?? []),
+        buyTrigger:    buyTrigger ?? null,
+        customerType:  customerType ?? null,
+        addOns:        JSON.stringify(addOns ?? []),
         quote:         quote ?? null,
         week,
         month,
@@ -80,13 +89,19 @@ export async function POST(req: Request) {
         userId:   user.id,
         category: "customer_input",
         points:   5,
-        reason:   "Submitted customer input",
+        reason:   "Submitted customer log",
         weekRef:  week,
       },
     }),
   ]);
 
-  // Return stats for success screen
+  // Today's count for this user
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const todayEnd   = new Date(); todayEnd.setHours(23, 59, 59, 999);
+  const todayCount = await prisma.customerInput.count({
+    where: { userId: user.id, createdAt: { gte: todayStart, lte: todayEnd } },
+  });
+
   const weekCount = await prisma.customerInput.count({ where: { week } });
 
   const allThisWeek = await prisma.customerInput.findMany({
@@ -102,5 +117,5 @@ export async function POST(req: Request) {
   }
   const topDemand = Object.entries(tagCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
-  return apiOk({ input, weekCount, topDemand }, 201);
+  return apiOk({ input, weekCount, todayCount, topDemand }, 201);
 }

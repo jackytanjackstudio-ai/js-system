@@ -25,7 +25,7 @@ type StrategyInfo = {
 };
 type LBData = {
   strategy: StrategyInfo | null;
-  weights: { customer_input: number; quick_log: number; content: number; review: number; campaign: number };
+  weights: { customer_input: number; content: number; review: number; campaign: number };
   staffRanking: StaffEntry[];
   storeRanking: StoreEntry[];
   strategies: { id: string; name: string; startDate: string; endDate: string; isActive: boolean }[];
@@ -106,9 +106,9 @@ export default function LeaderboardPage() {
             <span className="text-gray-600">MPOS</span>
             <span className="font-bold text-brand-700">{strategy.mposWeight}%</span>
           </div>
-          {(["customer_input", "quick_log", "content", "review", "campaign"] as const).map(k => (
+          {(["customer_input", "content", "review", "campaign"] as const).map(k => (
             <div key={k} className="flex items-center gap-1.5 text-xs">
-              <span className="text-gray-500 capitalize">{k.replace("_", " ")}</span>
+              <span className="text-gray-500 capitalize">{k === "customer_input" ? "Customer Log" : k.replace("_", " ")}</span>
               <span className="font-bold text-brand-700">{weights[k]}%</span>
             </div>
           ))}
@@ -187,10 +187,8 @@ export default function LeaderboardPage() {
                     {/* OS breakdown bars */}
                     <div className="space-y-2">
                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">OS Breakdown</p>
-                      <ScoreBar label="Customer Input" value={s.breakdown.customerInput} color="bg-orange-400"
+                      <ScoreBar label="Customer Log" value={s.breakdown.customerInput} color="bg-orange-400"
                         icon={<Users size={10} />} />
-                      <ScoreBar label="Quick Log" value={s.breakdown.quickLog} color="bg-amber-400"
-                        icon={<MessageSquare size={10} />} />
                       <ScoreBar label="Content" value={s.breakdown.content} color="bg-purple-400"
                         icon={<Zap size={10} />} />
                       <ScoreBar label="Review" value={s.breakdown.review} color="bg-green-400"
@@ -200,13 +198,12 @@ export default function LeaderboardPage() {
                     </div>
 
                     {/* Raw counts */}
-                    <div className="grid grid-cols-5 gap-2 text-center">
+                    <div className="grid grid-cols-4 gap-2 text-center">
                       {[
-                        { label: "Cust. Input", val: s.rawCounts.customerInput },
-                        { label: "Quick Log",   val: s.rawCounts.quickLog },
-                        { label: "Content",     val: s.rawCounts.content  },
-                        { label: "Reviews",     val: s.rawCounts.review   },
-                        { label: "Tasks",       val: s.rawCounts.campaign },
+                        { label: "Cust. Log",  val: s.rawCounts.customerInput },
+                        { label: "Content",    val: s.rawCounts.content  },
+                        { label: "Reviews",    val: s.rawCounts.review   },
+                        { label: "Tasks",      val: s.rawCounts.campaign },
                       ].map(r => (
                         <div key={r.label} className="bg-gray-50 rounded-lg p-2">
                           <div className="text-sm font-bold text-gray-800">{r.val}</div>

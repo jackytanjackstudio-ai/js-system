@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSession, apiError, apiOk } from "@/lib/auth";
 
-type OsWeights = { customer_input: number; quick_log: number; content: number; review: number; campaign: number };
+type OsWeights = { customer_input: number; quick_log?: number; content: number; review: number; campaign: number };
 
 // ── Anti-cheat: cap quick-log at 5 entries/day/user ──────────────────────────
 function capDailyQuickLog(entries: { userId: string; createdAt: Date }[]): number[] {
@@ -44,7 +44,7 @@ export async function GET(req: Request) {
 
   const weights: OsWeights = (() => {
     try { return JSON.parse(strategy.osWeights) as OsWeights; }
-    catch { return { customer_input: 20, quick_log: 20, content: 20, review: 20, campaign: 20 }; }
+    catch { return { customer_input: 40, content: 20, review: 20, campaign: 20 }; }
   })();
 
   const start = new Date(strategy.startDate + "T00:00:00Z");
@@ -150,7 +150,7 @@ export async function GET(req: Request) {
   }
 
   // ── 4. Calculate scores per staff ─────────────────────────────────────────────
-  const MAX_CI = 60; const MAX_QL = 50; const MAX_CONTENT = 150; const MAX_REVIEW = 50; const MAX_CAMPAIGN = 100;
+  const MAX_CI = 60; const MAX_CONTENT = 150; const MAX_REVIEW = 50; const MAX_CAMPAIGN = 100;
 
   const staffRanking = users
     .filter(u => u.role !== "admin")
@@ -158,24 +158,20 @@ export async function GET(req: Request) {
       const outletName = outlets.find(o => o.id === u.outletId)?.name ?? "";
       const mpos = mposMap[u.outletId ?? ""] ?? 0;
 
-      const ciRaw       = ciByUser[u.id]                ?? 0;
-      const qlRaw       = qlByUserCapped[u.id]          ?? 0;
-      const contentRaw  = contentByUser[u.id]            ?? 0;
-      const reviewRaw   = reviewByOutlet[u.outletId ?? ""] ?? 0;
-      const campaignRaw = campaignByName[u.name]         ?? 0;
+      const ciRaw       = ciByUser[u.id]                    ?? 0;
+      const contentRaw  = contentByUser[u.id]                ?? 0;
+      const reviewRaw   = reviewByOutlet[u.outletId ?? ""]   ?? 0;
+      const campaignRaw = campaignByName[u.name]             ?? 0;
 
       const ci       = norm(ciRaw,       MAX_CI);
-      const ql       = norm(qlRaw,       MAX_QL);
       const content  = norm(contentRaw,  MAX_CONTENT);
       const review   = norm(reviewRaw,   MAX_REVIEW);
       const campaign = norm(campaignRaw, MAX_CAMPAIGN);
 
-      const ciW = weights.customer_input ?? 0;
       const osScore = Math.round(
-        ci * ciW / 100 +
-        ql * weights.quick_log / 100 +
+        ci      * (weights.customer_input ?? 0) / 100 +
         content * weights.content / 100 +
-        review * weights.review / 100 +
+        review  * weights.review  / 100 +
         campaign * weights.campaign / 100
       );
 
@@ -190,8 +186,8 @@ export async function GET(req: Request) {
         mposScore: mpos,
         osScore,
         finalScore,
-        breakdown: { customerInput: ci, quickLog: ql, content, review, campaign },
-        rawCounts:  { customerInput: ciRaw, quickLog: qlRaw, content: contentRaw, review: reviewRaw, campaign: campaignRaw },
+        breakdown: { customerInput: ci, content, review, campaign },
+        rawCounts:  { customerInput: ciRaw, content: contentRaw, review: reviewRaw, campaign: campaignRaw },
       };
     })
     .sort((a, b) => b.finalScore - a.finalScore);

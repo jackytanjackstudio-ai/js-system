@@ -13,11 +13,11 @@ export async function POST(req: Request) {
   if (!session) return apiError("Unauthorized", 401);
   if (!["admin", "manager"].includes(session.role)) return apiError("Forbidden", 403);
 
-  const { name, category, emoji } = await req.json();
+  const { name, category, emoji, subcategory } = await req.json();
   if (!name?.trim() || !category) return apiError("name and category required");
 
   const tag = await prisma.signalTag.create({
-    data: { name: name.trim(), category, emoji: emoji ?? "" },
+    data: { name: name.trim(), category, emoji: emoji ?? "", subcategory: subcategory ?? "[]" },
   });
   return apiOk(tag, 201);
 }
@@ -27,15 +27,16 @@ export async function PATCH(req: Request) {
   if (!session) return apiError("Unauthorized", 401);
   if (!["admin", "manager"].includes(session.role)) return apiError("Forbidden", 403);
 
-  const { id, name, emoji, isActive } = await req.json();
+  const { id, name, emoji, isActive, subcategory } = await req.json();
   if (!id) return apiError("id required");
 
   const tag = await prisma.signalTag.update({
     where: { id },
     data: {
-      ...(name      !== undefined && { name }),
-      ...(emoji     !== undefined && { emoji }),
-      ...(isActive  !== undefined && { isActive }),
+      ...(name        !== undefined && { name }),
+      ...(emoji       !== undefined && { emoji }),
+      ...(isActive    !== undefined && { isActive }),
+      ...(subcategory !== undefined && { subcategory }),
     },
   });
   return apiOk(tag);
