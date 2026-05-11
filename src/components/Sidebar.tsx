@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, MessageSquare, BarChart2, Video,
-  Database, Sword, CheckSquare, Trophy, Settings, Zap, Store, ShieldCheck, Menu, X, Users, ThumbsUp, Calendar, BookOpen, Star, Sliders, Medal, BookMarked, MapPin,
+  Database, Sword, CheckSquare, Trophy, Settings, Zap, Store, ShieldCheck, Menu, X, Users, ThumbsUp, Calendar, BookOpen, Star, Sliders, Medal, BookMarked, MapPin, Clapperboard, PieChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/context/LangContext";
@@ -35,11 +35,13 @@ export default function Sidebar() {
     // OVERVIEW
     { href: "/",                  icon: LayoutDashboard, labelKey: "nav_dashboard",        group: "overview",   hide: false      },
     // STRATEGY
-    { href: "/strategy",          icon: Sliders,         labelKey: "nav_strategy",         group: "strategy",   hide: !isAdmin   },
+    { href: "/strategy",           icon: Sliders,         labelKey: "nav_strategy",          group: "strategy",  hide: !isAdmin  },
+    { href: "/strategy-dashboard", icon: PieChart,        labelKey: "nav_strategy_dashboard", group: "strategy",  hide: !isAdmin  },
     // SIGNALS
     { href: "/customer-input",    icon: MessageSquare,   labelKey: "nav_customer_input",   group: "signals",    hide: false      },
     { href: "/sales-report",      icon: BarChart2,       labelKey: "nav_sales_report",     group: "signals",    hide: false      },
     { href: "/creator-insight",   icon: Video,           labelKey: "nav_creator_insight",  group: "signals",    hide: false      },
+    { href: "/creator-hub",       icon: Clapperboard,    labelKey: "nav_creator_hub",       group: "signals",    hide: false      },
     { href: "/reviews",           icon: Star,            labelKey: "nav_reviews",           group: "signals",    hide: false      },
     { href: "/data-hub",          icon: Database,        labelKey: "nav_data_hub",          group: "signals",    hide: isSales    },
     // EXECUTION

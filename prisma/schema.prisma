@@ -542,6 +542,74 @@ model SeasonalStrategy {
   updatedAt         DateTime @updatedAt
 }
 
+// ─── Creator Hub ───────────────────────────────────────────────────────────────
+
+model CreatorHubWeekly {
+  id          String   @id @default(cuid())
+  weekLabel   String   // "Week 1 July 2026"
+  task        String   // "REACTION"
+  description String   @default("") // what to shoot
+  howToShoot  String   @default("") // how to do it
+  destination String   @default("") // where to send
+  target      String   @default("") // "每店 2条"
+  videoUrl    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CreatorHubGuide {
+  id              String   @id @default(cuid())
+  typeKey         String   @unique // "reaction" | "process" | "function_demo" | "staff_pick" | "comparison"
+  typeName        String
+  sortOrder       Int      @default(0)
+  dos             String   @default("[]") // JSON: string[]
+  donts           String   @default("[]") // JSON: string[]
+  captionTemplate String   @default("")
+  videoUrl        String?
+  updatedAt       DateTime @updatedAt
+}
+
+model CreatorHubExample {
+  id             String   @id @default(cuid())
+  title          String
+  videoUrl       String?
+  views          Int      @default(0)
+  shares         Int      @default(0)
+  completionRate Int      @default(0)
+  outletName     String?
+  staffName      String?
+  monthLabel     String   @default("")
+  isFeatured     Boolean  @default(false)
+  fromCreatorId  String?
+  createdAt      DateTime @default(now())
+}
+
+// ─── BSC Strategy Dashboard ────────────────────────────────────────────────────
+
+model OutletTarget {
+  id       String @id @default(cuid())
+  outlet   String
+  year     Int
+  month    Int
+  targetRm Float
+
+  @@unique([outlet, year, month])
+}
+
+model BscKpi {
+  id          String   @id @default(cuid())
+  updatedAt   DateTime @default(now()) @updatedAt
+  perspective String
+  kpiKey      String
+  kpiLabel    String
+  targetDesc  String?
+  status      String   @default("on-track")
+  note        String?
+
+  @@unique([perspective, kpiKey])
+}
+
 // ─── Review Module ─────────────────────────────────────────────────────────────
 
 model Review {

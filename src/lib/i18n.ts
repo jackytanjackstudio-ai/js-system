@@ -268,6 +268,10 @@ export const translations = {
     sf_impact_bonus:      "Impact Bonus",
     sf_impact_sub:        "Your insight became a product win",
 
+    // Creator Hub
+    nav_creator_hub:           "Creator Hub",
+    nav_strategy_dashboard:    "Strategy Dashboard",
+
     // Campaign
     nav_campaign:         "Campaign",
 
@@ -572,6 +576,9 @@ export const translations = {
     sf_impact_bonus:      "影响力奖励",
     sf_impact_sub:        "你的洞察成就了爆款",
 
+    nav_creator_hub:           "创作中心",
+    nav_strategy_dashboard:    "策略仪表板",
+
     nav_campaign:         "活动日历",
 
     oc_title:             "门店 & 渠道",
@@ -864,6 +871,9 @@ export const translations = {
     sf_tomorrow:          "Esok",
     sf_impact_bonus:      "Bonus Impak",
     sf_impact_sub:        "Insight anda menjadi produk berjaya",
+
+    nav_creator_hub:           "Hab Kreator",
+    nav_strategy_dashboard:    "Papan Pemuka Strategi",
 
     nav_campaign:         "Kalendar Kempen",
 
