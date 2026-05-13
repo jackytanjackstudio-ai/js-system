@@ -8,14 +8,20 @@ import { cn } from "@/lib/utils";
 type Staff  = { id: string; name: string; email: string; role: string; outletId: string | null; isActive: boolean; outlet: { name: string } | null };
 type Outlet = { id: string; name: string; type: string };
 
-const ROLES = ["admin", "manager", "sales", "creator", "product"];
+const ROLES = ["admin", "supervisor", "staff", "marketing", "content", "cs", "product"];
 
 const ROLE_COLORS: Record<string, string> = {
-  admin:   "bg-red-900/50 text-red-400",
-  manager: "bg-amber-900/50 text-amber-400",
-  sales:   "bg-blue-900/50 text-blue-400",
-  creator: "bg-purple-900/50 text-purple-400",
-  product: "bg-green-900/50 text-green-400",
+  admin:      "bg-red-900/50 text-red-400",
+  supervisor: "bg-amber-900/50 text-amber-400",
+  staff:      "bg-blue-900/50 text-blue-400",
+  marketing:  "bg-pink-900/50 text-pink-400",
+  content:    "bg-purple-900/50 text-purple-400",
+  cs:         "bg-cyan-900/50 text-cyan-400",
+  product:    "bg-green-900/50 text-green-400",
+  // Legacy role names (existing DB values)
+  manager:    "bg-amber-900/50 text-amber-400",
+  sales:      "bg-blue-900/50 text-blue-400",
+  creator:    "bg-purple-900/50 text-purple-400",
 };
 
 export default function AdminStaff() {

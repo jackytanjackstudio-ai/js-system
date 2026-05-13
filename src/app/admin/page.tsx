@@ -8,11 +8,17 @@ type Outlet = { id: string; name: string; city: string; type: string; isActive: 
 type Staff  = { id: string; name: string; email: string; role: string; isActive: boolean };
 
 const ROLE_COLORS: Record<string, string> = {
-  admin:   "bg-red-900 text-red-300",
-  manager: "bg-amber-900 text-amber-300",
-  sales:   "bg-blue-900 text-blue-300",
-  creator: "bg-purple-900 text-purple-300",
-  product: "bg-green-900 text-green-300",
+  admin:      "bg-red-900 text-red-300",
+  supervisor: "bg-amber-900 text-amber-300",
+  staff:      "bg-blue-900 text-blue-300",
+  marketing:  "bg-pink-900 text-pink-300",
+  content:    "bg-purple-900 text-purple-300",
+  cs:         "bg-cyan-900 text-cyan-300",
+  product:    "bg-green-900 text-green-300",
+  // Legacy DB values
+  manager:    "bg-amber-900 text-amber-300",
+  sales:      "bg-blue-900 text-blue-300",
+  creator:    "bg-purple-900 text-purple-300",
 };
 
 function SkuCatalogImport() {

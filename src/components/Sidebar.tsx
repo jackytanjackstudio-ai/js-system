@@ -3,13 +3,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, MessageSquare, BarChart2, Video,
-  Database, Sword, CheckSquare, Trophy, Settings, Zap, Store, ShieldCheck, Menu, X, Users, ThumbsUp, Calendar, BookOpen, Star, Sliders, Medal, BookMarked, MapPin, Clapperboard, PieChart,
+  Database, Sword, CheckSquare, Trophy, Settings, Zap, Store, ShieldCheck,
+  Menu, X, Users, Calendar, BookOpen, Star, Sliders, Medal, MapPin, Clapperboard, PieChart, LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/context/LangContext";
-import { Lang } from "@/lib/i18n";
+import { Lang, TKey } from "@/lib/i18n";
 import { useAuth } from "@/context/AuthContext";
-import { LogOut } from "lucide-react";
+import { canAccess } from "@/lib/permissions";
 import { useState, useEffect } from "react";
 
 const LANGS: { code: Lang; label: string; flag: string }[] = [
@@ -18,57 +19,59 @@ const LANGS: { code: Lang; label: string; flag: string }[] = [
   { code: "ms", label: "BM",  flag: "🇲🇾" },
 ];
 
+type NavItem = {
+  href:      string;
+  icon:      React.ElementType;
+  labelKey:  TKey;
+  group:     string;
+  moduleKey: string;
+};
+
+const NAV: NavItem[] = [
+  // OVERVIEW
+  { href: "/",                  icon: LayoutDashboard, labelKey: "nav_dashboard",        group: "overview",   moduleKey: "dashboard"        },
+  // STRATEGY
+  { href: "/strategy",          icon: Sliders,         labelKey: "nav_strategy",          group: "strategy",   moduleKey: "strategy-hub"     },
+  { href: "/strategy-dashboard",icon: PieChart,        labelKey: "nav_strategy_dashboard",group: "strategy",   moduleKey: "strategy-dashboard"},
+  // SIGNALS
+  { href: "/customer-input",    icon: MessageSquare,   labelKey: "nav_customer_input",    group: "signals",    moduleKey: "customer-input"   },
+  { href: "/sales-report",      icon: BarChart2,       labelKey: "nav_sales_report",      group: "signals",    moduleKey: "sales-report"     },
+  { href: "/creator-insight",   icon: Video,           labelKey: "nav_creator_insight",   group: "signals",    moduleKey: "creator-insight"  },
+  { href: "/creator-hub",       icon: Clapperboard,    labelKey: "nav_creator_hub",       group: "signals",    moduleKey: "creator-hub"      },
+  { href: "/reviews",           icon: Star,            labelKey: "nav_reviews",           group: "signals",    moduleKey: "reviews"          },
+  { href: "/data-hub",          icon: Database,        labelKey: "nav_data_hub",          group: "signals",    moduleKey: "data-hub"         },
+  // EXECUTION
+  { href: "/campaign",          icon: Calendar,        labelKey: "nav_campaign",          group: "execution",  moduleKey: "campaign"         },
+  { href: "/roadshow-hub",      icon: MapPin,          labelKey: "nav_roadshow_hub",      group: "execution",  moduleKey: "roadshow-hub"     },
+  { href: "/product-war-room",  icon: Sword,           labelKey: "nav_product_war_room",  group: "execution",  moduleKey: "product-war-room" },
+  { href: "/product-master",    icon: BookOpen,        labelKey: "nav_product_master",    group: "execution",  moduleKey: "product-master"   },
+  { href: "/outlets",           icon: Store,           labelKey: "oc_title",              group: "execution",  moduleKey: "outlets"          },
+  { href: "/leads",             icon: Users,           labelKey: "nav_leads",             group: "execution",  moduleKey: "leads"            },
+  { href: "/execution",         icon: CheckSquare,     labelKey: "nav_execution",         group: "execution",  moduleKey: "execution"        },
+  // CULTURE
+  { href: "/rewards",           icon: Trophy,          labelKey: "nav_rewards",           group: "culture",    moduleKey: "rewards"          },
+  { href: "/leaderboard",       icon: Medal,           labelKey: "nav_leaderboard",       group: "culture",    moduleKey: "leaderboard"      },
+  // SYSTEM
+  { href: "/settings",          icon: Settings,        labelKey: "nav_settings",          group: "system",     moduleKey: "settings"         },
+  { href: "/admin",             icon: ShieldCheck,     labelKey: "nav_admin",             group: "system",     moduleKey: "admin-panel"      },
+];
+
+const GROUPS = [
+  { key: "overview",  labelKey: "nav_group_overview"  as TKey },
+  { key: "strategy",  labelKey: "nav_group_strategy"  as TKey },
+  { key: "signals",   labelKey: "nav_group_signals"   as TKey },
+  { key: "execution", labelKey: "nav_group_execution" as TKey },
+  { key: "culture",   labelKey: "nav_group_culture"   as TKey },
+  { key: "system",    labelKey: "nav_group_system"    as TKey },
+];
+
 export default function Sidebar() {
-  const pathname = usePathname();
+  const pathname        = usePathname();
   const { t, lang, setLang } = useLang();
-  const { user, logout } = useAuth();
+  const { user, logout, role } = useAuth();
   const [open, setOpen] = useState(false);
 
-  // Close drawer on route change
   useEffect(() => { setOpen(false); }, [pathname]);
-
-  const isSales = user?.role === "sales";
-
-  const isAdmin = ["admin", "manager"].includes(user?.role ?? "");
-
-  const nav = [
-    // OVERVIEW
-    { href: "/",                  icon: LayoutDashboard, labelKey: "nav_dashboard",        group: "overview",   hide: false      },
-    // STRATEGY
-    { href: "/strategy",           icon: Sliders,         labelKey: "nav_strategy",          group: "strategy",  hide: !isAdmin  },
-    { href: "/strategy-dashboard", icon: PieChart,        labelKey: "nav_strategy_dashboard", group: "strategy",  hide: !isAdmin  },
-    // SIGNALS
-    { href: "/customer-input",    icon: MessageSquare,   labelKey: "nav_customer_input",   group: "signals",    hide: false      },
-    { href: "/sales-report",      icon: BarChart2,       labelKey: "nav_sales_report",     group: "signals",    hide: false      },
-    { href: "/creator-insight",   icon: Video,           labelKey: "nav_creator_insight",  group: "signals",    hide: false      },
-    { href: "/creator-hub",       icon: Clapperboard,    labelKey: "nav_creator_hub",       group: "signals",    hide: false      },
-    { href: "/reviews",           icon: Star,            labelKey: "nav_reviews",           group: "signals",    hide: false      },
-    { href: "/data-hub",          icon: Database,        labelKey: "nav_data_hub",          group: "signals",    hide: isSales    },
-    // EXECUTION
-    { href: "/campaign",          icon: Calendar,        labelKey: "nav_campaign",          group: "execution",  hide: false      },
-    { href: "/roadshow-hub",      icon: MapPin,          labelKey: "nav_roadshow_hub",      group: "execution",  hide: isSales    },
-    { href: "/product-war-room",  icon: Sword,           labelKey: "nav_product_war_room",  group: "execution",  hide: isSales    },
-    { href: "/product-war-room",  icon: BookMarked,      labelKey: "nav_product_feedback",  group: "execution",  hide: !isSales   },
-    { href: "/product-master",    icon: BookOpen,        labelKey: "nav_product_master",    group: "execution",  hide: false      },
-    { href: "/outlets",           icon: Store,           labelKey: "oc_title",              group: "execution",  hide: isSales    },
-    { href: "/leads",             icon: Users,           labelKey: "nav_leads",             group: "execution",  hide: isSales    },
-    { href: "/execution",         icon: CheckSquare,     labelKey: "nav_execution",         group: "execution",  hide: false      },
-    // CULTURE
-    { href: "/rewards",           icon: Trophy,          labelKey: "nav_rewards",           group: "culture",    hide: false      },
-    { href: "/leaderboard",       icon: Medal,           labelKey: "nav_leaderboard",       group: "culture",    hide: false      },
-    // SYSTEM
-    { href: "/settings",          icon: Settings,        labelKey: "nav_settings",          group: "system",     hide: false      },
-    { href: "/admin",             icon: ShieldCheck,     labelKey: "nav_admin",             group: "system",     hide: !isAdmin   },
-  ] satisfies { href: string; icon: React.ElementType; labelKey: import("@/lib/i18n").TKey; group: string; hide: boolean }[];
-
-  const groups = [
-    { key: "overview",   labelKey: "nav_group_overview"   },
-    { key: "strategy",   labelKey: "nav_group_strategy"   },
-    { key: "signals",    labelKey: "nav_group_signals"     },
-    { key: "execution",  labelKey: "nav_group_execution"   },
-    { key: "culture",    labelKey: "nav_group_culture"     },
-    { key: "system",     labelKey: "nav_group_system"      },
-  ] as const;
 
   const sidebarContent = (
     <>
@@ -83,7 +86,6 @@ export default function Sidebar() {
             <div className="text-[10px] text-gray-400 leading-tight">{t("nav_tagline")}</div>
           </div>
         </div>
-        {/* Close button — mobile only */}
         <button onClick={() => setOpen(false)} className="lg:hidden text-gray-400 hover:text-gray-600 p-1 rounded">
           <X size={18} />
         </button>
@@ -91,17 +93,16 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
-        {groups.map((g) => {
-          const items = nav
-            .filter((n) => n.group === g.key)
-            .filter((n) => !n.hide)
-            .filter((n) => n.href !== "/admin" || ["admin", "manager"].includes(user?.role ?? ""));
+        {GROUPS.map(g => {
+          const items = NAV
+            .filter(n => n.group === g.key)
+            .filter(n => canAccess(role, n.moduleKey));
           if (!items.length) return null;
           return (
             <div key={g.key}>
               <div className="section-title px-1">{t(g.labelKey)}</div>
               <div className="space-y-0.5">
-                {items.map((item) => {
+                {items.map(item => {
                   const active = pathname === item.href;
                   return (
                     <Link key={item.href} href={item.href} className={cn("sidebar-link", active && "active")}>
@@ -120,7 +121,7 @@ export default function Sidebar() {
       <div className="px-4 py-3 border-t border-gray-100">
         <div className="text-[10px] text-gray-400 mb-2 uppercase tracking-wider font-semibold">Language</div>
         <div className="flex gap-1.5">
-          {LANGS.map((l) => (
+          {LANGS.map(l => (
             <button key={l.code} onClick={() => setLang(l.code)}
               className={cn("flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all",
                 lang === l.code ? "bg-brand-500 text-white shadow-sm" : "bg-gray-100 text-gray-500 hover:bg-gray-200")}>
@@ -135,7 +136,7 @@ export default function Sidebar() {
         <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-2">
           <div className="flex-1 min-w-0">
             <div className="text-xs font-semibold text-gray-800 truncate">{user.name}</div>
-            <div className="text-[10px] text-gray-400 capitalize">{user.role}</div>
+            <div className="text-[10px] text-gray-400 capitalize">{role}</div>
           </div>
           <button onClick={logout} title="Sign out" className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded">
             <LogOut size={14} />
@@ -173,11 +174,11 @@ export default function Sidebar() {
         <div className="lg:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
       )}
 
-      {/* Sidebar — desktop: always visible, mobile: slide-in drawer */}
+      {/* Sidebar */}
       <aside className={cn(
         "fixed top-0 left-0 h-screen w-[240px] bg-white border-r border-gray-100 flex flex-col z-50 transition-transform duration-300",
         "lg:translate-x-0",
-        open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        open ? "translate-x-0" : "-translate-x-full",
       )}>
         {sidebarContent}
       </aside>

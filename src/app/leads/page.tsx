@@ -6,6 +6,7 @@ import {
   Phone, User, Store, Calendar, Search, MessageSquare,
   X, ZoomIn, ChevronDown, ChevronUp, Bell,
 } from "lucide-react";
+import { AccessGuard } from "@/components/AccessGuard";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -98,7 +99,7 @@ function CsStatusBadge({ status }: { status: string }) {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function LeadsPage() {
-  const { user } = useAuth();
+  const { user, permission } = useAuth();
 
   // ── State ──
   const [mainTab, setMainTab]             = useState<"contacts" | "dashboard">("contacts");
@@ -114,7 +115,12 @@ export default function LeadsPage() {
 
   const { data: raw, loading, refetch } = useData<Lead[]>("/api/inputs?limit=500");
 
-  const isCS = user?.role === "admin" || user?.role === "product";
+  const leadsPermission    = permission("leads");
+  const canSubmitCsReview  = ["cs_review", "full"].includes(leadsPermission);
+  const canSeeCsComments   = !["none", "read"].includes(leadsPermission);
+  const showCsDashboard    = ["cs_review", "full"].includes(leadsPermission);
+  // isCS = shorthand for "can submit CS reviews" (used throughout render logic)
+  const isCS = canSubmitCsReview;
   const all  = raw ?? [];
 
   // Auto-expand staff_notified leads that belong to this staff member
@@ -337,8 +343,9 @@ export default function LeadsPage() {
       );
     }
 
-    // Pending — staff sees a placeholder
+    // Pending — non-CS users see a placeholder (but only if they can see comments at all)
     if (!isCS) {
+      if (!canSeeCsComments) return null;
       return <p className="text-xs text-gray-400 italic">Waiting for CS review…</p>;
     }
 
@@ -504,6 +511,7 @@ export default function LeadsPage() {
 
   // ── Render ──
   return (
+    <AccessGuard module="leads">
     <div className="p-6 max-w-4xl mx-auto space-y-6">
 
       {/* Lightbox */}
@@ -550,7 +558,7 @@ export default function LeadsPage() {
       <div className="flex gap-1 border-b border-gray-100">
         {[
           { key: "contacts" as const, label: "👥 Customer Contacts" },
-          ...(isCS ? [{ key: "dashboard" as const, label: "🎯 CS Dashboard" }] : []),
+          ...(showCsDashboard ? [{ key: "dashboard" as const, label: "🎯 CS Dashboard" }] : []),
         ].map(tab => (
           <button
             key={tab.key}
@@ -766,5 +774,6 @@ export default function LeadsPage() {
         </div>
       )}
     </div>
+    </AccessGuard>
   );
 }
