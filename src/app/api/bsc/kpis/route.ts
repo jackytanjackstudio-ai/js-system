@@ -18,15 +18,25 @@ export async function PATCH(req: NextRequest) {
   if (!session) return apiError("Unauthorized", 401);
   if (!isAdmin(session)) return apiError("Forbidden", 403);
 
-  const { perspective, kpiKey, status, note } = await req.json();
+  const { perspective, kpiKey, status, note, kpiLabel, targetDesc } = await req.json();
 
-  if (!perspective || !kpiKey || !status) {
-    return apiError("perspective, kpiKey, and status are required");
+  if (!perspective || !kpiKey) {
+    return apiError("perspective and kpiKey are required");
+  }
+
+  const updateData: Record<string, string | null> = {};
+  if (status)             updateData.status     = status;
+  if (note !== undefined) updateData.note       = note ?? null;
+  if (kpiLabel)           updateData.kpiLabel   = kpiLabel;
+  if (targetDesc !== undefined) updateData.targetDesc = targetDesc ?? null;
+
+  if (Object.keys(updateData).length === 0) {
+    return apiError("At least one field to update is required");
   }
 
   await prisma.bscKpi.update({
     where: { perspective_kpiKey: { perspective, kpiKey } },
-    data:  { status, note: note ?? null },
+    data:  updateData,
   });
 
   return apiOk({ success: true });

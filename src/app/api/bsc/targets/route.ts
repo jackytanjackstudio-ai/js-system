@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession, apiError, apiOk } from "@/lib/auth";
+import { getSession, apiError, apiOk, isAdmin } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -36,4 +36,27 @@ export async function GET(req: NextRequest) {
   }
 
   return apiOk({ targets, actuals, currentMonth, year });
+}
+
+export async function POST(req: NextRequest) {
+  const session = await getSession();
+  if (!session) return apiError("Unauthorized", 401);
+  if (!isAdmin(session)) return apiError("Forbidden", 403);
+
+  const { targets } = await req.json();
+  if (!Array.isArray(targets) || targets.length === 0) {
+    return apiError("targets array is required");
+  }
+
+  await Promise.all(
+    targets.map((t: { outlet: string; year: number; month: number; targetRm: number }) =>
+      prisma.outletTarget.upsert({
+        where: { outlet_year_month: { outlet: t.outlet, year: Number(t.year), month: Number(t.month) } },
+        update: { targetRm: Number(t.targetRm) },
+        create: { outlet: t.outlet, year: Number(t.year), month: Number(t.month), targetRm: Number(t.targetRm) },
+      })
+    )
+  );
+
+  return apiOk({ success: true });
 }

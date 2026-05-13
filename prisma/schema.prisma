@@ -609,6 +609,27 @@ model OutletTarget {
   @@unique([outlet, year, month])
 }
 
+model AddonPromotion {
+  id            String   @id @default(cuid())
+  sku           String   @unique
+  promoName     String
+  addonPrice    Float
+  originalPrice Float?
+  minSpend      Float?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+}
+
+model EcommTarget {
+  id       String @id @default(cuid())
+  platform String
+  year     Int
+  month    Int
+  targetRm Float
+
+  @@unique([platform, year, month])
+}
+
 model BscKpi {
   id          String   @id @default(cuid())
   updatedAt   DateTime @default(now()) @updatedAt
