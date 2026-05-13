@@ -80,6 +80,18 @@ model CustomerInput {
   useCase       String   @default("[]")
   createdAt     DateTime @default(now())
 
+  // CS Review fields
+  csStatus        String    @default("pending")  // pending | cs_reviewed | staff_notified | followed_up | converted | no_action
+  csActionType    String?                         // stock_available | similar_product | coming_soon | no_stock | service_issue | other
+  csComment       String?
+  csReviewer      String?
+  csReviewedAt    DateTime?
+  staffNotified   Boolean   @default(false)
+  staffFollowedUp Boolean   @default(false)
+  followUpNote    String?
+  followUpAt      DateTime?
+  csOutcome       String?                         // converted | lost | pending | resolved
+
   user   User   @relation(fields: [userId], references: [id])
   outlet Outlet @relation(fields: [outletId], references: [id])
 }
