@@ -1,18 +1,94 @@
 "use client";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useData } from "@/hooks/useData";
-import { useAuth } from "@/context/AuthContext"; // used in UploadReportTab for role check
+import { useAuth } from "@/context/AuthContext";
+import { useLang } from "@/context/LangContext";
 import {
   FileSpreadsheet, CheckCircle, AlertCircle, X,
   TrendingUp, Package, DollarSign, Percent, ChevronDown, ChevronUp,
-  Save, Loader2, Trash2, RefreshCw,
+  Save, Trash2, RefreshCw, Users, BarChart2, ShoppingBag,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
-// ─── Shared types ──────────────────────────────────────────────────────────────
+// ─── Types ─────────────────────────────────────────────────────────────────────
 type Outlet = { id: string; name: string; city: string; type: string };
+type PreviewRow = {
+  description: string; warehouse: string; qty: number;
+  amount: number; profit: number; discAmt: number; grossAmt: number;
+};
+type Preview = {
+  warehouseName: string; revenue: number; totalProfit: number;
+  totalQty: number; totalDisc: number; totalRows: number;
+  rows: PreviewRow[];
+  topProducts: { name: string; qty: number; amount: number; profit: number }[];
+};
+type SavedReport = {
+  id: string; week: string; salesDate: string | null;
+  revenue: number; totalProfit: number; totalQty: number;
+  warehouseName: string | null; createdAt: string;
+  outlet: { name: string }; user: { name: string };
+};
+type AddonBreakdown = {
+  sku: string; promoName: string; addonPrice: number;
+  originalPrice: number | null; minSpend: number | null;
+  customersTook: number; totalRevenue: number; totalProfit: number;
+  profitMargin: number; atvWithAddon: number; atvWithoutAddon: number;
+  atvUplift: number; addonRate: number;
+};
+type Metrics = {
+  customerCount: number; atv: number;
+  addonCustomers: number; atvWithAddon: number; atvWithoutAddon: number;
+  atvUplift: number; addonBreakdown: AddonBreakdown[];
+  hasSkuData: boolean; reportCount: number;
+};
 
-// ─── Shared helpers ────────────────────────────────────────────────────────────
+// ─── i18n ──────────────────────────────────────────────────────────────────────
+type LangKey = "en" | "zh" | "ms";
+const L: Record<LangKey, Record<string, string>> = {
+  en: {
+    customers: "Customers", uniqueTxns: "unique transactions",
+    avgTransaction: "Avg Transaction", perVisit: "per customer visit",
+    addonTaken: "Add-on Taken", ofCustomers: "% of customers",
+    addonPerformance: "Add-on Promotion Performance",
+    customersTook: "Customers Took", revenue: "Revenue", profitMargin: "Profit Margin",
+    withAddon: "With Add-on", withoutAddon: "Without Add-on", uplift: "Uplift",
+    addonRate: "% of customers took this", importMpos: "Import MPOS Data",
+    minSpend: "Min spend", originalPrice: "Original price",
+    noData: "Upload MPOS reports to see analytics.",
+    noSkuData: "Upload a new report to see add-on analysis (SKU data required).",
+    filterOutlet: "All Outlets", filterFrom: "From", filterTo: "To",
+    atvComparison: "ATV Comparison", analyticsTitle: "Sales Analytics",
+  },
+  zh: {
+    customers: "客户数", uniqueTxns: "独立交易",
+    avgTransaction: "平均客单价", perVisit: "每次消费",
+    addonTaken: "加购人数", ofCustomers: "% 客户参与",
+    addonPerformance: "加购促销表现",
+    customersTook: "参与人数", revenue: "收入", profitMargin: "利润率",
+    withAddon: "有加购", withoutAddon: "无加购", uplift: "提升",
+    addonRate: "% 客户加购了", importMpos: "导入 MPOS 数据",
+    minSpend: "最低消费", originalPrice: "原价",
+    noData: "上传 MPOS 报表以查看分析。",
+    noSkuData: "上传新报表以查看加购分析（需要 SKU 数据）。",
+    filterOutlet: "全部门店", filterFrom: "从", filterTo: "到",
+    atvComparison: "客单价对比", analyticsTitle: "销售分析",
+  },
+  ms: {
+    customers: "Pelanggan", uniqueTxns: "transaksi unik",
+    avgTransaction: "Purata Transaksi", perVisit: "setiap kunjungan",
+    addonTaken: "Ambil Add-on", ofCustomers: "% pelanggan",
+    addonPerformance: "Prestasi Promosi Add-on",
+    customersTook: "Pelanggan Ambil", revenue: "Hasil", profitMargin: "Margin Untung",
+    withAddon: "Dengan Add-on", withoutAddon: "Tanpa Add-on", uplift: "Peningkatan",
+    addonRate: "% pelanggan ambil", importMpos: "Import Data MPOS",
+    minSpend: "Belanja minimum", originalPrice: "Harga asal",
+    noData: "Muat naik laporan MPOS untuk lihat analitik.",
+    noSkuData: "Muat naik laporan baru untuk analisis add-on (data SKU diperlukan).",
+    filterOutlet: "Semua Cawangan", filterFrom: "Dari", filterTo: "Ke",
+    atvComparison: "Perbandingan ATV", analyticsTitle: "Analitik Jualan",
+  },
+};
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 function fmt(n: number) {
   return `RM ${n.toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
@@ -23,28 +99,254 @@ function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" });
 }
 
+// ─── Analytics Section ─────────────────────────────────────────────────────────
+type AnalyticsProps = {
+  outlets: Outlet[];
+  syncOutletId?: string;
+  syncDate?: string;
+};
 
+function AnalyticsSection({ outlets, syncOutletId, syncDate }: AnalyticsProps) {
+  const { lang } = useLang();
+  const lk = L[lang as LangKey] ?? L.en;
+
+  const [outletId, setOutletId] = useState(syncOutletId ?? "");
+  const [from, setFrom]         = useState(syncDate ?? "");
+  const [to, setTo]             = useState(syncDate ?? "");
+  const [metrics, setMetrics]   = useState<Metrics | null>(null);
+  const [loading, setLoading]   = useState(false);
+  const [open, setOpen]         = useState(true);
+
+  // Sync when parent save-bar changes outlet or date
+  useEffect(() => {
+    if (syncOutletId !== undefined) setOutletId(syncOutletId);
+  }, [syncOutletId]);
+  useEffect(() => {
+    if (syncDate) { setFrom(syncDate); setTo(syncDate); }
+  }, [syncDate]);
+
+  const fetchMetrics = useCallback(async () => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (outletId) params.set("outletId", outletId);
+    if (from) params.set("from", from);
+    if (to)   params.set("to", to);
+    try {
+      const res = await fetch(`/api/sales-report/metrics?${params}`).then(r => r.json());
+      setMetrics(res);
+    } finally { setLoading(false); }
+  }, [outletId, from, to]);
+
+  useEffect(() => { fetchMetrics(); }, [fetchMetrics]);
+
+  const addonData = metrics?.addonBreakdown[0];
+  const maxAtv    = Math.max(metrics?.atvWithAddon ?? 0, metrics?.atvWithoutAddon ?? 0) * 1.15 || 1;
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50 cursor-pointer"
+        onClick={() => setOpen(o => !o)}>
+        <div className="flex items-center gap-2.5">
+          <BarChart2 size={16} className="text-brand-500" />
+          <p className="font-bold text-gray-800 text-sm">{lk.analyticsTitle}</p>
+          {metrics && (
+            <span className="text-xs text-gray-400">{metrics.reportCount} reports</span>
+          )}
+        </div>
+        {open ? <ChevronUp size={15} className="text-gray-400" /> : <ChevronDown size={15} className="text-gray-400" />}
+      </div>
+
+      {open && (
+        <div className="p-5 space-y-5">
+          {/* Filters */}
+          <div className="flex flex-wrap gap-3 items-end">
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 mb-1">Outlet</label>
+              <select value={outletId} onChange={e => setOutletId(e.target.value)}
+                className="select text-xs py-1.5 h-8">
+                <option value="">{lk.filterOutlet}</option>
+                {outlets.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 mb-1">{lk.filterFrom}</label>
+              <input type="date" value={from} onChange={e => setFrom(e.target.value)}
+                className="input text-xs py-1.5 h-8 w-32" />
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 mb-1">{lk.filterTo}</label>
+              <input type="date" value={to} onChange={e => setTo(e.target.value)}
+                className="input text-xs py-1.5 h-8 w-32" />
+            </div>
+          </div>
+
+          {loading && (
+            <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
+              <div className="w-4 h-4 border-2 border-brand-200 border-t-brand-500 rounded-full animate-spin" />
+              Loading…
+            </div>
+          )}
+
+          {!loading && metrics && metrics.reportCount === 0 && (
+            <p className="text-sm text-gray-400 py-2">{lk.noData}</p>
+          )}
+
+          {!loading && metrics && metrics.reportCount > 0 && (
+            <>
+              {/* Metric cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-brand-50 rounded-2xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users size={15} className="text-brand-500" />
+                    <span className="text-xs font-bold text-brand-600">{lk.customers}</span>
+                  </div>
+                  <p className="text-2xl font-black text-brand-700">{metrics.customerCount.toLocaleString()}</p>
+                  <p className="text-xs text-brand-400 mt-0.5">{lk.uniqueTxns}</p>
+                </div>
+
+                <div className="bg-green-50 rounded-2xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <DollarSign size={15} className="text-green-500" />
+                    <span className="text-xs font-bold text-green-600">{lk.avgTransaction}</span>
+                  </div>
+                  <p className="text-2xl font-black text-green-700">{fmt(metrics.atv)}</p>
+                  <p className="text-xs text-green-400 mt-0.5">{lk.perVisit}</p>
+                </div>
+
+                <div className="bg-blue-50 rounded-2xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ShoppingBag size={15} className="text-blue-500" />
+                    <span className="text-xs font-bold text-blue-600">{lk.addonTaken}</span>
+                  </div>
+                  <p className="text-2xl font-black text-blue-700">{metrics.addonCustomers}</p>
+                  <p className="text-xs text-blue-400 mt-0.5">
+                    {addonData ? `${addonData.addonRate.toFixed(1)}% ${lk.ofCustomers}` : lk.ofCustomers}
+                  </p>
+                </div>
+              </div>
+
+              {/* ATV Comparison */}
+              {metrics.hasSkuData && (metrics.atvWithAddon > 0 || metrics.atvWithoutAddon > 0) && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">{lk.atvComparison}</p>
+                  <div className="space-y-2">
+                    {[
+                      { label: lk.withAddon,    value: metrics.atvWithAddon,    color: "bg-brand-500" },
+                      { label: lk.withoutAddon, value: metrics.atvWithoutAddon, color: "bg-gray-300"  },
+                    ].map(row => (
+                      <div key={row.label}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs text-gray-600">{row.label}</span>
+                          <span className="text-xs font-bold text-gray-800">{fmt(row.value)}</span>
+                        </div>
+                        <div className="h-2.5 bg-gray-100 rounded-full">
+                          <div className={`h-2.5 rounded-full ${row.color} transition-all`}
+                            style={{ width: `${(row.value / maxAtv) * 100}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {metrics.atvUplift > 0 && (
+                    <div className="inline-flex items-center gap-1.5 bg-green-50 border border-green-100 rounded-xl px-3 py-1.5 mt-1">
+                      <TrendingUp size={12} className="text-green-500" />
+                      <span className="text-xs font-bold text-green-700">+{fmt(metrics.atvUplift)} {lk.uplift}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Add-on breakdown */}
+              {metrics.hasSkuData && metrics.addonBreakdown.map(addon => (
+                <div key={addon.sku} className="border border-gray-100 rounded-2xl overflow-hidden">
+                  <div className="bg-gray-50 px-4 py-3 border-b border-gray-100">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-0.5">{lk.addonPerformance}</p>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <span className="font-black text-gray-800 text-sm">{addon.sku}</span>
+                      <span className="text-gray-400 text-xs">·</span>
+                      <span className="text-sm text-gray-600">{addon.promoName}</span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      RM{addon.addonPrice} add-on
+                      {addon.originalPrice ? ` · ${lk.originalPrice} RM${addon.originalPrice}` : ""}
+                      {addon.minSpend ? ` · ${lk.minSpend} RM${addon.minSpend}` : ""}
+                    </p>
+                  </div>
+
+                  <div className="p-4 space-y-4">
+                    {/* Pill stats */}
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { label: lk.customersTook, value: addon.customersTook.toString(), color: "bg-brand-50 text-brand-700" },
+                        { label: lk.revenue, value: fmt(addon.totalRevenue), color: "bg-green-50 text-green-700" },
+                        { label: lk.profitMargin, value: `${addon.profitMargin.toFixed(0)}%`, color: "bg-blue-50 text-blue-700" },
+                      ].map(p => (
+                        <div key={p.label} className={`px-3 py-2 rounded-xl ${p.color}`}>
+                          <p className="text-[10px] font-semibold opacity-70">{p.label}</p>
+                          <p className="text-sm font-black">{p.value}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* ATV bars */}
+                    <div className="space-y-1.5">
+                      {[
+                        { label: lk.withAddon,    value: addon.atvWithAddon,    color: "bg-brand-500" },
+                        { label: lk.withoutAddon, value: addon.atvWithoutAddon, color: "bg-gray-300"  },
+                      ].map(row => {
+                        const max = Math.max(addon.atvWithAddon, addon.atvWithoutAddon) * 1.15 || 1;
+                        return (
+                          <div key={row.label}>
+                            <div className="flex justify-between mb-0.5">
+                              <span className="text-[11px] text-gray-500">{row.label}</span>
+                              <span className="text-[11px] font-bold text-gray-700">{fmt(row.value)}</span>
+                            </div>
+                            <div className="h-2 bg-gray-100 rounded-full">
+                              <div className={`h-2 rounded-full ${row.color}`}
+                                style={{ width: `${(row.value / max) * 100}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {addon.atvUplift > 0 && (
+                        <p className="text-xs font-bold text-green-600">+{fmt(addon.atvUplift)} {lk.uplift}</p>
+                      )}
+                    </div>
+
+                    {/* Addon rate bar */}
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-[11px] text-gray-500">{lk.addonRate}</span>
+                        <span className="text-[11px] font-bold text-gray-700">{addon.addonRate.toFixed(1)}%</span>
+                      </div>
+                      <div className="h-2.5 bg-gray-100 rounded-full">
+                        <div className="h-2.5 bg-amber-400 rounded-full transition-all"
+                          style={{ width: `${Math.min(addon.addonRate, 100)}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {!metrics.hasSkuData && (
+                <p className="text-xs text-gray-400 italic">{lk.noSkuData}</p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Upload Report Tab ─────────────────────────────────────────────────────────
-type PreviewRow = {
-  description: string; warehouse: string; qty: number;
-  amount: number; profit: number; discAmt: number; grossAmt: number;
-};
-type Preview = {
-  warehouseName: string;
-  revenue: number; totalProfit: number; totalQty: number; totalDisc: number;
-  totalRows: number;
-  rows: PreviewRow[];
-  topProducts: { name: string; qty: number; amount: number; profit: number }[];
-};
-type SavedReport = {
-  id: string; week: string; salesDate: string | null;
-  revenue: number; totalProfit: number; totalQty: number;
-  warehouseName: string | null; createdAt: string;
-  outlet: { name: string }; user: { name: string };
+type UploadTabProps = {
+  outlets: Outlet[];
+  onOutletChange?: (id: string) => void;
+  onDateChange?: (date: string) => void;
 };
 
-function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
+function UploadReportTab({ outlets, onOutletChange, onDateChange }: UploadTabProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging]       = useState(false);
   const [fileName, setFileName]       = useState<string | null>(null);
@@ -78,13 +380,11 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
           o.name.toLowerCase().includes(data.warehouseName.toLowerCase()) ||
           data.warehouseName.toLowerCase().includes(o.name.toLowerCase())
         );
-        if (match) setOutletId(match.id);
+        if (match) { setOutletId(match.id); onOutletChange?.(match.id); }
       }
     } catch {
       setError("Error reading file. Make sure it's a valid .xlsx file.");
-    } finally {
-      setPreviewing(false);
-    }
+    } finally { setPreviewing(false); }
   }, [outlets]);
 
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -92,28 +392,21 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
     if (f) processFile(f);
   }
   function onDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setDragging(false);
+    e.preventDefault(); setDragging(false);
     const f = e.dataTransfer.files?.[0];
     if (f && (f.name.endsWith(".xlsx") || f.name.endsWith(".xls"))) processFile(f);
     else setError("Please drop an Excel (.xlsx) file");
   }
   async function handleSave(force = false) {
     if (!file || !outletId) return;
-    setSaving(true);
-    setDuplicate(null);
+    setSaving(true); setDuplicate(null);
     try {
       const fd = new FormData();
-      fd.append("file", file);
-      fd.append("outletId", outletId);
+      fd.append("file", file); fd.append("outletId", outletId);
       if (salesDate) fd.append("salesDate", salesDate);
       if (force) fd.append("force", "true");
       const res = await fetch("/api/sales-report", { method: "POST", body: fd });
-      if (res.status === 409) {
-        const d = await res.json();
-        setDuplicate(d);
-        return;
-      }
+      if (res.status === 409) { const d = await res.json(); setDuplicate(d); return; }
       if (!res.ok) {
         let msg = `Save failed (${res.status})`;
         try { const d = await res.json(); msg = d.error ?? msg; } catch { /* */ }
@@ -127,7 +420,6 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
       refetch();
     } finally { setSaving(false); }
   }
-
   async function handleDelete(id: string) {
     if (!confirm("Delete this report?")) return;
     await fetch(`/api/sales-report?id=${id}`, { method: "DELETE" });
@@ -143,7 +435,7 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
   const canSave = !!outletId && !saving;
 
   return (
-    <div className="max-w-3xl space-y-4 pb-32">
+    <div className="space-y-4 pb-32">
       {saved && (
         <div className="bg-green-50 border border-green-200 rounded-2xl p-5 flex items-start gap-4">
           <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -151,19 +443,17 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
           </div>
           <div className="flex-1">
             <p className="font-black text-green-800 text-lg">Saved successfully!</p>
-            <p className="text-sm text-green-700 mt-0.5">{saved.outlet} · {fmt(saved.revenue)} revenue added to Data Hub</p>
+            <p className="text-sm text-green-700 mt-0.5">{saved.outlet} · {fmt(saved.revenue)} revenue added</p>
           </div>
           <button onClick={() => setSaved(null)} className="text-green-400 hover:text-green-600"><X size={16} /></button>
         </div>
       )}
-
       {error && (
         <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl px-4 py-3 text-sm text-red-700">
           <AlertCircle size={16} className="flex-shrink-0" />{error}
           <button onClick={() => setError(null)} className="ml-auto"><X size={14} /></button>
         </div>
       )}
-
       {duplicate && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
           <div className="flex items-start gap-3">
@@ -171,25 +461,16 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
             <div className="flex-1">
               <p className="font-bold text-amber-800 text-sm">Report already uploaded</p>
               <p className="text-xs text-amber-700 mt-0.5">
-                {duplicate.outletName} · {duplicate.existingDate} · {fmt(duplicate.existingRevenue)} already exists in the system.
+                {duplicate.outletName} · {duplicate.existingDate} · {fmt(duplicate.existingRevenue)} already exists.
               </p>
             </div>
             <button onClick={() => setDuplicate(null)}><X size={14} className="text-amber-400" /></button>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => setDuplicate(null)}
-              className="btn-secondary text-xs px-4 py-2"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => handleSave(true)}
-              disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors"
-            >
-              <RefreshCw size={12} />
-              Replace existing report
+            <button onClick={() => setDuplicate(null)} className="btn-secondary text-xs px-4 py-2">Cancel</button>
+            <button onClick={() => handleSave(true)} disabled={saving}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors">
+              <RefreshCw size={12} /> Replace existing report
             </button>
           </div>
         </div>
@@ -200,18 +481,14 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
           <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileChange} />
           <div onClick={() => fileRef.current?.click()}
             onDragOver={e => { e.preventDefault(); setDragging(true); }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={onDrop}
+            onDragLeave={() => setDragging(false)} onDrop={onDrop}
             className={`p-12 flex flex-col items-center gap-4 cursor-pointer rounded-2xl transition-all ${dragging ? "bg-brand-50" : "hover:bg-gray-50"}`}>
             <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center">
               <FileSpreadsheet size={32} className="text-green-600" />
             </div>
             <div className="text-center">
               <p className="text-lg font-bold text-gray-800">Click to choose Excel file</p>
-              <p className="text-sm text-gray-400 mt-1">or drag & drop here</p>
-            </div>
-            <div className="flex flex-wrap justify-center gap-2 mt-1">
-              <span className="text-xs bg-gray-100 text-gray-500 px-3 py-1 rounded-full">SALES REPORT(DDMMYY).xlsx</span>
+              <p className="text-sm text-gray-400 mt-1">or drag & drop here · MPOS format</p>
             </div>
           </div>
         </div>
@@ -230,12 +507,13 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
             <FileSpreadsheet size={18} className="text-green-500 flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-gray-800 text-sm truncate">{fileName}</p>
-              <p className="text-xs text-gray-400">{preview.totalRows} products · from {preview.warehouseName || "unknown outlet"}</p>
+              <p className="text-xs text-gray-400">{preview.totalRows} products · {preview.warehouseName || "unknown outlet"}</p>
             </div>
             <button onClick={resetUpload} className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1 flex-shrink-0">
               <X size={13} /> Change file
             </button>
           </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { icon: DollarSign, label: "Revenue",   value: fmt(preview.revenue),      color: "text-green-600",  bg: "bg-green-50"  },
@@ -250,6 +528,7 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
               </div>
             ))}
           </div>
+
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Top Products</p>
             <div className="space-y-2">
@@ -263,6 +542,7 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
               ))}
             </div>
           </div>
+
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
               <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">All Line Items</p>
@@ -323,11 +603,8 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
                   <p className="text-xs text-blue-500">{fmt(r.totalProfit)} profit</p>
                 </div>
                 {["admin", "manager"].includes(user?.role ?? "") && (
-                  <button
-                    onClick={() => handleDelete(r.id)}
-                    className="text-gray-300 hover:text-red-400 transition-colors p-1 rounded flex-shrink-0"
-                    title="Delete report"
-                  >
+                  <button onClick={() => handleDelete(r.id)}
+                    className="text-gray-300 hover:text-red-400 transition-colors p-1 rounded flex-shrink-0">
                     <Trash2 size={14} />
                   </button>
                 )}
@@ -344,14 +621,14 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
             <div className="flex items-end gap-3">
               <div className="flex-1">
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Outlet <span className="text-red-400">*</span></label>
-                <select className="select text-sm" value={outletId} onChange={e => setOutletId(e.target.value)}>
+                <select className="select text-sm" value={outletId} onChange={e => { setOutletId(e.target.value); onOutletChange?.(e.target.value); }}>
                   <option value="">Select outlet…</option>
                   {(outlets ?? []).map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
                 </select>
               </div>
               <div className="w-36">
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Sales Date</label>
-                <input type="date" className="input text-sm" value={salesDate} onChange={e => setSalesDate(e.target.value)} />
+                <input type="date" className="input text-sm" value={salesDate} onChange={e => { setSalesDate(e.target.value); onDateChange?.(e.target.value); }} />
               </div>
               <button onClick={() => handleSave()} disabled={!canSave}
                 className="flex-shrink-0 bg-brand-500 hover:bg-brand-600 disabled:opacity-40 text-white px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-colors">
@@ -369,21 +646,28 @@ function UploadReportTab({ outlets }: { outlets: Outlet[] }) {
   );
 }
 
-// ─── Main page ─────────────────────────────────────────────────────────────────
+// ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function SalesReportPage() {
   const { data: outlets } = useData<Outlet[]>("/api/outlets");
+  const [syncOutletId, setSyncOutletId] = useState("");
+  const [syncDate, setSyncDate]         = useState("");
 
   return (
-    <div className="space-y-5">
+    <div className="max-w-3xl space-y-5">
       <div>
         <h1 className="page-title flex items-center gap-2">
           <FileSpreadsheet size={18} className="text-green-600" />
           Sales Report
         </h1>
-        <p className="text-sm text-gray-400 mt-0.5">Upload your Excel sales report</p>
+        <p className="text-sm text-gray-400 mt-0.5">Upload MPOS Excel · analytics update automatically</p>
       </div>
 
-      <UploadReportTab outlets={outlets ?? []} />
+      <AnalyticsSection outlets={outlets ?? []} syncOutletId={syncOutletId} syncDate={syncDate} />
+      <UploadReportTab
+        outlets={outlets ?? []}
+        onOutletChange={setSyncOutletId}
+        onDateChange={setSyncDate}
+      />
     </div>
   );
 }

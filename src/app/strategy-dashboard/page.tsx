@@ -7,12 +7,20 @@ import { useAuth } from "@/context/AuthContext";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type OutletTarget = { outlet: string; year: number; month: number; targetRm: number };
+type EcommTarget  = { platform: string; year: number; month: number; targetRm: number };
 type BscKpi       = { id: string; perspective: string; kpiKey: string; kpiLabel: string; targetDesc: string | null; status: string; note: string | null; updatedAt: string };
+type SalesSignals = { customerCount: number; atv: number; reportCount: number };
+type CategoryItem = { name: string; qty: number; amount: number; topProducts: { name: string; qty: number; amount: number }[] };
 
 type TargetsResponse = {
   targets: OutletTarget[];
   actuals: Record<string, Record<string, number>>; // outlet → month → amount
   currentMonth: number;
+  year: number;
+};
+
+type EcommResponse = {
+  targets: EcommTarget[];
   year: number;
 };
 
@@ -46,103 +54,136 @@ type LangKey = "en" | "zh" | "ms";
 
 const L: Record<LangKey, Record<string, string>> = {
   en: {
-    pageTitle:    "Strategy Dashboard",
-    pageSubtitle: "Balanced Scorecard 2026",
-    tab_overview: "Overview",
-    tab_outlets:  "Outlets",
-    tab_bsc:      "BSC",
-    annualTarget: "2026 Annual Target",
-    ytdProgress:  "YTD Progress",
-    monthlyChart: "Monthly Target vs Actual",
-    target:       "Target",
-    actual:       "Actual",
-    aboveTarget:  "Above Target",
-    outletRank:   "13 Outlets — Achievement Ranking",
-    onTrack:      "On Track",
-    caution:      "Caution",
-    behind:       "Behind",
-    statusGuide:  "Status Guide",
-    onTrackDesc:  "Progressing as planned",
-    cautionDesc:  "Needs attention",
-    behindDesc:   "Requires immediate action",
-    ofTarget:     "of target",
-    loading:      "Loading…",
-    noData:       "No data yet",
-    edit:         "Edit",
-    save:         "Save",
-    cancel:       "Cancel",
-    saved:        "Saved ✓",
-    note:         "Note",
-    status:       "Status",
-    ytdActual:    "YTD Actual",
-    annualFull:   "Annual Target",
-    perspective:  "Perspective",
+    pageTitle:     "Strategy Dashboard",
+    pageSubtitle:  "Balanced Scorecard 2026",
+    tab_overview:  "Overview",
+    tab_outlets:   "Outlets",
+    tab_ecomm:     "Ecomm",
+    tab_bsc:       "BSC",
+    annualTarget:  "2026 Annual Target",
+    ytdProgress:   "YTD Progress",
+    monthProgress: "Month Progress",
+    monthlyChart:  "Monthly Target vs Actual",
+    target:        "Target",
+    actual:        "Actual",
+    aboveTarget:   "Above Target",
+    outletRank:    "13 Outlets — Achievement Ranking",
+    ecommTitle:    "E-Commerce — Platform Targets",
+    ecommYtd:      "YTD Target",
+    ecommAnnual:   "Annual Target",
+    onTrack:       "On Track",
+    caution:       "Caution",
+    behind:        "Behind",
+    statusGuide:   "Status Guide",
+    onTrackDesc:   "Progressing as planned",
+    cautionDesc:   "Needs attention",
+    behindDesc:    "Requires immediate action",
+    ofTarget:      "of target",
+    loading:       "Loading…",
+    noData:        "No data yet",
+    edit:          "Edit",
+    save:          "Save",
+    cancel:        "Cancel",
+    saved:         "Saved ✓",
+    note:          "Note",
+    status:        "Status",
+    ytdActual:     "YTD Actual",
+    annualFull:    "Annual Target",
+    perspective:   "Perspective",
+    monthActual:   "Month Actual",
+    customers:     "Customers",
+    atv:           "Avg Transaction",
+    salesSignals:  "Sales Signals",
+    topByCategory: "Top by Category 2",
+    noSignals:     "No sales data yet",
   },
   zh: {
-    pageTitle:    "策略仪表板",
-    pageSubtitle: "平衡计分卡 2026",
-    tab_overview: "总览",
-    tab_outlets:  "门店",
-    tab_bsc:      "计分卡",
-    annualTarget: "2026 年度目标",
-    ytdProgress:  "年度进度",
-    monthlyChart: "月度目标 vs 实际",
-    target:       "目标",
-    actual:       "实际",
-    aboveTarget:  "超标",
-    outletRank:   "13 间门店 — 达成率排名",
-    onTrack:      "达标",
-    caution:      "需关注",
-    behind:       "落后",
-    statusGuide:  "状态说明",
-    onTrackDesc:  "按计划推进",
-    cautionDesc:  "需要关注",
-    behindDesc:   "需要立刻行动",
-    ofTarget:     "/ 目标",
-    loading:      "加载中…",
-    noData:       "暂无数据",
-    edit:         "编辑",
-    save:         "保存",
-    cancel:       "取消",
-    saved:        "已保存 ✓",
-    note:         "备注",
-    status:       "状态",
-    ytdActual:    "年度实际",
-    annualFull:   "年度目标",
-    perspective:  "维度",
+    pageTitle:     "策略仪表板",
+    pageSubtitle:  "平衡计分卡 2026",
+    tab_overview:  "总览",
+    tab_outlets:   "门店",
+    tab_ecomm:     "电商",
+    tab_bsc:       "计分卡",
+    annualTarget:  "2026 年度目标",
+    ytdProgress:   "年度进度",
+    monthProgress: "本月进度",
+    monthlyChart:  "月度目标 vs 实际",
+    target:        "目标",
+    actual:        "实际",
+    aboveTarget:   "超标",
+    outletRank:    "13 间门店 — 达成率排名",
+    ecommTitle:    "电商 — 平台目标",
+    ecommYtd:      "年度目标进度",
+    ecommAnnual:   "全年目标",
+    onTrack:       "达标",
+    caution:       "需关注",
+    behind:        "落后",
+    statusGuide:   "状态说明",
+    onTrackDesc:   "按计划推进",
+    cautionDesc:   "需要关注",
+    behindDesc:    "需要立刻行动",
+    ofTarget:      "/ 目标",
+    loading:       "加载中…",
+    noData:        "暂无数据",
+    edit:          "编辑",
+    save:          "保存",
+    cancel:        "取消",
+    saved:         "已保存 ✓",
+    note:          "备注",
+    status:        "状态",
+    ytdActual:     "年度实际",
+    annualFull:    "年度目标",
+    perspective:   "维度",
+    monthActual:   "本月实际",
+    customers:     "客户数",
+    atv:           "平均客单价",
+    salesSignals:  "销售信号",
+    topByCategory: "Category 2 排行",
+    noSignals:     "暂无销售数据",
   },
   ms: {
-    pageTitle:    "Papan Pemuka Strategi",
-    pageSubtitle: "Kad Skor Seimbang 2026",
-    tab_overview: "Gambaran",
-    tab_outlets:  "Cawangan",
-    tab_bsc:      "BSC",
-    annualTarget: "Sasaran Tahunan 2026",
-    ytdProgress:  "Kemajuan YTD",
-    monthlyChart: "Sasaran vs Sebenar Bulanan",
-    target:       "Sasaran",
-    actual:       "Sebenar",
-    aboveTarget:  "Melebihi Sasaran",
-    outletRank:   "13 Cawangan — Ranking Pencapaian",
-    onTrack:      "Pada Landasan",
-    caution:      "Berhati-hati",
-    behind:       "Ketinggalan",
-    statusGuide:  "Panduan Status",
-    onTrackDesc:  "Berjalan mengikut rancangan",
-    cautionDesc:  "Perlu perhatian",
-    behindDesc:   "Perlu tindakan segera",
-    ofTarget:     "daripada sasaran",
-    loading:      "Memuatkan…",
-    noData:       "Tiada data lagi",
-    edit:         "Edit",
-    save:         "Simpan",
-    cancel:       "Batal",
-    saved:        "Disimpan ✓",
-    note:         "Nota",
-    status:       "Status",
-    ytdActual:    "Sebenar YTD",
-    annualFull:   "Sasaran Tahunan",
-    perspective:  "Perspektif",
+    pageTitle:     "Papan Pemuka Strategi",
+    pageSubtitle:  "Kad Skor Seimbang 2026",
+    tab_overview:  "Gambaran",
+    tab_outlets:   "Cawangan",
+    tab_ecomm:     "E-Comm",
+    tab_bsc:       "BSC",
+    annualTarget:  "Sasaran Tahunan 2026",
+    ytdProgress:   "Kemajuan YTD",
+    monthProgress: "Kemajuan Bulan",
+    monthlyChart:  "Sasaran vs Sebenar Bulanan",
+    target:        "Sasaran",
+    actual:        "Sebenar",
+    aboveTarget:   "Melebihi Sasaran",
+    outletRank:    "13 Cawangan — Ranking Pencapaian",
+    ecommTitle:    "E-Commerce — Sasaran Platform",
+    ecommYtd:      "Sasaran YTD",
+    ecommAnnual:   "Sasaran Tahunan",
+    onTrack:       "Pada Landasan",
+    caution:       "Berhati-hati",
+    behind:        "Ketinggalan",
+    statusGuide:   "Panduan Status",
+    onTrackDesc:   "Berjalan mengikut rancangan",
+    cautionDesc:   "Perlu perhatian",
+    behindDesc:    "Perlu tindakan segera",
+    ofTarget:      "daripada sasaran",
+    loading:       "Memuatkan…",
+    noData:        "Tiada data lagi",
+    edit:          "Edit",
+    save:          "Simpan",
+    cancel:        "Batal",
+    saved:         "Disimpan ✓",
+    note:          "Nota",
+    status:        "Status",
+    ytdActual:     "Sebenar YTD",
+    annualFull:    "Sasaran Tahunan",
+    perspective:   "Perspektif",
+    monthActual:   "Sebenar Bulan",
+    customers:     "Pelanggan",
+    atv:           "Purata Transaksi",
+    salesSignals:  "Isyarat Jualan",
+    topByCategory: "Teratas by Kategori 2",
+    noSignals:     "Tiada data jualan lagi",
   },
 };
 
@@ -201,7 +242,13 @@ function SkeletonOutlets() {
 
 // ─── Tab: Overview ────────────────────────────────────────────────────────────
 
-function TabOverview({ data, kpis, lk }: { data: TargetsResponse; kpis: BscKpi[]; lk: Record<string,string> }) {
+function TabOverview({ data, kpis, lk, signals, categories }: {
+  data: TargetsResponse;
+  kpis: BscKpi[];
+  lk: Record<string,string>;
+  signals: SalesSignals | null;
+  categories: CategoryItem[];
+}) {
   const { lang } = useLang();
   const monthLabels = lang === "zh" ? MONTHS_ZH : lang === "ms" ? MONTHS_BM : MONTHS_EN;
 
@@ -266,6 +313,24 @@ function TabOverview({ data, kpis, lk }: { data: TargetsResponse; kpis: BscKpi[]
         </div>
       </div>
 
+      {/* Sales Signals — Customer Count + ATV */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <p className="text-[10px] font-black tracking-widest mb-2" style={{ color: "#888" }}>{lk.customers?.toUpperCase()}</p>
+          <p className="text-2xl font-black" style={{ color: "#1A1A1A" }}>
+            {signals ? signals.customerCount.toLocaleString() : "—"}
+          </p>
+          <p className="text-[10px] mt-0.5" style={{ color: "#bbb" }}>{lk.salesSignals} · YTD</p>
+        </div>
+        <div className="rounded-2xl p-4 shadow-sm" style={{ background: BRAND }}>
+          <p className="text-[10px] font-black tracking-widest mb-2" style={{ color: "rgba(255,255,255,0.6)" }}>{lk.atv?.toUpperCase()}</p>
+          <p className="text-2xl font-black text-white">
+            {signals ? fmt(signals.atv) : "—"}
+          </p>
+          <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.5)" }}>{lk.salesSignals} · YTD</p>
+        </div>
+      </div>
+
       {/* Monthly chart */}
       <div className="bg-white rounded-2xl p-5 shadow-sm">
         <p className="text-xs font-black mb-4" style={{ color: "#1A1A1A" }}>{lk.monthlyChart}</p>
@@ -316,6 +381,44 @@ function TabOverview({ data, kpis, lk }: { data: TargetsResponse; kpis: BscKpi[]
           </div>
         ))}
       </div>
+
+      {/* Top by Category 2 */}
+      {categories.length > 0 && (
+        <div className="bg-white rounded-2xl p-5 shadow-sm">
+          <p className="text-xs font-black mb-4" style={{ color: "#1A1A1A" }}>{lk.topByCategory}</p>
+          <div className="space-y-3">
+            {categories.map((cat, i) => {
+              const maxAmt = categories[0]?.amount || 1;
+              const barW   = Math.round((cat.amount / maxAmt) * 100);
+              return (
+                <div key={cat.name}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black w-4" style={{ color: i === 0 ? BRAND : "#bbb" }}>{i + 1}</span>
+                      <span className="text-xs font-bold" style={{ color: "#1A1A1A" }}>{cat.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs font-black" style={{ color: BRAND }}>{fmt(cat.amount)}</span>
+                      <span className="text-[10px] ml-1.5" style={{ color: "#bbb" }}>{cat.qty} pcs</span>
+                    </div>
+                  </div>
+                  <div className="h-1.5 rounded-full mb-1.5" style={{ background: "#F0EDE8" }}>
+                    <div className="h-1.5 rounded-full transition-all" style={{ width: `${barW}%`, background: i === 0 ? BRAND : "#D4C9B8" }} />
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {cat.topProducts.map(p => (
+                      <span key={p.name} className="text-[10px] px-2 py-0.5 rounded-full"
+                        style={{ background: BRAND_LIGHT, color: BRAND }}>
+                        {p.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -364,6 +467,83 @@ function TabOutlets({ data, lk }: { data: TargetsResponse; lk: Record<string,str
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ─── Tab: Ecomm ───────────────────────────────────────────────────────────────
+
+function TabEcomm({ ecomm, currentMonth, lk }: { ecomm: EcommResponse; currentMonth: number; lk: Record<string,string> }) {
+  const allPlatforms = Array.from(new Set(ecomm.targets.map(t => t.platform)));
+
+  const rows = allPlatforms.map(platform => {
+    const annualTarget = ecomm.targets.filter(t => t.platform === platform).reduce((s, t) => s + t.targetRm, 0);
+    const ytdTarget    = ecomm.targets.filter(t => t.platform === platform && t.month <= currentMonth).reduce((s, t) => s + t.targetRm, 0);
+    return { platform, annualTarget, ytdTarget };
+  }).sort((a, b) => b.annualTarget - a.annualTarget);
+
+  const grandTotal    = rows.reduce((s, r) => s + r.annualTarget, 0);
+  const grandYtd      = rows.reduce((s, r) => s + r.ytdTarget, 0);
+
+  return (
+    <div className="space-y-3">
+      {/* Summary card */}
+      <div className="rounded-2xl p-5" style={{ background: "#1A1A1A" }}>
+        <p className="text-[10px] font-black tracking-widest mb-2" style={{ color: "#888" }}>{lk.ecommTitle?.toUpperCase()}</p>
+        <div className="flex items-end justify-between">
+          <div>
+            <p className="text-2xl font-black text-white">{fmt(grandTotal)}</p>
+            <p className="text-xs mt-0.5" style={{ color: "#888" }}>{lk.ecommAnnual}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-lg font-black" style={{ color: BRAND }}>{fmt(grandYtd)}</p>
+            <p className="text-[10px]" style={{ color: "#666" }}>{lk.ecommYtd}</p>
+          </div>
+        </div>
+      </div>
+
+      <p className="text-xs font-black px-1" style={{ color: "#888" }}>
+        {allPlatforms.length} PLATFORMS
+      </p>
+
+      {rows.map((row, i) => {
+        const barPct = grandTotal > 0 ? (row.annualTarget / grandTotal) * 100 : 0;
+        const isTop = i === 0;
+        return (
+          <div key={row.platform} className="bg-white rounded-2xl p-4 shadow-sm">
+            <div className="flex items-start gap-3 mb-2">
+              <div className="min-w-[28px] h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0 mt-0.5"
+                style={{ background: isTop ? BRAND_LIGHT : "#F8F7F4", color: isTop ? BRAND : "#999" }}>
+                {i + 1}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-black leading-tight" style={{ color: "#1A1A1A" }}>{row.platform}</p>
+                <p className="text-[11px] mt-0.5" style={{ color: "#999" }}>
+                  {fmt(row.ytdTarget)} YTD target · {fmt(row.annualTarget)} annual
+                </p>
+              </div>
+              <p className="text-sm font-black shrink-0" style={{ color: BRAND }}>
+                {fmt(row.annualTarget)}
+              </p>
+            </div>
+            {/* Share-of-total bar */}
+            <div className="h-1.5 rounded-full" style={{ background: "#F0EDE8" }}>
+              <div className="h-1.5 rounded-full transition-all"
+                style={{ width: `${Math.min(barPct, 100)}%`, background: BRAND }} />
+            </div>
+            <p className="text-[10px] mt-1" style={{ color: "#bbb" }}>
+              {Math.round(barPct)}% of total ecomm target
+            </p>
+          </div>
+        );
+      })}
+
+      {rows.length === 0 && (
+        <div className="bg-white rounded-2xl p-8 shadow-sm text-center">
+          <p className="text-sm" style={{ color: "#aaa" }}>No ecomm targets set for 2026.</p>
+          <p className="text-xs mt-1" style={{ color: "#ccc" }}>Go to Admin → Strategy → Ecomm Targets to add them.</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -541,26 +721,35 @@ function TabBSC({ kpis, onUpdate, lk }: {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-const TABS = ["overview", "outlets", "bsc"] as const;
+const TABS = ["overview", "outlets", "ecomm", "bsc"] as const;
 type TabId = typeof TABS[number];
 
 export default function StrategyDashboard() {
   const { lang } = useLang();
   const lk = L[lang as LangKey] ?? L.en;
 
-  const [tab, setTab]   = useState<TabId>("overview");
-  const [data, setData] = useState<TargetsResponse | null>(null);
-  const [kpis, setKpis] = useState<BscKpi[]>([]);
+  const [tab, setTab]         = useState<TabId>("overview");
+  const [data, setData]       = useState<TargetsResponse | null>(null);
+  const [ecomm, setEcomm]     = useState<EcommResponse | null>(null);
+  const [kpis, setKpis]       = useState<BscKpi[]>([]);
+  const [signals, setSignals] = useState<SalesSignals | null>(null);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
-    const [tRes, kRes] = await Promise.all([
+    const [tRes, kRes, eRes, sRes, cRes] = await Promise.all([
       fetch("/api/bsc/targets?year=2026").then(r => r.json()),
       fetch("/api/bsc/kpis").then(r => r.json()),
+      fetch("/api/bsc/ecomm-targets?year=2026").then(r => r.json()),
+      fetch("/api/sales-report/metrics").then(r => r.json()),
+      fetch("/api/sales-report/category-breakdown").then(r => r.json()),
     ]);
     setData(tRes);
     setKpis(kRes.kpis ?? []);
+    setEcomm(eRes);
+    setSignals(sRes.reportCount > 0 ? sRes : null);
+    setCategories(cRes.categories ?? []);
     setLoading(false);
   }
 
@@ -580,12 +769,14 @@ export default function StrategyDashboard() {
   const tabLabels: Record<TabId, string> = {
     overview: lk.tab_overview,
     outlets:  lk.tab_outlets,
+    ecomm:    lk.tab_ecomm,
     bsc:      lk.tab_bsc,
   };
 
   const tabEmojis: Record<TabId, string> = {
     overview: "📊",
     outlets:  "🏪",
+    ecomm:    "🛒",
     bsc:      "🎯",
   };
 
@@ -632,8 +823,9 @@ export default function StrategyDashboard() {
           tab === "outlets" ? <SkeletonOutlets /> : <SkeletonOverview />
         ) : (
           <>
-            {tab === "overview" && <TabOverview data={data} kpis={kpis} lk={lk} />}
+            {tab === "overview" && <TabOverview data={data} kpis={kpis} lk={lk} signals={signals} categories={categories} />}
             {tab === "outlets"  && <TabOutlets  data={data} lk={lk} />}
+            {tab === "ecomm"    && <TabEcomm ecomm={ecomm ?? { targets: [], year: 2026 }} currentMonth={data.currentMonth} lk={lk} />}
             {tab === "bsc"      && <TabBSC kpis={kpis} onUpdate={handleKpiUpdate} lk={lk} />}
           </>
         )}

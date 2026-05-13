@@ -12,40 +12,88 @@ function getISOWeek(date: Date): string {
 }
 
 type ExcelRow = {
-  description: string;
-  warehouse: string;
+  sku: string;
+  description: string;      // receipt_no — col[12], used for customer grouping
+  stockDescription: string; // product display name — col[5]
+  colour: string;
   qty: number;
-  grossAmt: number;
-  amount: number;
-  discAmt: number;
+  grossAmt: number;         // amount + discAmt (computed)
+  amount: number;           // net revenue — col[14]
+  discAmt: number;          // discount given — col[9]
   cogs: number;
   profit: number;
-  stockDescription: string;
-  warehouseName: string;
+  warehouseName: string;    // col[18], "TOP SHOP-" prefix stripped
+  originalPrice: number;
+  category2: string;        // col[16]
 };
+
+function buildColMap(header: (string | number | boolean)[]): Record<string, number> {
+  const map: Record<string, number> = {};
+  header.forEach((h, i) => {
+    const key = String(h).toLowerCase().replace(/\s+/g, "");
+    map[key] = i;
+  });
+  return map;
+}
+
+function colIdx(map: Record<string, number>, ...candidates: string[]): number | undefined {
+  for (const c of candidates) {
+    const k = c.toLowerCase().replace(/\s+/g, "");
+    if (map[k] !== undefined) return map[k];
+  }
+  return undefined;
+}
 
 function parseExcel(buffer: ArrayBuffer): { rows: ExcelRow[]; warehouseName: string } {
   const wb = XLSX.read(Buffer.from(buffer), { type: "buffer" });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const raw = XLSX.utils.sheet_to_json<(string | number | boolean)[]>(ws, { header: 1, defval: "" });
 
+  if (raw.length < 2) return { rows: [], warehouseName: "" };
+
+  // Detect header row (first row with recognisable column names)
+  const headerRow = raw[0] as (string | number | boolean)[];
+  const cm = buildColMap(headerRow);
+
+  // Column indices — fall back to hardcoded positions when header not found
+  const iSku       = colIdx(cm, "StockCode", "Stock Code", "SKU")                     ?? 1;
+  const iDesc      = colIdx(cm, "StockDescription", "Stock Description", "Description") ?? 5;
+  const iReceipt   = colIdx(cm, "Description", "LineNo", "ReceiptNo")                  ?? 12;
+  const iColour    = colIdx(cm, "Colour", "Color")                                     ?? 2;
+  const iQty       = colIdx(cm, "Quantity", "Qty")                                     ?? 7;
+  const iUnitPrice = colIdx(cm, "UnitPrice", "Unit Price", "UnitPri")                  ?? 8;
+  const iDisc      = colIdx(cm, "DiscAmount", "Disc Amount", "DiscAmt")                ?? 9;
+  const iCog       = colIdx(cm, "C.O.G", "COG", "Cog")                                ?? 10;
+  const iProfit    = colIdx(cm, "Profit", "Prof")                                      ?? 11;
+  const iAmount    = colIdx(cm, "Amount", "Amou", "NetAmount")                         ?? 14;
+  const iCat2      = colIdx(cm, "Category2", "Category 2")                             ?? 16;
+  const iWh        = colIdx(cm, "WarehouseName", "Warehouse Name")                     ?? 18;
+
+  // When header detection gives same index for receipt and description, prefer col 12 for receipt
+  const iReceiptFinal = iReceipt !== iDesc ? iReceipt : 12;
+
   const rows: ExcelRow[] = [];
   let warehouseName = "";
 
   for (let i = 1; i < raw.length; i++) {
     const r = raw[i] as (string | number | boolean)[];
-    if (!r[1]) continue; // skip empty rows
+    if (!r[iSku]) continue;
+    const amt  = Number(r[iAmount])  || 0;
+    const disc = Number(r[iDisc])    || 0;
     const row: ExcelRow = {
-      description:      String(r[1] ?? ""),
-      warehouse:        String(r[2] ?? ""),
-      qty:              Number(r[3]) || 0,
-      grossAmt:         Number(r[4]) || 0,
-      amount:           Number(r[5]) || 0,
-      discAmt:          Number(r[6]) || 0,
-      cogs:             Number(r[7]) || 0,
-      profit:           Number(r[8]) || 0,
-      stockDescription: String(r[10] ?? ""),
-      warehouseName:    String(r[14] ?? ""),
+      sku:              String(r[iSku]          ?? "").trim(),
+      stockDescription: String(r[iDesc]         ?? "").trim(),
+      description:      String(r[iReceiptFinal] ?? ""),
+      colour:           String(r[iColour]       ?? ""),
+      qty:              Number(r[iQty])         || 0,
+      amount:           amt,
+      discAmt:          disc,
+      grossAmt:         amt + disc,
+      cogs:             Number(r[iCog])         || 0,
+      profit:           Number(r[iProfit])      || 0,
+      warehouseName:    String(r[iWh]           ?? "").replace(/^TOP SHOP-/i, "").trim(),
+      originalPrice:    Number(r[iUnitPrice])   || 0,
+      category2:        String(r[iCat2]         ?? "").trim(),
     };
     rows.push(row);
     if (!warehouseName && row.warehouseName) warehouseName = row.warehouseName;
@@ -81,7 +129,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return apiError("Unauthorized", 401);
-  if (!["sales", "manager", "admin"].includes(session.role)) return apiError("Forbidden", 403);
+  if (!["sales", "manager", "admin", "staff", "supervisor"].includes(session.role)) return apiError("Forbidden", 403);
 
   const formData = await req.formData();
   const file      = formData.get("file") as File | null;
@@ -136,7 +184,7 @@ export async function POST(req: Request) {
   // Top products by revenue (amount)
   const productMap: Record<string, { qty: number; amount: number; profit: number }> = {};
   for (const r of rows) {
-    const name = r.description;
+    const name = r.stockDescription || r.sku;
     if (!productMap[name]) productMap[name] = { qty: 0, amount: 0, profit: 0 };
     productMap[name].qty    += r.qty;
     productMap[name].amount += r.amount;
@@ -162,8 +210,12 @@ export async function POST(req: Request) {
       topProducts:  JSON.stringify(topProducts),
       slowProducts: JSON.stringify([]),
       lineItems:    JSON.stringify(rows.map(r => ({
-        d: r.description, q: r.qty, g: r.grossAmt,
+        d: r.description,  // receipt_no for customer grouping
+        s: r.sku,          // SKU for add-on detection
+        n: r.stockDescription, // product name
+        q: r.qty, g: r.grossAmt,
         a: r.amount, x: r.discAmt, c: r.cogs, p: r.profit,
+        c2: r.category2 || undefined,
       }))),
       warehouseName,
     },
