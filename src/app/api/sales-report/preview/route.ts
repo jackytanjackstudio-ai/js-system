@@ -18,6 +18,17 @@ function colIdx(map: Record<string, number>, ...candidates: string[]): number | 
   return undefined;
 }
 
+const HEADER_ANCHORS = new Set(["stockcode", "quantity", "amount", "profit"]);
+
+function findHeaderRowIdx(raw: (string | number | boolean)[][]): number {
+  for (let i = 0; i < Math.min(5, raw.length); i++) {
+    const cm = buildColMap(raw[i]);
+    const hits = Array.from(HEADER_ANCHORS).filter(k => cm[k] !== undefined).length;
+    if (hits >= 3) return i;
+  }
+  return 0;
+}
+
 export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return apiError("Unauthorized", 401);
@@ -33,25 +44,26 @@ export async function POST(req: Request) {
 
   if (raw.length < 2) return apiError("Empty file");
 
-  const headerRow = raw[0] as (string | number | boolean)[];
-  const cm = buildColMap(headerRow);
+  const headerRowIdx = findHeaderRowIdx(raw);
+  const cm = buildColMap(raw[headerRowIdx]);
 
-  const iSku     = colIdx(cm, "StockCode", "Stock Code", "SKU")                      ?? 1;
-  const iDesc    = colIdx(cm, "StockDescription", "Stock Description", "Description") ?? 5;
-  const iReceipt = colIdx(cm, "Description", "LineNo", "ReceiptNo")                  ?? 12;
-  const iQty     = colIdx(cm, "Quantity", "Qty")                                     ?? 7;
-  const iDisc    = colIdx(cm, "DiscAmount", "Disc Amount", "DiscAmt")                ?? 9;
-  const iCog     = colIdx(cm, "C.O.G", "COG", "Cog")                                ?? 10;
-  const iProfit  = colIdx(cm, "Profit", "Prof")                                      ?? 11;
-  const iAmount  = colIdx(cm, "Amount", "Amou", "NetAmount")                         ?? 14;
-  const iWh      = colIdx(cm, "WarehouseName", "Warehouse Name")                     ?? 18;
+  const iSku     = colIdx(cm, "StockCode", "Stock Code", "SKU")                       ?? 1;
+  const iDesc    = colIdx(cm, "StockDescription", "Stock Description", "StockDesc")   ?? 5;
+  const iReceipt = colIdx(cm, "Description", "LineNo", "ReceiptNo", "Receipt No")     ?? 12;
+  const iQty     = colIdx(cm, "Quantity", "Qty", "Quanti")                            ?? 7;
+  const iDisc    = colIdx(cm, "DiscAmount", "Disc Amount", "DiscAmt", "Discount")     ?? 9;
+  const iCog     = colIdx(cm, "C.O.G", "COG", "Cog", "Cost")                         ?? 10;
+  const iProfit  = colIdx(cm, "Profit", "Prof", "ProfitAmt")                          ?? 11;
+  const iAmount  = colIdx(cm, "Amount", "Amou", "NetAmount", "Net", "SalesAmount")    ?? 14;
+  const iWh      = colIdx(cm, "WarehouseName", "Warehouse Name", "WH Name", "WHName") ?? 18;
 
   const iReceiptFinal = iReceipt !== iDesc ? iReceipt : 12;
+  const dataStart = headerRowIdx + 1;
 
   const rows = [];
   let warehouseName = "";
 
-  for (let i = 1; i < raw.length; i++) {
+  for (let i = dataStart; i < raw.length; i++) {
     const r = raw[i] as (string | number | boolean)[];
     if (!r[iSku]) continue;
     const amt    = Number(r[iAmount]) || 0;
@@ -65,7 +77,6 @@ export async function POST(req: Request) {
       sku:         String(r[iSku]          ?? "").trim(),
       description: String(r[iDesc]         ?? "").trim(),
       receiptNo:   String(r[iReceiptFinal] ?? ""),
-      warehouse:   String(r[2]             ?? ""),
       qty,
       amount:      amt,
       profit,

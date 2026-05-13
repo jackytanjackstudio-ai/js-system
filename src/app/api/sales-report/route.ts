@@ -44,6 +44,18 @@ function colIdx(map: Record<string, number>, ...candidates: string[]): number | 
   return undefined;
 }
 
+// Anchor columns that must exist together for a row to be the header row
+const HEADER_ANCHORS = new Set(["stockcode", "quantity", "amount", "profit"]);
+
+function findHeaderRowIdx(raw: (string | number | boolean)[][]): number {
+  for (let i = 0; i < Math.min(5, raw.length); i++) {
+    const cm = buildColMap(raw[i]);
+    const hits = Array.from(HEADER_ANCHORS).filter(k => cm[k] !== undefined).length;
+    if (hits >= 3) return i;
+  }
+  return 0; // fallback
+}
+
 function parseExcel(buffer: ArrayBuffer): { rows: ExcelRow[]; warehouseName: string } {
   const wb = XLSX.read(Buffer.from(buffer), { type: "buffer" });
   const ws = wb.Sheets[wb.SheetNames[0]];
@@ -51,31 +63,30 @@ function parseExcel(buffer: ArrayBuffer): { rows: ExcelRow[]; warehouseName: str
 
   if (raw.length < 2) return { rows: [], warehouseName: "" };
 
-  // Detect header row (first row with recognisable column names)
-  const headerRow = raw[0] as (string | number | boolean)[];
-  const cm = buildColMap(headerRow);
+  const headerRowIdx = findHeaderRowIdx(raw);
+  const cm = buildColMap(raw[headerRowIdx]);
 
   // Column indices — fall back to hardcoded positions when header not found
-  const iSku       = colIdx(cm, "StockCode", "Stock Code", "SKU")                     ?? 1;
-  const iDesc      = colIdx(cm, "StockDescription", "Stock Description", "Description") ?? 5;
-  const iReceipt   = colIdx(cm, "Description", "LineNo", "ReceiptNo")                  ?? 12;
-  const iColour    = colIdx(cm, "Colour", "Color")                                     ?? 2;
-  const iQty       = colIdx(cm, "Quantity", "Qty")                                     ?? 7;
-  const iUnitPrice = colIdx(cm, "UnitPrice", "Unit Price", "UnitPri")                  ?? 8;
-  const iDisc      = colIdx(cm, "DiscAmount", "Disc Amount", "DiscAmt")                ?? 9;
-  const iCog       = colIdx(cm, "C.O.G", "COG", "Cog")                                ?? 10;
-  const iProfit    = colIdx(cm, "Profit", "Prof")                                      ?? 11;
-  const iAmount    = colIdx(cm, "Amount", "Amou", "NetAmount")                         ?? 14;
-  const iCat2      = colIdx(cm, "Category2", "Category 2")                             ?? 16;
-  const iWh        = colIdx(cm, "WarehouseName", "Warehouse Name")                     ?? 18;
+  const iSku       = colIdx(cm, "StockCode", "Stock Code", "SKU")                       ?? 1;
+  const iDesc      = colIdx(cm, "StockDescription", "Stock Description", "StockDesc")   ?? 5;
+  const iReceipt   = colIdx(cm, "Description", "LineNo", "ReceiptNo", "Receipt No")     ?? 12;
+  const iColour    = colIdx(cm, "Colour", "Color")                                      ?? 2;
+  const iQty       = colIdx(cm, "Quantity", "Qty", "Quanti")                            ?? 7;
+  const iUnitPrice = colIdx(cm, "UnitPrice", "Unit Price", "UnitPri")                   ?? 8;
+  const iDisc      = colIdx(cm, "DiscAmount", "Disc Amount", "DiscAmt", "Discount")     ?? 9;
+  const iCog       = colIdx(cm, "C.O.G", "COG", "Cog", "Cost")                         ?? 10;
+  const iProfit    = colIdx(cm, "Profit", "Prof", "ProfitAmt")                          ?? 11;
+  const iAmount    = colIdx(cm, "Amount", "Amou", "NetAmount", "Net", "SalesAmount")    ?? 14;
+  const iCat2      = colIdx(cm, "Category2", "Category 2", "Cat2")                      ?? 16;
+  const iWh        = colIdx(cm, "WarehouseName", "Warehouse Name", "WH Name", "WHName") ?? 18;
 
-  // When header detection gives same index for receipt and description, prefer col 12 for receipt
   const iReceiptFinal = iReceipt !== iDesc ? iReceipt : 12;
+  const dataStart = headerRowIdx + 1;
 
   const rows: ExcelRow[] = [];
   let warehouseName = "";
 
-  for (let i = 1; i < raw.length; i++) {
+  for (let i = dataStart; i < raw.length; i++) {
     const r = raw[i] as (string | number | boolean)[];
     if (!r[iSku]) continue;
     const amt  = Number(r[iAmount])  || 0;
