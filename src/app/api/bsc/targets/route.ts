@@ -17,12 +17,14 @@ export async function GET(req: NextRequest) {
     }),
     prisma.salesReport.findMany({
       where: {
-        createdAt: {
-          gte: new Date(`${year}-01-01T00:00:00Z`),
-          lte: new Date(`${year}-12-31T23:59:59Z`),
-        },
+        OR: [
+          // uploaded this year
+          { createdAt: { gte: new Date(`${year}-01-01T00:00:00Z`), lte: new Date(`${year}-12-31T23:59:59Z`) } },
+          // document date is this year (uploaded late)
+          { salesDate: { gte: `${year}-01-01`, lte: `${year}-12-31` } },
+        ],
       },
-      include: { outlet: { select: { name: true } } },
+      select: { revenue: true, salesDate: true, createdAt: true, outlet: { select: { name: true } } },
     }),
   ]);
 
@@ -35,11 +37,14 @@ export async function GET(req: NextRequest) {
     return OUTLET_ALIAS[u] ?? u;
   }
 
-  // Group actuals by normalized outlet name and month
+  // Group actuals by normalized outlet name and document month (salesDate > createdAt)
   const actuals: Record<string, Record<number, number>> = {};
   for (const r of reports) {
-    const name  = normalizeOutlet(r.outlet.name);
-    const month = new Date(r.createdAt).getMonth() + 1;
+    const name        = normalizeOutlet(r.outlet.name);
+    const effectiveDate = r.salesDate ? new Date(r.salesDate) : r.createdAt;
+    const effectiveYear = effectiveDate.getFullYear();
+    if (effectiveYear !== year) continue; // skip if doc date is a different year
+    const month = effectiveDate.getMonth() + 1;
     if (!actuals[name]) actuals[name] = {};
     actuals[name][month] = (actuals[name][month] ?? 0) + r.revenue;
   }

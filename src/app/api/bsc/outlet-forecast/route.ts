@@ -41,20 +41,23 @@ export async function GET() {
     prisma.outletMonthlyActual.findMany({ where: { year: 2025 } }),
     prisma.salesReport.findMany({
       where: {
-        createdAt: {
-          gte: new Date("2026-01-01T00:00:00Z"),
-          lte: new Date("2026-12-31T23:59:59Z"),
-        },
+        OR: [
+          { createdAt: { gte: new Date("2026-01-01T00:00:00Z"), lte: new Date("2026-12-31T23:59:59Z") } },
+          { salesDate: { gte: "2026-01-01", lte: "2026-12-31" } },
+        ],
       },
-      include: { outlet: { select: { name: true } } },
+      select: { revenue: true, salesDate: true, createdAt: true, outlet: { select: { name: true } } },
     }),
   ]);
 
   // Build 2026 actuals map: normalizedOutletName → month → revenue
+  // Use salesDate (document date) preferentially over createdAt (upload date)
   const actuals2026map: Record<string, Record<number, number>> = {};
   for (const r of reports2026) {
+    const effectiveDate = r.salesDate ? new Date(r.salesDate) : r.createdAt;
+    if (effectiveDate.getFullYear() !== 2026) continue;
     const name  = normalizeOutlet(r.outlet.name);
-    const month = new Date(r.createdAt).getMonth() + 1;
+    const month = effectiveDate.getMonth() + 1;
     if (!actuals2026map[name]) actuals2026map[name] = {};
     actuals2026map[name][month] = (actuals2026map[name][month] ?? 0) + r.revenue;
   }
