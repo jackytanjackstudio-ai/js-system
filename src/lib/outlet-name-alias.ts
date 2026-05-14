@@ -15,6 +15,9 @@ export const OUTLET_NAME_ALIAS: Record<string, string> = {
   // BERJAYA TIMES SQ
   "BERJAYA TIMES SQUARE": "BERJAYA TIMES SQ",
   "BERJAYA TIMES SQ.":    "BERJAYA TIMES SQ",
+  "TIME SQUARE":          "BERJAYA TIMES SQ",
+  "TIMES SQUARE":         "BERJAYA TIMES SQ",
+  "KL TIMES SQUARE":      "BERJAYA TIMES SQ",
 };
 
 export function normalizeOutletName(name: string): string {
