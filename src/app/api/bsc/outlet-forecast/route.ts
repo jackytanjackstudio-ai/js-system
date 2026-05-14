@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSession, apiError, apiOk } from "@/lib/auth";
+import { normalizeOutletName } from "@/lib/outlet-name-alias";
 
 const OUTLET_TARGETS_2026: Record<string, number> = {
   "AEON BUKIT TINGGI":  536000,
@@ -17,16 +18,6 @@ const OUTLET_TARGETS_2026: Record<string, number> = {
   "MAYANG MALL":        1001381.75,
 };
 
-// Maps DB outlet names → target keys (handles naming differences)
-const OUTLET_NAME_ALIAS: Record<string, string> = {
-  "AEON SEREMBAN 2": "AEON SEREMBAN",
-  "AEON SEREMBAN2":  "AEON SEREMBAN",
-};
-
-function normalizeOutlet(name: string): string {
-  const upper = name.toUpperCase().trim();
-  return OUTLET_NAME_ALIAS[upper] ?? upper;
-}
 
 export async function GET() {
   const session = await getSession();
@@ -56,7 +47,7 @@ export async function GET() {
   for (const r of reports2026) {
     const effectiveDate = r.salesDate ? new Date(r.salesDate) : r.createdAt;
     if (effectiveDate.getFullYear() !== 2026) continue;
-    const name  = normalizeOutlet(r.outlet.name);
+    const name  = normalizeOutletName(r.outlet.name);
     const month = effectiveDate.getMonth() + 1;
     if (!actuals2026map[name]) actuals2026map[name] = {};
     actuals2026map[name][month] = (actuals2026map[name][month] ?? 0) + r.revenue;

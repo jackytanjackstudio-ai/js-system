@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession, apiError, apiOk, isAdmin } from "@/lib/auth";
+import { normalizeOutletName } from "@/lib/outlet-name-alias";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -28,19 +29,10 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  const OUTLET_ALIAS: Record<string, string> = {
-    "AEON SEREMBAN 2": "AEON SEREMBAN",
-    "AEON SEREMBAN2":  "AEON SEREMBAN",
-  };
-  function normalizeOutlet(n: string) {
-    const u = n.toUpperCase().trim();
-    return OUTLET_ALIAS[u] ?? u;
-  }
-
   // Group actuals by normalized outlet name and document month (salesDate > createdAt)
   const actuals: Record<string, Record<number, number>> = {};
   for (const r of reports) {
-    const name        = normalizeOutlet(r.outlet.name);
+    const name        = normalizeOutletName(r.outlet.name);
     const effectiveDate = r.salesDate ? new Date(r.salesDate) : r.createdAt;
     const effectiveYear = effectiveDate.getFullYear();
     if (effectiveYear !== year) continue; // skip if doc date is a different year
