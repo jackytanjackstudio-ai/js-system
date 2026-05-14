@@ -26,10 +26,19 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  // Group actuals by UPPERCASE outlet name and month
+  const OUTLET_ALIAS: Record<string, string> = {
+    "AEON SEREMBAN 2": "AEON SEREMBAN",
+    "AEON SEREMBAN2":  "AEON SEREMBAN",
+  };
+  function normalizeOutlet(n: string) {
+    const u = n.toUpperCase().trim();
+    return OUTLET_ALIAS[u] ?? u;
+  }
+
+  // Group actuals by normalized outlet name and month
   const actuals: Record<string, Record<number, number>> = {};
   for (const r of reports) {
-    const name = r.outlet.name.toUpperCase();
+    const name  = normalizeOutlet(r.outlet.name);
     const month = new Date(r.createdAt).getMonth() + 1;
     if (!actuals[name]) actuals[name] = {};
     actuals[name][month] = (actuals[name][month] ?? 0) + r.revenue;

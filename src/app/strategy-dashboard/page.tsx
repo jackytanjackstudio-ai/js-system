@@ -581,37 +581,8 @@ function TabOutlets({ data, lk, outletForecast }: {
 
   return (
     <div className="space-y-4">
-      {/* Existing YTD achievement ranking */}
-      <p className="text-xs font-black px-1" style={{ color: "#888" }}>{lk.outletRank.toUpperCase()}</p>
-      <div className="space-y-3">
-        {rows.map((row, i) => {
-          const color  = achieveColor(row.pct);
-          const isTop3 = i < 3;
-          return (
-            <div key={row.outlet} className="bg-white rounded-2xl p-4 shadow-sm">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="min-w-[28px] h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0"
-                  style={{ background: isTop3 ? BRAND_LIGHT : "#F8F7F4", color: isTop3 ? BRAND : "#999" }}>
-                  {i + 1}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-black truncate" style={{ color: "#1A1A1A" }}>{row.outlet}</p>
-                  <p className="text-[11px]" style={{ color: "#999" }}>
-                    {fmt(row.ytdActual)} / {fmt(row.ytdTarget)} {lk.target}
-                  </p>
-                </div>
-                <p className="text-base font-black shrink-0" style={{ color }}>{row.pct}%</p>
-              </div>
-              <div className="h-2 rounded-full" style={{ background: "#F0EDE8" }}>
-                <div className="h-2 rounded-full transition-all"
-                  style={{ width: `${Math.min(row.pct, 100)}%`, background: color }} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
 
-      {/* ── Forecast section ── */}
+      {/* ── Forecast section (TOP) ── */}
       {summary && (
         <>
           {/* Forecast summary card */}
@@ -721,6 +692,36 @@ function TabOutlets({ data, lk, outletForecast }: {
           </div>
         </>
       )}
+
+      {/* ── YTD Achievement Ranking (below forecast) ── */}
+      <p className="text-xs font-black px-1" style={{ color: "#888" }}>{lk.outletRank.toUpperCase()}</p>
+      <div className="space-y-3">
+        {rows.map((row, i) => {
+          const color  = achieveColor(row.pct);
+          const isTop3 = i < 3;
+          return (
+            <div key={row.outlet} className="bg-white rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="min-w-[28px] h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0"
+                  style={{ background: isTop3 ? BRAND_LIGHT : "#F8F7F4", color: isTop3 ? BRAND : "#999" }}>
+                  {i + 1}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-black truncate" style={{ color: "#1A1A1A" }}>{row.outlet}</p>
+                  <p className="text-[11px]" style={{ color: "#999" }}>
+                    {fmt(row.ytdActual)} / {fmt(row.ytdTarget)} {lk.target}
+                  </p>
+                </div>
+                <p className="text-base font-black shrink-0" style={{ color }}>{row.pct}%</p>
+              </div>
+              <div className="h-2 rounded-full" style={{ background: "#F0EDE8" }}>
+                <div className="h-2 rounded-full transition-all"
+                  style={{ width: `${Math.min(row.pct, 100)}%`, background: color }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

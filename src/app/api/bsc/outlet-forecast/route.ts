@@ -17,6 +17,17 @@ const OUTLET_TARGETS_2026: Record<string, number> = {
   "MAYANG MALL":        1001381.75,
 };
 
+// Maps DB outlet names → target keys (handles naming differences)
+const OUTLET_NAME_ALIAS: Record<string, string> = {
+  "AEON SEREMBAN 2": "AEON SEREMBAN",
+  "AEON SEREMBAN2":  "AEON SEREMBAN",
+};
+
+function normalizeOutlet(name: string): string {
+  const upper = name.toUpperCase().trim();
+  return OUTLET_NAME_ALIAS[upper] ?? upper;
+}
+
 export async function GET() {
   const session = await getSession();
   if (!session) return apiError("Unauthorized", 401);
@@ -24,10 +35,29 @@ export async function GET() {
   const currentMonth = new Date().getMonth(); // 0-indexed
   const monthsDone   = currentMonth + 1;
 
-  const [actuals2025rows, actuals2026rows] = await Promise.all([
+  // 2025: seeded historical table
+  // 2026: live from uploaded sales reports (same source as YTD achievement tab)
+  const [actuals2025rows, reports2026] = await Promise.all([
     prisma.outletMonthlyActual.findMany({ where: { year: 2025 } }),
-    prisma.outletMonthlyActual.findMany({ where: { year: 2026 } }),
+    prisma.salesReport.findMany({
+      where: {
+        createdAt: {
+          gte: new Date("2026-01-01T00:00:00Z"),
+          lte: new Date("2026-12-31T23:59:59Z"),
+        },
+      },
+      include: { outlet: { select: { name: true } } },
+    }),
   ]);
+
+  // Build 2026 actuals map: normalizedOutletName → month → revenue
+  const actuals2026map: Record<string, Record<number, number>> = {};
+  for (const r of reports2026) {
+    const name  = normalizeOutlet(r.outlet.name);
+    const month = new Date(r.createdAt).getMonth() + 1;
+    if (!actuals2026map[name]) actuals2026map[name] = {};
+    actuals2026map[name][month] = (actuals2026map[name][month] ?? 0) + r.revenue;
+  }
 
   const outlets = Object.keys(OUTLET_TARGETS_2026);
 
@@ -40,9 +70,10 @@ export async function GET() {
       .forEach(r => { arr2025[r.month - 1] = Number(r.amount); });
 
     const arr2026 = Array(12).fill(0);
-    actuals2026rows
-      .filter(r => r.outlet === outletName)
-      .forEach(r => { arr2026[r.month - 1] = Number(r.amount); });
+    const map2026 = actuals2026map[outletName] ?? {};
+    for (let m = 1; m <= 12; m++) {
+      if (map2026[m]) arr2026[m - 1] = map2026[m];
+    }
 
     const ytdActual  = arr2026.slice(0, monthsDone).reduce((s, v) => s + v, 0);
     const ytd2025    = arr2025.slice(0, monthsDone).reduce((s, v) => s + v, 0);
@@ -59,9 +90,9 @@ export async function GET() {
       monthlyForecast[i] = Math.round(arr2025[i] * (1 + growthRate));
     }
 
-    const forecastRemaining  = remain2025 * (1 + growthRate);
-    const fullYearForecast   = ytdActual + forecastRemaining;
-    const vsTarget           = target > 0 ? (fullYearForecast / target) * 100 : 0;
+    const forecastRemaining = remain2025 * (1 + growthRate);
+    const fullYearForecast  = ytdActual + forecastRemaining;
+    const vsTarget          = target > 0 ? (fullYearForecast / target) * 100 : 0;
 
     const status: "on-track" | "caution" | "behind" =
       vsTarget >= 95 ? "on-track" :
