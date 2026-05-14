@@ -6,7 +6,7 @@ export interface OutletPlaceConfig {
 
 export const OUTLET_PLACE_CONFIGS: OutletPlaceConfig[] = [
   { outletKey: "aeon-bukit-tinggi", outletName: "AEON BUKIT TINGGI",  placeId: "ChIJlxCFzpGtzTERFHT0VKoTvYQ" },
-  { outletKey: "main-place",        outletName: "MAIN PLACE",          placeId: "ChIJWQwmdrqzzTER-1vasJy9Yp0GF" },
+  { outletKey: "main-place",        outletName: "MAIN PLACE",          placeId: "ChIJWQwmdrqzzTER-1vasJy9Yp0" },
   { outletKey: "paradigm-mall",     outletName: "PARADIGM MALL",       placeId: "ChIJicQdxqNNzDERIVo1cS8Dbd0" },
   { outletKey: "east-coast-mall",   outletName: "EAST COAST MALL",     placeId: "ChIJ9RJNfmK7yDEReqw_Zn37DmU" },
   { outletKey: "aeon-permas-jaya",  outletName: "AEON PERMAS JAYA",    placeId: "ChIJ06A0xtRt2jERoau-HFlzHPo" },
