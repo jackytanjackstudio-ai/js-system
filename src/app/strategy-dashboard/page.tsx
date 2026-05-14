@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from "recharts";
 import { useLang } from "@/context/LangContext";
 import { useAuth } from "@/context/AuthContext";
+import type { ChannelForecast } from "@/lib/ecomm-forecast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -11,6 +12,25 @@ type EcommTarget  = { platform: string; year: number; month: number; targetRm: n
 type BscKpi       = { id: string; perspective: string; kpiKey: string; kpiLabel: string; targetDesc: string | null; status: string; note: string | null; updatedAt: string };
 type SalesSignals = { customerCount: number; atv: number; reportCount: number };
 type CategoryItem = { name: string; qty: number; amount: number; topProducts: { name: string; qty: number; amount: number }[] };
+type OnlineSummary = {
+  totalTarget: number; totalYtd: number; totalForecast: number;
+  forecastVsTarget: number; totalMonthlyForecast: number[];
+  totalMonthly2025: number[]; actual2025: number;
+};
+type OnlineResponse = { forecasts: ChannelForecast[]; summary: OnlineSummary };
+
+type OutletForecast = {
+  outlet: string; target2026: number; ytdActual: number; ytdGrowth: number;
+  fullYearForecast: number; forecastVsTarget: number;
+  status: "on-track" | "caution" | "behind";
+  monthlyForecast: number[]; monthly2025: number[]; full2025: number;
+};
+type OutletForecastSummary = {
+  totalTarget: number; totalYtd: number; totalForecast: number;
+  forecastVsTarget: number; total2025: number;
+  totalMonthlyForecast: number[]; totalMonthly2025: number[];
+};
+type OutletForecastResponse = { forecasts: OutletForecast[]; summary: OutletForecastSummary };
 
 type TargetsResponse = {
   targets: OutletTarget[];
@@ -38,9 +58,10 @@ const PERSPECTIVES = [
 
 type PerspId = typeof PERSPECTIVES[number]["id"];
 
-const MONTHS_EN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const MONTHS_ZH = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
-const MONTHS_BM = ["Jan","Feb","Mac","Apr","Mei","Jun","Jul","Ogos","Sep","Okt","Nov","Dis"];
+const MONTHS_EN    = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTHS_ZH    = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
+const MONTHS_BM    = ["Jan","Feb","Mac","Apr","Mei","Jun","Jul","Ogos","Sep","Okt","Nov","Dis"];
+const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 const STATUS_META: Record<string, { color: string; bg: string }> = {
   "on-track": { color: "#4A7C59", bg: "#EDF5F0" },
@@ -96,6 +117,26 @@ const L: Record<LangKey, Record<string, string>> = {
     salesSignals:  "Sales Signals",
     topByCategory: "Top by Category 2",
     noSignals:     "No sales data yet",
+    tab_online:    "Online Sales",
+    onlineTitle:   "Online Sales Forecast 2026",
+    forecastFull:  "Forecast Full Year",
+    vs2025:        "2025 Actual",
+    growth:        "Growth vs 2025",
+    ytdGrowth:     "YTD Growth",
+    fullForecast:  "Full Year Forecast",
+    needAttention: "Need Attention",
+    updateActuals: "Update Actuals",
+    forecastBasis:    "Forecast based on YTD trend vs 2025 seasonality · dotted = forecast",
+    channel:          "Channel",
+    month:            "Month",
+    amount:           "Amount (RM)",
+    outletForecast:   "Outlet Sales Forecast 2026",
+    totalBusiness:    "Total Business 2026",
+    outletSales:      "Outlet Sales",
+    onlineSales:      "Online Sales",
+    combinedTarget:   "Combined Target",
+    outletActual2025: "2025 Outlet Actual",
+    forecastFullYear: "Forecast Full Year",
   },
   zh: {
     pageTitle:     "策略仪表板",
@@ -140,6 +181,26 @@ const L: Record<LangKey, Record<string, string>> = {
     salesSignals:  "销售信号",
     topByCategory: "Category 2 排行",
     noSignals:     "暂无销售数据",
+    tab_online:    "线上销售",
+    onlineTitle:   "2026 线上销售预测",
+    forecastFull:  "全年预测",
+    vs2025:        "2025 实际",
+    growth:        "vs 2025 成长",
+    ytdGrowth:     "YTD 增长",
+    fullForecast:  "全年预测",
+    needAttention: "需要关注",
+    updateActuals: "更新实际数据",
+    forecastBasis:    "预测基于 YTD 趋势对比 2025 季节性 · 虚线 = 预测",
+    channel:          "平台",
+    month:            "月份",
+    amount:           "金额 (RM)",
+    outletForecast:   "2026 门店销售预测",
+    totalBusiness:    "2026 全渠道业务",
+    outletSales:      "门店销售",
+    onlineSales:      "线上销售",
+    combinedTarget:   "综合目标",
+    outletActual2025: "2025 门店实际",
+    forecastFullYear: "全年预测",
   },
   ms: {
     pageTitle:     "Papan Pemuka Strategi",
@@ -184,6 +245,26 @@ const L: Record<LangKey, Record<string, string>> = {
     salesSignals:  "Isyarat Jualan",
     topByCategory: "Teratas by Kategori 2",
     noSignals:     "Tiada data jualan lagi",
+    tab_online:    "Jualan Online",
+    onlineTitle:   "Ramalan Jualan Online 2026",
+    forecastFull:  "Ramalan Setahun Penuh",
+    vs2025:        "Sebenar 2025",
+    growth:        "Pertumbuhan vs 2025",
+    ytdGrowth:     "Pertumbuhan YTD",
+    fullForecast:  "Ramalan Setahun",
+    needAttention: "Perlu Perhatian",
+    updateActuals: "Kemaskini Sebenar",
+    forecastBasis:    "Ramalan berdasarkan trend YTD berbanding 2025 · garis putus = ramalan",
+    channel:          "Platform",
+    month:            "Bulan",
+    amount:           "Jumlah (RM)",
+    outletForecast:   "Ramalan Jualan Cawangan 2026",
+    totalBusiness:    "Jumlah Perniagaan 2026",
+    outletSales:      "Jualan Cawangan",
+    onlineSales:      "Jualan Online",
+    combinedTarget:   "Sasaran Gabungan",
+    outletActual2025: "Sebenar Cawangan 2025",
+    forecastFullYear: "Ramalan Setahun Penuh",
   },
 };
 
@@ -242,43 +323,44 @@ function SkeletonOutlets() {
 
 // ─── Tab: Overview ────────────────────────────────────────────────────────────
 
-function TabOverview({ data, kpis, lk, signals, categories }: {
+function TabOverview({ data, kpis, lk, signals, categories, outletForecast, onlineData }: {
   data: TargetsResponse;
   kpis: BscKpi[];
   lk: Record<string,string>;
   signals: SalesSignals | null;
   categories: CategoryItem[];
+  outletForecast: OutletForecastResponse | null;
+  onlineData: OnlineResponse | null;
 }) {
   const { lang } = useLang();
   const monthLabels = lang === "zh" ? MONTHS_ZH : lang === "ms" ? MONTHS_BM : MONTHS_EN;
 
-  // Compute totals
-  const allOutlets = Array.from(new Set(data.targets.map(t => t.outlet)));
-  const annualTotal = data.targets.reduce((s, t) => s + t.targetRm, 0);
+  // Combined totals (outlet forecast + online forecast)
+  const outletS  = outletForecast?.summary;
+  const onlineS  = onlineData?.summary;
+  const combinedTarget   = (outletS?.totalTarget   ?? 0) + (onlineS?.totalTarget   ?? 0);
+  const combinedForecast = (outletS?.totalForecast  ?? 0) + (onlineS?.totalForecast  ?? 0);
+  const combinedYtd      = (outletS?.totalYtd       ?? 0) + (onlineS?.totalYtd       ?? 0);
+  const combined2025     = 7149483.75 + 5914458.69;
+  const combinedVsTarget = combinedTarget > 0 ? (combinedForecast / combinedTarget) * 100 : 0;
 
-  let ytdActual = 0;
-  for (const outlet of allOutlets) {
-    const outletActuals = data.actuals[outlet] ?? {};
-    for (let m = 1; m <= data.currentMonth; m++) {
-      ytdActual += outletActuals[String(m)] ?? 0;
-    }
-  }
+  // Combined monthly arrays for chart
+  const combinedMonthly2025 = Array(12).fill(0).map((_, i) =>
+    (outletS?.totalMonthly2025[i] ?? 0) + (onlineS?.totalMonthly2025[i] ?? 0)
+  );
+  const combinedMonthlyForecast = Array(12).fill(0).map((_, i) =>
+    (outletS?.totalMonthlyForecast[i] ?? 0) + (onlineS?.totalMonthlyForecast[i] ?? 0)
+  );
 
-  const ytdTarget = data.targets
-    .filter(t => t.month <= data.currentMonth)
-    .reduce((s, t) => s + t.targetRm, 0);
+  const combinedGrowth = combined2025 > 0
+    ? ((combinedForecast - combined2025) / combined2025) * 100 : 0;
 
-  const ytdPct = pct(ytdActual, ytdTarget);
-
-  // Monthly chart data — sum all outlets
-  const chartData = Array.from({ length: 12 }, (_, i) => {
-    const month = i + 1;
-    const target = data.targets.filter(t => t.month === month).reduce((s, t) => s + t.targetRm, 0);
-    const actual = month <= data.currentMonth
-      ? allOutlets.reduce((s, o) => s + (data.actuals[o]?.[String(month)] ?? 0), 0)
-      : 0;
-    return { name: monthLabels[i], target, actual, isFuture: month > data.currentMonth };
-  });
+  const chartData = MONTHS_SHORT.map((m, i) => ({
+    name:     monthLabels[i],
+    outlet:   Math.round(outletS?.totalMonthlyForecast[i] ?? 0),
+    online:   Math.round(onlineS?.totalMonthlyForecast[i] ?? 0),
+    prev2025: Math.round(combinedMonthly2025[i]),
+  }));
 
   // Perspective mini-cards
   const perspSummary = PERSPECTIVES.map(p => {
@@ -289,27 +371,94 @@ function TabOverview({ data, kpis, lk, signals, categories }: {
 
   return (
     <div className="space-y-4">
-      {/* Big number card */}
+      {/* TOTAL BUSINESS combined card */}
       <div className="rounded-2xl p-5" style={{ background: "#1A1A1A" }}>
-        <p className="text-[10px] font-black tracking-widest mb-2" style={{ color: "#888" }}>{lk.ytdProgress.toUpperCase()}</p>
+        <p className="text-[10px] font-black tracking-widest mb-1" style={{ color: "#888" }}>
+          {lk.totalBusiness?.toUpperCase()}
+        </p>
         <div className="flex items-end justify-between mb-3">
           <div>
-            <p className="text-2xl font-black text-white">{fmt(ytdActual)}</p>
-            <p className="text-xs mt-0.5" style={{ color: "#888" }}>{lk.ytdActual} / {fmt(ytdTarget)} {lk.target}</p>
+            <p className="text-2xl font-black text-white">{fmtRM(combinedForecast)}</p>
+            <p className="text-xs mt-0.5" style={{ color: "#888" }}>{lk.forecastFullYear}</p>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-black" style={{ color: achieveColor(ytdPct) }}>{ytdPct}%</p>
+            <p className="text-2xl font-black" style={{
+              color: combinedVsTarget >= 95 ? "#4A7C59" : combinedVsTarget >= 70 ? BRAND : "#E53E3E"
+            }}>
+              {combinedVsTarget.toFixed(1)}%
+            </p>
             <p className="text-[10px]" style={{ color: "#666" }}>{lk.ofTarget}</p>
           </div>
         </div>
-        {/* Progress bar */}
-        <div className="h-2 rounded-full" style={{ background: "#333" }}>
+        <div className="h-2 rounded-full mb-3" style={{ background: "#333" }}>
           <div className="h-2 rounded-full transition-all"
-            style={{ width: `${Math.min(ytdPct, 100)}%`, background: achieveColor(ytdPct) }} />
+            style={{
+              width: `${Math.min(combinedVsTarget, 100)}%`,
+              background: combinedVsTarget >= 95 ? "#4A7C59" : combinedVsTarget >= 70 ? BRAND : "#E53E3E",
+            }} />
         </div>
-        <div className="flex justify-between mt-2 text-[10px]" style={{ color: "#666" }}>
-          <span>{lk.annualFull}: {fmt(annualTotal)}</span>
-          <span>{lk.annualTarget}</span>
+        <div className="flex items-center justify-between text-[11px]" style={{ color: "#888" }}>
+          <span>{lk.combinedTarget}: {fmtRM(combinedTarget)}</span>
+          <span>2025: {fmtRM(combined2025)} · {combinedGrowth >= 0 ? "+" : ""}{combinedGrowth.toFixed(1)}%</span>
+        </div>
+      </div>
+
+      {/* Outlet + Online sub-cards */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <p className="text-[10px] font-black tracking-widest mb-2" style={{ color: "#888" }}>
+            🏪 {lk.outletSales?.toUpperCase()}
+          </p>
+          <p className="text-lg font-black" style={{ color: "#1A1A1A" }}>
+            {fmtRM(outletS?.totalForecast ?? 0)}
+          </p>
+          <p className="text-[11px] mt-0.5" style={{ color: "#888" }}>
+            {outletS ? ((outletS.totalForecast / outletS.totalTarget) * 100).toFixed(1) : "—"}% {lk.ofTarget}
+          </p>
+          <p className="text-[10px] mt-1" style={{ color: "#bbb" }}>
+            {lk.annualTarget}: {fmtRM(outletS?.totalTarget ?? 0)}
+          </p>
+        </div>
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <p className="text-[10px] font-black tracking-widest mb-2" style={{ color: "#888" }}>
+            🌐 {lk.onlineSales?.toUpperCase()}
+          </p>
+          <p className="text-lg font-black" style={{ color: "#1A1A1A" }}>
+            {fmtRM(onlineS?.totalForecast ?? 0)}
+          </p>
+          <p className="text-[11px] mt-0.5" style={{ color: "#888" }}>
+            {onlineS ? ((onlineS.totalForecast / onlineS.totalTarget) * 100).toFixed(1) : "—"}% {lk.ofTarget}
+          </p>
+          <p className="text-[10px] mt-1" style={{ color: "#bbb" }}>
+            {lk.annualTarget}: {fmtRM(onlineS?.totalTarget ?? 0)}
+          </p>
+        </div>
+      </div>
+
+      {/* Combined monthly chart */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm">
+        <p className="text-xs font-black mb-1" style={{ color: "#1A1A1A" }}>2025 vs 2026 Forecast</p>
+        <p className="text-[10px] mb-3" style={{ color: "#bbb" }}>{lk.outletSales} + {lk.onlineSales}</p>
+        <ResponsiveContainer width="100%" height={180}>
+          <BarChart data={chartData} barCategoryGap="25%" barGap={1}>
+            <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#999" }} axisLine={false} tickLine={false} />
+            <YAxis hide />
+            <Tooltip
+              formatter={(v: number, n: string) => [fmtRM(v), n === "outlet" ? lk.outletSales : n === "online" ? lk.onlineSales : "2025"]}
+              contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #eee" }}
+            />
+            <Bar dataKey="prev2025" fill="#E5E1DB" radius={[3,3,0,0]} />
+            <Bar dataKey="outlet"   fill="#3B6CB7" radius={[3,3,0,0]} stackId="a" />
+            <Bar dataKey="online"   fill={BRAND}   radius={[3,3,0,0]} stackId="a" />
+          </BarChart>
+        </ResponsiveContainer>
+        <div className="flex gap-4 mt-2 justify-center flex-wrap">
+          {[["#E5E1DB","2025"], ["#3B6CB7", lk.outletSales], [BRAND, lk.onlineSales]].map(([c, lb]) => (
+            <div key={lb} className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-sm" style={{ background: c }} />
+              <span className="text-[10px]" style={{ color: "#888" }}>{lb}</span>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -328,35 +477,6 @@ function TabOverview({ data, kpis, lk, signals, categories }: {
             {signals ? fmt(signals.atv) : "—"}
           </p>
           <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.5)" }}>{lk.salesSignals} · YTD</p>
-        </div>
-      </div>
-
-      {/* Monthly chart */}
-      <div className="bg-white rounded-2xl p-5 shadow-sm">
-        <p className="text-xs font-black mb-4" style={{ color: "#1A1A1A" }}>{lk.monthlyChart}</p>
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={chartData} barCategoryGap="30%" barGap={2}>
-            <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#999" }} axisLine={false} tickLine={false} />
-            <YAxis hide />
-            <Tooltip
-              formatter={(v: number, n: string) => [fmt(v), n === "target" ? lk.target : lk.actual]}
-              contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #eee" }}
-            />
-            <Bar dataKey="target" fill="#E5E1DB" radius={[3,3,0,0]} />
-            <Bar dataKey="actual" radius={[3,3,0,0]}>
-              {chartData.map((entry, i) => (
-                <Cell key={i} fill={entry.isFuture ? "transparent" : achieveColor(pct(entry.actual, entry.target))} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-        <div className="flex gap-4 mt-2 justify-center">
-          {[["#E5E1DB", lk.target], [BRAND, lk.actual]].map(([c, lb]) => (
-            <div key={lb} className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-sm" style={{ background: c }} />
-              <span className="text-[10px]" style={{ color: "#888" }}>{lb}</span>
-            </div>
-          ))}
         </div>
       </div>
 
@@ -425,48 +545,182 @@ function TabOverview({ data, kpis, lk, signals, categories }: {
 
 // ─── Tab: Outlets ─────────────────────────────────────────────────────────────
 
-function TabOutlets({ data, lk }: { data: TargetsResponse; lk: Record<string,string> }) {
+function TabOutlets({ data, lk, outletForecast }: {
+  data: TargetsResponse;
+  lk: Record<string,string>;
+  outletForecast: OutletForecastResponse | null;
+}) {
+  const { lang } = useLang();
+  const monthLabels = lang === "zh" ? MONTHS_ZH : lang === "ms" ? MONTHS_BM : MONTHS_EN;
+
   const allOutlets = Array.from(new Set(data.targets.map(t => t.outlet)));
 
   const rows = allOutlets.map(outlet => {
-    const annualTarget = data.targets.filter(t => t.outlet === outlet).reduce((s, t) => s + t.targetRm, 0);
-    const ytdTarget    = data.targets.filter(t => t.outlet === outlet && t.month <= data.currentMonth).reduce((s, t) => s + t.targetRm, 0);
+    const annualTarget  = data.targets.filter(t => t.outlet === outlet).reduce((s, t) => s + t.targetRm, 0);
+    const ytdTarget     = data.targets.filter(t => t.outlet === outlet && t.month <= data.currentMonth).reduce((s, t) => s + t.targetRm, 0);
     const outletActuals = data.actuals[outlet] ?? {};
-    const ytdActual = Object.entries(outletActuals)
+    const ytdActual     = Object.entries(outletActuals)
       .filter(([m]) => parseInt(m) <= data.currentMonth)
       .reduce((s, [, v]) => s + v, 0);
     const p = pct(ytdActual, ytdTarget);
     return { outlet, annualTarget, ytdTarget, ytdActual, pct: p };
   }).sort((a, b) => b.pct - a.pct);
 
+  const summary = outletForecast?.summary;
+  const forecasts = outletForecast?.forecasts ?? [];
+
+  const fvt = summary?.forecastVsTarget ?? 0;
+  const growth2025 = summary && summary.total2025 > 0
+    ? ((summary.totalForecast - summary.total2025) / summary.total2025) * 100 : 0;
+
+  const chartData = MONTHS_SHORT.map((m, i) => ({
+    name:       monthLabels[i],
+    forecast26: Math.round(summary?.totalMonthlyForecast[i] ?? 0),
+    actual25:   Math.round(summary?.totalMonthly2025[i] ?? 0),
+  }));
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* Existing YTD achievement ranking */}
       <p className="text-xs font-black px-1" style={{ color: "#888" }}>{lk.outletRank.toUpperCase()}</p>
-      {rows.map((row, i) => {
-        const color = achieveColor(row.pct);
-        const isTop3 = i < 3;
-        return (
-          <div key={row.outlet} className="bg-white rounded-2xl p-4 shadow-sm">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="min-w-[28px] h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0"
-                style={{ background: isTop3 ? BRAND_LIGHT : "#F8F7F4", color: isTop3 ? BRAND : "#999" }}>
-                {i + 1}
+      <div className="space-y-3">
+        {rows.map((row, i) => {
+          const color  = achieveColor(row.pct);
+          const isTop3 = i < 3;
+          return (
+            <div key={row.outlet} className="bg-white rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="min-w-[28px] h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0"
+                  style={{ background: isTop3 ? BRAND_LIGHT : "#F8F7F4", color: isTop3 ? BRAND : "#999" }}>
+                  {i + 1}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-black truncate" style={{ color: "#1A1A1A" }}>{row.outlet}</p>
+                  <p className="text-[11px]" style={{ color: "#999" }}>
+                    {fmt(row.ytdActual)} / {fmt(row.ytdTarget)} {lk.target}
+                  </p>
+                </div>
+                <p className="text-base font-black shrink-0" style={{ color }}>{row.pct}%</p>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-black truncate" style={{ color: "#1A1A1A" }}>{row.outlet}</p>
-                <p className="text-[11px]" style={{ color: "#999" }}>
-                  {fmt(row.ytdActual)} / {fmt(row.ytdTarget)} {lk.target}
-                </p>
+              <div className="h-2 rounded-full" style={{ background: "#F0EDE8" }}>
+                <div className="h-2 rounded-full transition-all"
+                  style={{ width: `${Math.min(row.pct, 100)}%`, background: color }} />
               </div>
-              <p className="text-base font-black shrink-0" style={{ color }}>{row.pct}%</p>
             </div>
-            <div className="h-2 rounded-full" style={{ background: "#F0EDE8" }}>
+          );
+        })}
+      </div>
+
+      {/* ── Forecast section ── */}
+      {summary && (
+        <>
+          {/* Forecast summary card */}
+          <div className="rounded-2xl p-5" style={{ background: "#1A1A1A" }}>
+            <p className="text-[10px] font-black tracking-widest mb-1" style={{ color: "#888" }}>
+              {lk.outletForecast?.toUpperCase()}
+            </p>
+            <div className="flex items-end justify-between mb-3">
+              <div>
+                <p className="text-2xl font-black text-white">{fmtRM(summary.totalForecast)}</p>
+                <p className="text-xs mt-0.5" style={{ color: "#888" }}>{lk.forecastFullYear}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-black" style={{
+                  color: fvt >= 95 ? "#4A7C59" : fvt >= 70 ? BRAND : "#E53E3E"
+                }}>
+                  {fvt.toFixed(1)}%
+                </p>
+                <p className="text-[10px]" style={{ color: "#666" }}>{lk.ofTarget}</p>
+              </div>
+            </div>
+            <div className="h-2 rounded-full mb-3" style={{ background: "#333" }}>
               <div className="h-2 rounded-full transition-all"
-                style={{ width: `${Math.min(row.pct, 100)}%`, background: color }} />
+                style={{
+                  width: `${Math.min(fvt, 100)}%`,
+                  background: fvt >= 95 ? "#4A7C59" : fvt >= 70 ? BRAND : "#E53E3E",
+                }} />
+            </div>
+            <div className="flex items-center justify-between text-[11px]" style={{ color: "#888" }}>
+              <span>{lk.annualTarget}: {fmtRM(summary.totalTarget)}</span>
+              <span>{lk.outletActual2025}: {fmtRM(summary.total2025)} · {growth2025 >= 0 ? "+" : ""}{growth2025.toFixed(1)}%</span>
             </div>
           </div>
-        );
-      })}
+
+          {/* 2025 vs 2026 trend chart */}
+          <div className="bg-white rounded-2xl p-5 shadow-sm">
+            <p className="text-xs font-black mb-1" style={{ color: "#1A1A1A" }}>2025 vs 2026 Forecast</p>
+            <p className="text-[10px] mb-3" style={{ color: "#bbb" }}>{lk.forecastBasis}</p>
+            <ResponsiveContainer width="100%" height={160}>
+              <LineChart data={chartData}>
+                <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#999" }} axisLine={false} tickLine={false} />
+                <YAxis hide />
+                <Tooltip
+                  formatter={(v: number, n: string) => [fmtRM(v), n === "forecast26" ? "2026" : "2025"]}
+                  contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #eee" }}
+                />
+                <Line type="monotone" dataKey="actual25"   stroke="#94A3B8" strokeWidth={2}   dot={false} />
+                <Line type="monotone" dataKey="forecast26" stroke={BRAND}    strokeWidth={2.5} dot={false} strokeDasharray="4 2" />
+              </LineChart>
+            </ResponsiveContainer>
+            <div className="flex gap-4 mt-1 justify-center">
+              {[["#94A3B8","2025"], [BRAND,"2026 Forecast"]].map(([c, lb]) => (
+                <div key={lb} className="flex items-center gap-1.5">
+                  <div className="w-8 h-0.5 rounded" style={{ background: c }} />
+                  <span className="text-[10px]" style={{ color: "#888" }}>{lb}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Per-outlet forecast cards */}
+          <p className="text-xs font-black px-1" style={{ color: "#888" }}>
+            {forecasts.length} OUTLETS — FORECAST VS TARGET
+          </p>
+          <div className="space-y-3">
+            {forecasts.map(f => {
+              const sc   = STATUS_COLOR_ONLINE[f.status];
+              const barW = f.target2026 > 0 ? Math.min((f.fullYearForecast / f.target2026) * 100, 130) : 0;
+              return (
+                <div key={f.outlet} className="bg-white rounded-2xl p-4 shadow-sm">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🏪</span>
+                      <p className="text-sm font-black" style={{ color: "#1A1A1A" }}>{f.outlet}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black" style={{ color: sc }}>
+                        {f.forecastVsTarget.toFixed(1)}%
+                      </span>
+                      <span className="w-2 h-2 rounded-full" style={{ background: sc }} />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 mb-2 flex-wrap">
+                    <span className="text-[11px]" style={{ color: "#888" }}>
+                      YTD: <b style={{ color: "#1A1A1A" }}>{fmtRM(f.ytdActual)}</b>
+                    </span>
+                    <span className="text-[11px]" style={{ color: "#888" }}>
+                      {lk.ytdGrowth}: <b style={{ color: f.ytdGrowth >= 0 ? "#4A7C59" : "#E53E3E" }}>
+                        {f.ytdGrowth >= 0 ? "+" : ""}{f.ytdGrowth.toFixed(1)}%
+                      </b>
+                    </span>
+                    <span className="text-[11px]" style={{ color: "#888" }}>
+                      {lk.forecastFullYear}: <b style={{ color: "#1A1A1A" }}>{fmtRM(f.fullYearForecast)}</b>
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full mb-1" style={{ background: "#F0EDE8" }}>
+                    <div className="h-2 rounded-full transition-all"
+                      style={{ width: `${barW}%`, background: sc }} />
+                  </div>
+                  <div className="flex justify-between text-[10px]" style={{ color: "#bbb" }}>
+                    <span>{lk.annualTarget}: {fmtRM(f.target2026)}</span>
+                    <span>Gap: {fmtRM(f.fullYearForecast - f.target2026)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -719,38 +973,269 @@ function TabBSC({ kpis, onUpdate, lk }: {
   );
 }
 
+// ─── Tab: Online Sales ────────────────────────────────────────────────────────
+
+const PLATFORM_ICON: Record<string, string> = {
+  shopee: "🛍️", lazada: "🟠", tiktok: "🎵", shopify: "🏪", zalora: "👗",
+};
+
+const STATUS_COLOR_ONLINE: Record<string, string> = {
+  "on-track": "#4A7C59", caution: "#C17F24", behind: "#E53E3E",
+};
+
+function fmtRM(n: number): string {
+  if (n >= 1_000_000) return "RM " + (n / 1_000_000).toFixed(2) + "M";
+  if (n >= 1_000)     return "RM " + (n / 1_000).toFixed(0) + "K";
+  return "RM " + n.toFixed(0);
+}
+
+function TabOnline({ data, lk }: { data: OnlineResponse; lk: Record<string, string> }) {
+  const { user } = useAuth();
+  const { summary, forecasts } = data;
+  const canEdit = ["admin", "manager", "supervisor"].includes(user?.role ?? "");
+  const [modal, setModal] = useState(false);
+  const [mChannel, setMChannel] = useState(forecasts[0]?.channelKey ?? "");
+  const [mMonth, setMMonth] = useState(5);
+  const [mAmount, setMAmount] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const fvt = summary.forecastVsTarget;
+  const growth = summary.actual2025 > 0
+    ? ((summary.totalForecast - summary.actual2025) / summary.actual2025 * 100)
+    : 0;
+
+  async function handleSave() {
+    setSaving(true);
+    await fetch("/api/bsc/ecomm", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channelKey: mChannel, year: 2026, month: mMonth, amount: parseFloat(mAmount) || 0 }),
+    });
+    setSaving(false);
+    setModal(false);
+    window.location.reload();
+  }
+
+  const chartData = MONTHS_SHORT.map((m, i) => ({
+    name: m,
+    forecast2026: summary.totalMonthlyForecast[i] || 0,
+    actual2025:   summary.totalMonthly2025[i]     || 0,
+  }));
+
+  const behind = forecasts.filter(f => f.status === "behind");
+
+  return (
+    <div className="space-y-4">
+      {/* Summary card */}
+      <div className="rounded-2xl p-5" style={{ background: "#1A1A1A" }}>
+        <p className="text-[10px] font-black tracking-widest mb-1" style={{ color: "#888" }}>
+          {lk.onlineTitle?.toUpperCase()}
+        </p>
+        <div className="flex items-end justify-between mb-3">
+          <div>
+            <p className="text-2xl font-black text-white">{fmtRM(summary.totalForecast)}</p>
+            <p className="text-xs mt-0.5" style={{ color: "#888" }}>{lk.forecastFull}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-black" style={{ color: fvt >= 95 ? "#4A7C59" : fvt >= 70 ? BRAND : "#E53E3E" }}>
+              {fvt.toFixed(1)}%
+            </p>
+            <p className="text-[10px]" style={{ color: "#666" }}>{lk.ofTarget}</p>
+          </div>
+        </div>
+        <div className="h-2 rounded-full mb-3" style={{ background: "#333" }}>
+          <div className="h-2 rounded-full transition-all"
+            style={{ width: `${Math.min(fvt, 100)}%`, background: fvt >= 95 ? "#4A7C59" : fvt >= 70 ? BRAND : "#E53E3E" }} />
+        </div>
+        <div className="flex items-center justify-between text-[11px]" style={{ color: "#888" }}>
+          <span>{lk.annualTarget}: {fmtRM(summary.totalTarget)}</span>
+          <span>{lk.vs2025}: {fmtRM(summary.actual2025)} · {growth >= 0 ? "+" : ""}{growth.toFixed(1)}%</span>
+        </div>
+      </div>
+
+      {/* Trend chart — 2025 vs 2026 forecast */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm">
+        <p className="text-xs font-black mb-1" style={{ color: "#1A1A1A" }}>2025 vs 2026 Forecast</p>
+        <p className="text-[10px] mb-3" style={{ color: "#bbb" }}>{lk.forecastBasis}</p>
+        <ResponsiveContainer width="100%" height={160}>
+          <LineChart data={chartData}>
+            <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#999" }} axisLine={false} tickLine={false} />
+            <YAxis hide />
+            <Tooltip
+              formatter={(v: number, n: string) => [fmtRM(v), n === "forecast2026" ? "2026" : "2025"]}
+              contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #eee" }}
+            />
+            <Line type="monotone" dataKey="actual2025"   stroke="#94A3B8" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="forecast2026" stroke={BRAND}    strokeWidth={2.5} dot={false} strokeDasharray="4 2" />
+            <ReferenceLine y={summary.totalTarget / 12} stroke="#E5E1DB" strokeDasharray="3 3" />
+          </LineChart>
+        </ResponsiveContainer>
+        <div className="flex gap-4 mt-1 justify-center">
+          {[["#94A3B8","2025"], [BRAND,"2026 Forecast"]].map(([c, lb]) => (
+            <div key={lb} className="flex items-center gap-1.5">
+              <div className="w-8 h-0.5 rounded" style={{ background: c }} />
+              <span className="text-[10px]" style={{ color: "#888" }}>{lb}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Need attention */}
+      {behind.length > 0 && (
+        <div className="bg-red-50 border border-red-100 rounded-2xl p-4">
+          <p className="text-xs font-black mb-2" style={{ color: "#E53E3E" }}>🔴 {lk.needAttention}</p>
+          <div className="space-y-1.5">
+            {behind.map(f => (
+              <div key={f.channelKey} className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-gray-800">
+                  {PLATFORM_ICON[f.platform]} {f.channelName}
+                </span>
+                <span className="text-xs" style={{ color: "#E53E3E" }}>
+                  {fmtRM(f.fullYearForecast)} / {fmtRM(f.target2026)} ({f.forecastVsTarget.toFixed(0)}%)
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Platform breakdown */}
+      <div className="space-y-3">
+        {[...forecasts].sort((a, b) => b.fullYearForecast - a.fullYearForecast).map(f => {
+          const barW = f.target2026 > 0 ? Math.min((f.fullYearForecast / f.target2026) * 100, 130) : 0;
+          const sc   = STATUS_COLOR_ONLINE[f.status];
+          return (
+            <div key={f.channelKey} className="bg-white rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">{PLATFORM_ICON[f.platform]}</span>
+                  <p className="text-sm font-black" style={{ color: "#1A1A1A" }}>{f.channelName}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black" style={{ color: sc }}>
+                    {f.forecastVsTarget.toFixed(1)}%
+                  </span>
+                  <span className="w-2 h-2 rounded-full" style={{ background: sc }} />
+                </div>
+              </div>
+              <div className="flex items-center gap-3 mb-2 flex-wrap">
+                <span className="text-[11px]" style={{ color: "#888" }}>
+                  YTD: <b style={{ color: "#1A1A1A" }}>{fmtRM(f.ytdActual)}</b>
+                </span>
+                <span className="text-[11px]" style={{ color: "#888" }}>
+                  {lk.ytdGrowth}: <b style={{ color: f.ytdGrowth >= 0 ? "#4A7C59" : "#E53E3E" }}>
+                    {f.ytdGrowth >= 0 ? "+" : ""}{f.ytdGrowth.toFixed(1)}%
+                  </b>
+                </span>
+                <span className="text-[11px]" style={{ color: "#888" }}>
+                  {lk.fullForecast}: <b style={{ color: "#1A1A1A" }}>{fmtRM(f.fullYearForecast)}</b>
+                </span>
+              </div>
+              <div className="h-2 rounded-full mb-1" style={{ background: "#F0EDE8" }}>
+                <div className="h-2 rounded-full transition-all"
+                  style={{ width: `${barW}%`, background: sc }} />
+              </div>
+              <div className="flex justify-between text-[10px]" style={{ color: "#bbb" }}>
+                <span>{lk.annualTarget}: {fmtRM(f.target2026)}</span>
+                <span>Gap: {fmtRM(f.fullYearForecast - f.target2026)}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Admin: Update Actuals button */}
+      {canEdit && (
+        <button onClick={() => setModal(true)}
+          className="w-full py-3 rounded-2xl text-sm font-bold border-2 transition-colors"
+          style={{ borderColor: BRAND, color: BRAND, background: BRAND_LIGHT }}>
+          ✏️ {lk.updateActuals}
+        </button>
+      )}
+
+      {/* Update Actuals Modal */}
+      {modal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <p className="font-black text-gray-800 text-base mb-4">{lk.updateActuals}</p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-bold text-gray-500 mb-1">{lk.channel}</label>
+                <select className="select text-sm w-full" value={mChannel} onChange={e => setMChannel(e.target.value)}>
+                  {forecasts.map(f => <option key={f.channelKey} value={f.channelKey}>{f.channelName}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-gray-500 mb-1">{lk.month}</label>
+                <select className="select text-sm w-full" value={mMonth} onChange={e => setMMonth(Number(e.target.value))}>
+                  {MONTHS_SHORT.map((m, i) => <option key={i} value={i + 1}>{m} 2026</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-gray-500 mb-1">{lk.amount}</label>
+                <input type="number" className="input text-sm w-full" value={mAmount}
+                  onChange={e => setMAmount(e.target.value)} placeholder="0.00" />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button onClick={handleSave} disabled={saving}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-colors"
+                style={{ background: BRAND }}>
+                {saving ? "…" : lk.save}
+              </button>
+              <button onClick={() => setModal(false)}
+                className="px-4 py-2.5 rounded-xl text-sm font-bold border"
+                style={{ borderColor: "#E5E1DB", color: "#888" }}>
+                {lk.cancel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-const TABS = ["overview", "outlets", "ecomm", "bsc"] as const;
+const TABS = ["overview", "outlets", "bsc", "online"] as const;
 type TabId = typeof TABS[number];
 
 export default function StrategyDashboard() {
   const { lang } = useLang();
   const lk = L[lang as LangKey] ?? L.en;
 
-  const [tab, setTab]         = useState<TabId>("overview");
-  const [data, setData]       = useState<TargetsResponse | null>(null);
-  const [ecomm, setEcomm]     = useState<EcommResponse | null>(null);
-  const [kpis, setKpis]       = useState<BscKpi[]>([]);
-  const [signals, setSignals] = useState<SalesSignals | null>(null);
+  const [tab, setTab]             = useState<TabId>("overview");
+  const [data, setData]           = useState<TargetsResponse | null>(null);
+  const [onlineData, setOnlineData]         = useState<OnlineResponse | null>(null);
+  const [outletForecast, setOutletForecast] = useState<OutletForecastResponse | null>(null);
+  const [kpis, setKpis]           = useState<BscKpi[]>([]);
+  const [signals, setSignals]     = useState<SalesSignals | null>(null);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]     = useState(true);
 
   async function load() {
     setLoading(true);
-    const [tRes, kRes, eRes, sRes, cRes] = await Promise.all([
-      fetch("/api/bsc/targets?year=2026").then(r => r.json()),
-      fetch("/api/bsc/kpis").then(r => r.json()),
-      fetch("/api/bsc/ecomm-targets?year=2026").then(r => r.json()),
-      fetch("/api/sales-report/metrics").then(r => r.json()),
-      fetch("/api/sales-report/category-breakdown").then(r => r.json()),
-    ]);
-    setData(tRes);
-    setKpis(kRes.kpis ?? []);
-    setEcomm(eRes);
-    setSignals(sRes.reportCount > 0 ? sRes : null);
-    setCategories(cRes.categories ?? []);
-    setLoading(false);
+    try {
+      const [tRes, kRes, oRes, sRes, cRes, ofRes] = await Promise.all([
+        fetch("/api/bsc/targets?year=2026").then(r => r.json()),
+        fetch("/api/bsc/kpis").then(r => r.json()),
+        fetch("/api/bsc/ecomm").then(r => r.json()),
+        fetch("/api/sales-report/metrics").then(r => r.json()),
+        fetch("/api/sales-report/category-breakdown").then(r => r.json()),
+        fetch("/api/bsc/outlet-forecast").then(r => r.json()),
+      ]);
+      setData(tRes);
+      setKpis(kRes.kpis ?? []);
+      setOnlineData(oRes.forecasts ? oRes : null);
+      setOutletForecast(ofRes.forecasts ? ofRes : null);
+      setSignals(sRes.reportCount > 0 ? sRes : null);
+      setCategories(cRes.categories ?? []);
+    } catch (err) {
+      console.error("[load] failed:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { load(); }, []);
@@ -769,15 +1254,15 @@ export default function StrategyDashboard() {
   const tabLabels: Record<TabId, string> = {
     overview: lk.tab_overview,
     outlets:  lk.tab_outlets,
-    ecomm:    lk.tab_ecomm,
     bsc:      lk.tab_bsc,
+    online:   lk.tab_online,
   };
 
   const tabEmojis: Record<TabId, string> = {
     overview: "📊",
     outlets:  "🏪",
-    ecomm:    "🛒",
     bsc:      "🎯",
+    online:   "🌐",
   };
 
   return (
@@ -823,10 +1308,16 @@ export default function StrategyDashboard() {
           tab === "outlets" ? <SkeletonOutlets /> : <SkeletonOverview />
         ) : (
           <>
-            {tab === "overview" && <TabOverview data={data} kpis={kpis} lk={lk} signals={signals} categories={categories} />}
-            {tab === "outlets"  && <TabOutlets  data={data} lk={lk} />}
-            {tab === "ecomm"    && <TabEcomm ecomm={ecomm ?? { targets: [], year: 2026 }} currentMonth={data.currentMonth} lk={lk} />}
+            {tab === "overview" && <TabOverview data={data} kpis={kpis} lk={lk} signals={signals} categories={categories} outletForecast={outletForecast} onlineData={onlineData} />}
+            {tab === "outlets"  && <TabOutlets  data={data} lk={lk} outletForecast={outletForecast} />}
             {tab === "bsc"      && <TabBSC kpis={kpis} onUpdate={handleKpiUpdate} lk={lk} />}
+            {tab === "online"   && onlineData && <TabOnline data={onlineData} lk={lk} />}
+            {tab === "online"   && !onlineData && (
+              <div className="bg-white rounded-2xl p-8 shadow-sm text-center">
+                <p className="text-sm" style={{ color: "#aaa" }}>No online sales data yet.</p>
+                <p className="text-xs mt-1" style={{ color: "#ccc" }}>Run the ecomm seed script to load channel data.</p>
+              </div>
+            )}
           </>
         )}
       </div>

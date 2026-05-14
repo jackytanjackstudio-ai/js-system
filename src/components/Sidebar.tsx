@@ -33,6 +33,7 @@ const NAV: NavItem[] = [
   // STRATEGY
   { href: "/strategy",          icon: Sliders,         labelKey: "nav_strategy",          group: "strategy",   moduleKey: "strategy-hub"     },
   { href: "/strategy-dashboard",icon: PieChart,        labelKey: "nav_strategy_dashboard",group: "strategy",   moduleKey: "strategy-dashboard"},
+  { href: "/admin/strategy",    icon: Sliders,         labelKey: "nav_strategy_admin",    group: "strategy",   moduleKey: "admin-strategy"   },
   // SIGNALS
   { href: "/customer-input",    icon: MessageSquare,   labelKey: "nav_customer_input",    group: "signals",    moduleKey: "customer-input"   },
   { href: "/sales-report",      icon: BarChart2,       labelKey: "nav_sales_report",      group: "signals",    moduleKey: "sales-report"     },

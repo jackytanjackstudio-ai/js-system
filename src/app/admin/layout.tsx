@@ -1,15 +1,14 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, Store, Users, LayoutGrid, ShieldCheck, Menu, X, Target } from "lucide-react";
+import { ArrowLeft, Store, Users, LayoutGrid, ShieldCheck, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 
 const adminNav = [
-  { href: "/admin",           icon: LayoutGrid, label: "Overview"      },
-  { href: "/admin/outlets",   icon: Store,       label: "Outlets"       },
-  { href: "/admin/staff",     icon: Users,       label: "Staff & Users" },
-  { href: "/admin/strategy",  icon: Target,      label: "Strategy"      },
+  { href: "/admin",         icon: LayoutGrid, label: "Overview"      },
+  { href: "/admin/outlets", icon: Store,      label: "Outlets"       },
+  { href: "/admin/staff",   icon: Users,      label: "Staff & Users" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

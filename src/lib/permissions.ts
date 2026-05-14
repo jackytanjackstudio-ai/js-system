@@ -37,6 +37,10 @@ export const PERMISSIONS: Record<string, Record<UserRole, PermissionLevel>> = {
     admin: "full", supervisor: "read", staff: "none",
     marketing: "read", content: "none", cs: "none", product: "none",
   },
+  "admin-strategy": {
+    admin: "full", supervisor: "none", staff: "none",
+    marketing: "none", content: "none", cs: "none", product: "none",
+  },
 
   // SIGNALS
   "customer-input": {

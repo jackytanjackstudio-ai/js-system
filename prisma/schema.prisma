@@ -609,6 +609,17 @@ model OutletTarget {
   @@unique([outlet, year, month])
 }
 
+model OutletMonthlyActual {
+  id        String   @id @default(cuid())
+  outlet    String
+  year      Int
+  month     Int
+  amount    Float    @default(0)
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([outlet, year, month])
+}
+
 model AddonPromotion {
   id            String   @id @default(cuid())
   sku           String   @unique
@@ -628,6 +639,31 @@ model EcommTarget {
   targetRm Float
 
   @@unique([platform, year, month])
+}
+
+model EcommChannel {
+  id          String        @id @default(cuid())
+  channelKey  String        @unique
+  channelName String
+  brand       String        @default("JS")
+  platform    String
+  target2026  Float
+  active      Boolean       @default(true)
+  sortOrder   Int           @default(0)
+  actuals     EcommActual[]
+}
+
+model EcommActual {
+  id         String       @id @default(cuid())
+  channelKey String
+  year       Int
+  month      Int
+  amount     Float        @default(0)
+  updatedAt  DateTime     @default(now())
+  updatedBy  String?
+  channel    EcommChannel @relation(fields: [channelKey], references: [channelKey])
+
+  @@unique([channelKey, year, month])
 }
 
 model BscKpi {

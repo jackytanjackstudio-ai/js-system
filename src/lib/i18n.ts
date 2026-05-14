@@ -271,6 +271,7 @@ export const translations = {
     // Creator Hub
     nav_creator_hub:           "Creator Hub",
     nav_strategy_dashboard:    "Strategy Dashboard",
+    nav_strategy_admin:        "Strategy Admin",
 
     // Campaign
     nav_campaign:         "Campaign",
@@ -578,6 +579,7 @@ export const translations = {
 
     nav_creator_hub:           "创作中心",
     nav_strategy_dashboard:    "策略仪表板",
+    nav_strategy_admin:        "策略管理",
 
     nav_campaign:         "活动日历",
 
@@ -874,6 +876,7 @@ export const translations = {
 
     nav_creator_hub:           "Hab Kreator",
     nav_strategy_dashboard:    "Papan Pemuka Strategi",
+    nav_strategy_admin:        "Pentadbir Strategi",
 
     nav_campaign:         "Kalendar Kempen",
 
