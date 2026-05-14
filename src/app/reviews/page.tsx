@@ -2,10 +2,11 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Star, Plus, Filter, Copy, Zap, CheckCircle2, Loader2, X,
-  MessageSquare, Trash2, Check,
+  MessageSquare, Trash2, Check, RefreshCw, AlertTriangle, MapPin,
 } from "lucide-react";
 import { apiFetch } from "@/hooks/useData";
 import { useAuth } from "@/context/AuthContext";
+import { OUTLET_PLACE_CONFIGS } from "@/lib/google-places-config";
 
 type Review = {
   id: string;
@@ -415,8 +416,298 @@ function GeneratedModal({
   );
 }
 
+// ── Google Reviews types ──────────────────────────────────────────────────────
+
+type GoogleReview = {
+  author_name: string;
+  rating: number;
+  text: string;
+  relative_time_description: string;
+  time: number;
+  profile_photo_url: string;
+};
+
+type OutletGoogleData = {
+  outletKey: string;
+  outletName: string;
+  placeId: string;
+  rating: number;
+  totalRatings: number;
+  reviews: GoogleReview[];
+  cachedAt: string | null;
+  unconfigured?: boolean;
+  error?: string;
+};
+
+// ── Google Ratings Tab ────────────────────────────────────────────────────────
+
+function StarDisplay({ rating, size = 14 }: { rating: number; size?: number }) {
+  return (
+    <span className="flex gap-0.5">
+      {[1,2,3,4,5].map(i => (
+        <Star key={i} size={size}
+          className={i <= Math.round(rating) ? "text-amber-400 fill-amber-400" : "text-gray-200 fill-gray-200"} />
+      ))}
+    </span>
+  );
+}
+
+function RatingBadge({ rating }: { rating: number }) {
+  const color = rating >= 4 ? "bg-green-100 text-green-700"
+    : rating >= 3 ? "bg-amber-100 text-amber-700"
+    : "bg-red-100 text-red-700";
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${color}`}>
+      <Star size={11} className="fill-current" /> {rating.toFixed(1)}
+    </span>
+  );
+}
+
+function GoogleRatingsTab({ canAdmin }: { canAdmin: boolean }) {
+  const [data, setData]       = useState<OutletGoogleData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [editingPlaceId, setEditingPlaceId] = useState<string | null>(null);
+  const [placeIdInput, setPlaceIdInput] = useState("");
+  const [savingPlaceId, setSavingPlaceId] = useState(false);
+
+  async function load(refresh = false) {
+    if (refresh) setRefreshing(true); else setLoading(true);
+    try {
+      const url = refresh ? "/api/google-reviews?refresh=1" : "/api/google-reviews";
+      const res = await apiFetch(url);
+      setData(res?.outlets ?? []);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function savePlaceId(outletKey: string) {
+    if (!placeIdInput.trim()) return;
+    setSavingPlaceId(true);
+    try {
+      await apiFetch("/api/google-reviews", {
+        method: "PATCH",
+        body: JSON.stringify({ outletKey, placeId: placeIdInput.trim() }),
+      });
+      setEditingPlaceId(null);
+      setPlaceIdInput("");
+      load(true);
+    } finally {
+      setSavingPlaceId(false);
+    }
+  }
+
+  const configured    = data.filter(o => !o.unconfigured && o.placeId);
+  const unconfigured  = data.filter(o => o.unconfigured || !o.placeId);
+  const alertReviews  = configured.flatMap(o =>
+    o.reviews.filter(r => r.rating <= 3).map(r => ({ ...r, outletName: o.outletName, outletKey: o.outletKey }))
+  ).sort((a, b) => b.time - a.time);
+
+  const avgRating = configured.length > 0
+    ? (configured.reduce((s, o) => s + o.rating, 0) / configured.filter(o => o.rating > 0).length)
+    : 0;
+
+  if (loading) return (
+    <div className="flex justify-center py-16">
+      <Loader2 size={24} className="animate-spin text-gray-300" />
+    </div>
+  );
+
+  return (
+    <div className="space-y-5">
+
+      {/* Header stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="card text-center">
+          <div className="text-2xl font-bold text-amber-500">{avgRating > 0 ? avgRating.toFixed(1) : "—"} ★</div>
+          <div className="text-xs text-gray-400 mt-0.5">Avg Google Rating</div>
+        </div>
+        <div className="card text-center">
+          <div className="text-2xl font-bold text-gray-900">
+            {configured.reduce((s, o) => s + o.totalRatings, 0).toLocaleString()}
+          </div>
+          <div className="text-xs text-gray-400 mt-0.5">Total Reviews</div>
+        </div>
+        <div className="card text-center">
+          <div className="text-2xl font-bold text-red-500">{alertReviews.length}</div>
+          <div className="text-xs text-gray-400 mt-0.5">Low Ratings (1–3★)</div>
+        </div>
+        <div className="card text-center">
+          <div className="text-2xl font-bold text-gray-400">{unconfigured.length}</div>
+          <div className="text-xs text-gray-400 mt-0.5">Not Configured</div>
+        </div>
+      </div>
+
+      {/* Refresh button */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-400">
+          Data cached for 1 hour · Places API (temporary until GBP approval)
+        </p>
+        <button onClick={() => load(true)} disabled={refreshing}
+          className="btn-secondary text-xs flex items-center gap-1.5 px-3 py-1.5">
+          <RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />
+          {refreshing ? "Refreshing…" : "Refresh All"}
+        </button>
+      </div>
+
+      {/* CS Alert — 1-3★ reviews */}
+      {alertReviews.length > 0 && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={16} className="text-red-500 shrink-0" />
+            <p className="text-sm font-bold text-red-700">
+              {alertReviews.length} Low-Rating Review{alertReviews.length > 1 ? "s" : ""} — CS Attention Required
+            </p>
+          </div>
+          <div className="space-y-3">
+            {alertReviews.map((r, i) => (
+              <div key={i} className="bg-white rounded-lg p-3 border border-red-100">
+                <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="badge bg-red-100 text-red-600 text-xs">{r.outletName}</span>
+                    <RatingBadge rating={r.rating} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-gray-400">{r.relative_time_description}</span>
+                    <span className="text-[11px] text-gray-500 font-medium">{r.author_name}</span>
+                    <button onClick={() => navigator.clipboard.writeText(r.text)}
+                      className="btn-secondary text-[10px] px-2 py-1 flex items-center gap-1">
+                      <Copy size={10} /> Copy
+                    </button>
+                  </div>
+                </div>
+                {r.text && (
+                  <p className="text-xs text-gray-700 leading-relaxed mt-1 line-clamp-3">"{r.text}"</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Outlet cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {configured.map(outlet => {
+          const isExpanded = expanded === outlet.outletKey;
+          const hasAlert   = outlet.reviews.some(r => r.rating <= 3);
+          return (
+            <div key={outlet.outletKey}
+              className={`card space-y-3 ${hasAlert ? "ring-1 ring-red-200" : ""}`}>
+              {/* Outlet header */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-gray-900 truncate">{outlet.outletName}</p>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <StarDisplay rating={outlet.rating} />
+                    <RatingBadge rating={outlet.rating} />
+                  </div>
+                </div>
+                {hasAlert && (
+                  <span className="shrink-0 w-2 h-2 rounded-full bg-red-500 mt-1.5" title="Has low ratings" />
+                )}
+              </div>
+
+              {/* Stats */}
+              <div className="flex items-center gap-3 text-xs text-gray-500">
+                <span><b className="text-gray-800">{outlet.totalRatings.toLocaleString()}</b> reviews</span>
+                {outlet.cachedAt && (
+                  <span className="text-gray-300">
+                    Updated {new Date(outlet.cachedAt).toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                )}
+              </div>
+
+              {/* Latest reviews toggle */}
+              {outlet.reviews.length > 0 && (
+                <button onClick={() => setExpanded(isExpanded ? null : outlet.outletKey)}
+                  className="text-xs text-brand-600 hover:text-brand-700 font-semibold transition-colors">
+                  {isExpanded ? "▲ Hide reviews" : `▼ Show ${outlet.reviews.length} latest reviews`}
+                </button>
+              )}
+
+              {isExpanded && (
+                <div className="space-y-2 pt-1 border-t border-gray-50">
+                  {outlet.reviews.map((r, i) => (
+                    <div key={i} className={`rounded-lg p-2.5 text-xs space-y-1 ${r.rating <= 3 ? "bg-red-50" : "bg-gray-50"}`}>
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="font-semibold text-gray-800 truncate max-w-[120px]">{r.author_name}</span>
+                        <div className="flex items-center gap-1.5">
+                          <StarDisplay rating={r.rating} size={11} />
+                          <span className="text-gray-400">{r.relative_time_description}</span>
+                        </div>
+                      </div>
+                      {r.text && (
+                        <p className="text-gray-600 leading-relaxed line-clamp-3">"{r.text}"</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Unconfigured outlets */}
+      {unconfigured.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            Not yet configured ({unconfigured.length})
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {unconfigured.map(outlet => (
+              <div key={outlet.outletKey} className="card border-dashed space-y-2">
+                <div className="flex items-center gap-2">
+                  <MapPin size={14} className="text-gray-300 shrink-0" />
+                  <p className="text-sm font-semibold text-gray-500">{outlet.outletName}</p>
+                </div>
+                {canAdmin && (
+                  editingPlaceId === outlet.outletKey ? (
+                    <div className="space-y-2">
+                      <input
+                        value={placeIdInput}
+                        onChange={e => setPlaceIdInput(e.target.value)}
+                        placeholder="ChIJ… Place ID from Google Maps"
+                        className="input w-full text-xs px-2.5 py-1.5"
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <button onClick={() => savePlaceId(outlet.outletKey)} disabled={savingPlaceId || !placeIdInput.trim()}
+                          className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1 disabled:opacity-50">
+                          {savingPlaceId ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+                          Save
+                        </button>
+                        <button onClick={() => { setEditingPlaceId(null); setPlaceIdInput(""); }}
+                          className="btn-secondary text-xs px-3 py-1.5">Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button onClick={() => { setEditingPlaceId(outlet.outletKey); setPlaceIdInput(""); }}
+                      className="text-xs text-brand-600 hover:text-brand-700 font-semibold">
+                      + Add Place ID
+                    </button>
+                  )
+                )}
+                {!canAdmin && (
+                  <p className="text-[11px] text-gray-400">Ask admin to configure Place ID</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ReviewsPage() {
   const { user } = useAuth();
+  const [pageTab, setPageTab] = useState<"google" | "manual">("google");
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [outlets, setOutlets] = useState<Outlet[]>([]);
@@ -431,7 +722,8 @@ export default function ReviewsPage() {
   } | null>(null);
 
   const canGenerate = ["admin", "manager", "product"].includes(user?.role ?? "");
-  const canDelete = ["admin", "manager"].includes(user?.role ?? "");
+  const canDelete   = ["admin", "manager"].includes(user?.role ?? "");
+  const canAdmin    = ["admin", "manager"].includes(user?.role ?? "");
 
   const loadReviews = useCallback(async () => {
     setLoading(true);
@@ -513,19 +805,38 @@ export default function ReviewsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Review Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Customer reviews → content generation
-          </p>
+          <p className="text-sm text-gray-500 mt-0.5">Google ratings · Content generation</p>
         </div>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="btn-primary flex items-center gap-2 text-sm px-4 py-2"
-        >
-          <Plus size={15} />
-          Add Review
-        </button>
+        {pageTab === "manual" && (
+          <button onClick={() => setShowAdd(true)}
+            className="btn-primary flex items-center gap-2 text-sm px-4 py-2">
+            <Plus size={15} /> Add Review
+          </button>
+        )}
       </div>
 
+      {/* Page tabs */}
+      <div className="flex gap-1 border-b border-gray-100">
+        {([
+          { id: "google", label: "🌐 Google Ratings" },
+          { id: "manual", label: "📋 Reviews Library" },
+        ] as const).map(t => (
+          <button key={t.id} onClick={() => setPageTab(t.id)}
+            className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors -mb-px ${
+              pageTab === t.id
+                ? "border-brand-500 text-brand-600"
+                : "border-transparent text-gray-400 hover:text-gray-600"
+            }`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Google Ratings Tab */}
+      {pageTab === "google" && <GoogleRatingsTab canAdmin={canAdmin} />}
+
+      {/* Manual Reviews Tab — stats + filters */}
+      {pageTab === "manual" && <>
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="card text-center">
@@ -621,6 +932,8 @@ export default function ReviewsPage() {
           ))}
         </div>
       )}
+
+      </>}
 
       {/* Add Modal */}
       {showAdd && (

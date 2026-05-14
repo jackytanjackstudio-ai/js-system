@@ -693,3 +693,15 @@ model Review {
   @@index([store])
   @@index([productTag])
 }
+
+model GooglePlacesCache {
+  id           String   @id @default(cuid())
+  outletKey    String   @unique
+  placeId      String
+  outletName   String
+  rating       Float    @default(0)
+  totalRatings Int      @default(0)
+  reviews      String   @default("[]") // JSON: GoogleReview[]
+  cachedAt     DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
