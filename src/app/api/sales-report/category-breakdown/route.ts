@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession, apiError, apiOk } from "@/lib/auth";
+import { normalizeRole } from "@/lib/permissions";
 
 type LineItem = { d: string; s?: string; n?: string; q: number; a: number; p: number; c2?: string };
 
@@ -15,7 +16,13 @@ export async function GET(req: NextRequest) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {};
-  if (outletId) where.outletId = outletId;
+  const sessionRole = normalizeRole(session.role);
+  const isOutletUser = ["supervisor", "staff"].includes(sessionRole);
+  if (isOutletUser && session.outletId) {
+    where.outletId = session.outletId;
+  } else if (outletId) {
+    where.outletId = outletId;
+  }
   if (from || to) {
     where.salesDate = {
       ...(from ? { gte: from } : {}),

@@ -109,6 +109,9 @@ type AnalyticsProps = {
 function AnalyticsSection({ outlets, syncOutletId, syncDate }: AnalyticsProps) {
   const { lang } = useLang();
   const lk = L[lang as LangKey] ?? L.en;
+  const { isOutletUser, user } = useAuth();
+
+  const lockedOutletId = isOutletUser ? (user?.outletId ?? "") : "";
 
   const [outletId, setOutletId] = useState(syncOutletId ?? "");
   const [from, setFrom]         = useState(syncDate ?? "");
@@ -117,10 +120,11 @@ function AnalyticsSection({ outlets, syncOutletId, syncDate }: AnalyticsProps) {
   const [loading, setLoading]   = useState(false);
   const [open, setOpen]         = useState(true);
 
-  // Sync when parent save-bar changes outlet or date
+  // Outlet users are locked to their own outlet; admins sync from save-bar
   useEffect(() => {
-    if (syncOutletId !== undefined) setOutletId(syncOutletId);
-  }, [syncOutletId]);
+    if (lockedOutletId) setOutletId(lockedOutletId);
+    else if (syncOutletId !== undefined) setOutletId(syncOutletId);
+  }, [syncOutletId, lockedOutletId]);
   useEffect(() => {
     if (syncDate) { setFrom(syncDate); setTo(syncDate); }
   }, [syncDate]);
@@ -163,11 +167,18 @@ function AnalyticsSection({ outlets, syncOutletId, syncDate }: AnalyticsProps) {
           <div className="flex flex-wrap gap-3 items-end">
             <div>
               <label className="block text-[11px] font-semibold text-gray-500 mb-1">Outlet</label>
-              <select value={outletId} onChange={e => setOutletId(e.target.value)}
-                className="select text-xs py-1.5 h-8">
-                <option value="">{lk.filterOutlet}</option>
-                {outlets.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-              </select>
+              {isOutletUser ? (
+                <div className="h-8 flex items-center px-2.5 bg-gray-50 rounded-lg border border-gray-200 text-xs text-gray-700 font-semibold gap-1.5">
+                  {outlets.find(o => o.id === lockedOutletId)?.name ?? "Your Outlet"}
+                  <span className="text-brand-500 font-normal">· Your Outlet</span>
+                </div>
+              ) : (
+                <select value={outletId} onChange={e => setOutletId(e.target.value)}
+                  className="select text-xs py-1.5 h-8">
+                  <option value="">{lk.filterOutlet}</option>
+                  {outlets.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </select>
+              )}
             </div>
             <div>
               <label className="block text-[11px] font-semibold text-gray-500 mb-1">{lk.filterFrom}</label>
@@ -363,7 +374,15 @@ function UploadReportTab({ outlets, onOutletChange, onDateChange }: UploadTabPro
     existingId: string; existingDate: string; existingRevenue: number; outletName: string;
   } | null>(null);
   const { data: reports, refetch }    = useData<SavedReport[]>("/api/sales-report");
-  const { user } = useAuth();
+  const { user, isOutletUser } = useAuth();
+
+  // Lock outlet to the user's own outlet for outlet-scoped roles
+  useEffect(() => {
+    if (isOutletUser && user?.outletId) {
+      setOutletId(user.outletId);
+      onOutletChange?.(user.outletId);
+    }
+  }, [isOutletUser, user?.outletId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const processFile = useCallback(async (f: File) => {
     setFile(f); setFileName(f.name);
@@ -380,7 +399,7 @@ function UploadReportTab({ outlets, onOutletChange, onDateChange }: UploadTabPro
           o.name.toLowerCase().includes(data.warehouseName.toLowerCase()) ||
           data.warehouseName.toLowerCase().includes(o.name.toLowerCase())
         );
-        if (match) { setOutletId(match.id); onOutletChange?.(match.id); }
+        if (match && !isOutletUser) { setOutletId(match.id); onOutletChange?.(match.id); }
       }
     } catch {
       setError("Error reading file. Make sure it's a valid .xlsx file.");
@@ -621,10 +640,17 @@ function UploadReportTab({ outlets, onOutletChange, onDateChange }: UploadTabPro
             <div className="flex items-end gap-3">
               <div className="flex-1">
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Outlet <span className="text-red-400">*</span></label>
-                <select className="select text-sm" value={outletId} onChange={e => { setOutletId(e.target.value); onOutletChange?.(e.target.value); }}>
-                  <option value="">Select outlet…</option>
-                  {(outlets ?? []).map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-                </select>
+                {isOutletUser ? (
+                  <div className="h-9 flex items-center px-3 bg-gray-50 rounded-xl border border-gray-200 text-sm text-gray-700 font-semibold gap-1.5">
+                    {(outlets ?? []).find(o => o.id === outletId)?.name ?? "Your Outlet"}
+                    <span className="text-brand-500 font-normal">· Your Outlet</span>
+                  </div>
+                ) : (
+                  <select className="select text-sm" value={outletId} onChange={e => { setOutletId(e.target.value); onOutletChange?.(e.target.value); }}>
+                    <option value="">Select outlet…</option>
+                    {(outlets ?? []).map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                  </select>
+                )}
               </div>
               <div className="w-36">
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Sales Date</label>

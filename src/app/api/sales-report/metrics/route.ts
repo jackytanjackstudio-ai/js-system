@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession, apiError, apiOk } from "@/lib/auth";
+import { normalizeRole } from "@/lib/permissions";
 
 type LineItem = { d: string; s?: string; q: number; a: number; p: number };
 
@@ -15,10 +16,16 @@ export async function GET(req: NextRequest) {
   const from     = searchParams.get("from") ?? undefined;
   const to       = searchParams.get("to") ?? undefined;
 
-  // Build where clause
+  // Build where clause — outlet users are always scoped to their own outlet
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {};
-  if (outletId) where.outletId = outletId;
+  const sessionRole = normalizeRole(session.role);
+  const isOutletUser = ["supervisor", "staff"].includes(sessionRole);
+  if (isOutletUser && session.outletId) {
+    where.outletId = session.outletId;
+  } else if (outletId) {
+    where.outletId = outletId;
+  }
   if (from || to) {
     where.salesDate = {
       ...(from ? { gte: from } : {}),
