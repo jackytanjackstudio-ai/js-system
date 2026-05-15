@@ -70,7 +70,7 @@ export async function POST(req: Request) {
         lookingFor:    JSON.stringify(lookingFor ?? []),
         nobuReasons:   JSON.stringify(nobuReasons ?? []),
         suggestions:   JSON.stringify(suggestions ?? []),
-        buyTrigger:    buyTrigger ?? null,
+        buyTrigger:    Array.isArray(buyTrigger) && buyTrigger.length > 0 ? JSON.stringify(buyTrigger) : (buyTrigger ?? null),
         customerType:  customerType ?? null,
         addOns:        JSON.stringify(addOns ?? []),
         quote:         quote ?? null,

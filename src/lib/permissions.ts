@@ -86,7 +86,7 @@ export const PERMISSIONS: Record<string, Record<UserRole, PermissionLevel>> = {
     marketing: "none", content: "none", cs: "none", product: "full",
   },
   outlets: {
-    admin: "full", supervisor: "own_outlet", staff: "none",
+    admin: "full", supervisor: "none", staff: "none",
     marketing: "none", content: "none", cs: "none", product: "none",
   },
   leads: {

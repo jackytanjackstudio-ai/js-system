@@ -177,11 +177,11 @@ export default function CustomerLog() {
   const [category,     setCategory]     = useState<Category | null>(null);
   const [useCase,      setUseCase]      = useState<string | null>(null);
   // Sold path
-  const [buyTrigger,   setBuyTrigger]   = useState<string | null>(null);
+  const [buyTrigger,   setBuyTrigger]   = useState<string[]>([]);
   const [customerType, setCustomerType] = useState<string | null>(null);
   const [addOns,       setAddOns]       = useState<string[]>([]);
   // Not-sold path
-  const [lostReason,    setLostReason]    = useState<string | null>(null);
+  const [lostReason,    setLostReason]    = useState<string[]>([]);
   const [marketSignals, setMarketSignals] = useState<string[]>([]);
   // Step 4
   const [customerSaid,  setCustomerSaid]  = useState("");
@@ -217,7 +217,7 @@ export default function CustomerLog() {
     outcome !== null,
     hasOutlet && !!category,
     !!useCase,
-    outcome === "sold" ? !!buyTrigger : !!lostReason,
+    outcome === "sold" ? buyTrigger.length > 0 : lostReason.length > 0,
     true,
   ];
 
@@ -296,10 +296,10 @@ export default function CustomerLog() {
           outcome,
           lookingFor:   [category],
           useCase:      useCase ? [useCase] : [],
-          buyTrigger:   buyTrigger   || null,
+          buyTrigger:   buyTrigger,
           customerType: customerType || null,
           addOns,
-          nobuReasons:  lostReason ? [lostReason] : [],
+          nobuReasons:  lostReason,
           signalTags:   marketSignals,
           suggestions:  [],
           quote:        customerSaid.trim() || null,
@@ -322,8 +322,8 @@ export default function CustomerLog() {
 
   function reset() {
     setStep(0); setOutcome(null); setCategory(null); setUseCase(null);
-    setBuyTrigger(null); setCustomerType(null); setAddOns([]);
-    setLostReason(null); setMarketSignals([]);
+    setBuyTrigger([]); setCustomerType(null); setAddOns([]);
+    setLostReason([]); setMarketSignals([]);
     setCustomerSaid(""); setCustName(""); setCustPhone(""); setShowContact(false);
     setSubmitError(null); setScannedName(null); setManualCode(""); setResult(null);
     removePhoto();
@@ -350,8 +350,8 @@ export default function CustomerLog() {
         <div className="flex flex-wrap gap-2 justify-center">
           {category && <span className="badge bg-brand-100 text-brand-700">{catCfg?.emoji} {category}</span>}
           {useCase   && <span className="badge bg-purple-100 text-purple-700">{useCase}</span>}
-          {outcome === "sold"     && buyTrigger  && <span className="badge bg-green-100 text-green-700">{buyTrigger}</span>}
-          {outcome === "not_sold" && lostReason  && <span className="badge bg-red-100 text-red-700">{lostReason}</span>}
+          {outcome === "sold"     && buyTrigger.map(tr => <span key={tr} className="badge bg-green-100 text-green-700">{tr}</span>)}
+          {outcome === "not_sold" && lostReason.map(r  => <span key={r}  className="badge bg-red-100 text-red-700">{r}</span>)}
         </div>
         {customerSaid.trim() && (
           <p className="text-sm text-gray-600 italic bg-gray-50 rounded-2xl px-5 py-3 w-full">
@@ -534,7 +534,8 @@ export default function CustomerLog() {
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {TRIGGERS.map(t => (
-                  <ChipBtn key={t} label={t} selected={buyTrigger === t} color="green" onClick={() => setBuyTrigger(t)} />
+                  <ChipBtn key={t} label={t} selected={buyTrigger.includes(t)} color="green"
+                    onClick={() => setBuyTrigger(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])} />
                 ))}
               </div>
             </div>
@@ -583,7 +584,8 @@ export default function CustomerLog() {
               </label>
               <div className="flex flex-wrap gap-2">
                 {(catCfg?.lostReasons ?? []).map(r => (
-                  <ChipBtn key={r} label={r} selected={lostReason === r} color="red" onClick={() => setLostReason(r)} />
+                  <ChipBtn key={r} label={r} selected={lostReason.includes(r)} color="red"
+                    onClick={() => setLostReason(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r])} />
                 ))}
               </div>
             </div>
