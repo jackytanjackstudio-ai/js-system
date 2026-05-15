@@ -5,7 +5,7 @@ export async function GET() {
   const session = await getSession();
   if (!session) return apiError("Unauthorized", 401);
 
-  const reports = await prisma.tiktokReport.findMany({
+  const reports = await prisma.tikTokReport.findMany({
     orderBy: { createdAt: "desc" },
     take: 20,
     select: {
@@ -26,6 +26,6 @@ export async function DELETE(req: Request) {
   const id = searchParams.get("id");
   if (!id) return apiError("id required");
 
-  await prisma.tiktokReport.delete({ where: { id } });
+  await prisma.tikTokReport.delete({ where: { id } });
   return apiOk({ deleted: true });
 }

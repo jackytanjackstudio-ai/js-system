@@ -176,7 +176,7 @@ export async function POST(req: Request) {
     }));
 
   // Save initial record
-  const report = await prisma.tiktokReport.create({
+  const report = await prisma.tikTokReport.create({
     data: {
       userId:       session.id,
       fileName:     file.name,
@@ -203,7 +203,7 @@ export async function POST(req: Request) {
       const raw_text = resp.choices[0]?.message?.content ?? "";
       const signals  = extractJson(raw_text);
       if (signals) {
-        await prisma.tiktokReport.update({
+        await prisma.tikTokReport.update({
           where: { id: report.id },
           data: {
             signals: JSON.stringify({
@@ -218,9 +218,9 @@ export async function POST(req: Request) {
       }
     } catch { /* AI failed — report still saved with stats */ }
   } else {
-    await prisma.tiktokReport.update({ where: { id: report.id }, data: { status: "no_ai" } });
+    await prisma.tikTokReport.update({ where: { id: report.id }, data: { status: "no_ai" } });
   }
 
-  const final = await prisma.tiktokReport.findUnique({ where: { id: report.id } });
+  const final = await prisma.tikTokReport.findUnique({ where: { id: report.id } });
   return apiOk(final, 201);
 }
