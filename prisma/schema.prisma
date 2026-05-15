@@ -25,6 +25,7 @@ model User {
   salesReports   SalesReport[]
   saleEntries    SaleEntry[]
   creatorContent CreatorContent[]
+  tiktokReports  TikTokReport[]
   rewardPoints   RewardPoint[]
   feedback       SystemFeedback[]
 }
@@ -704,4 +705,22 @@ model GooglePlacesCache {
   reviews      String   @default("[]") // JSON: GoogleReview[]
   cachedAt     DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+// ─── Creator Intelligence ──────────────────────────────────────────────────────
+
+model TikTokReport {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  dateRange     String?
+  fileName      String
+  totalVideos   Int      @default(0)
+  totalVV       Int      @default(0)
+  totalGMV      Float    @default(0)
+  avgFinishRate Float    @default(0)
+  topVideos     String   @default("[]") // JSON: top 10 videos by GMV
+  signals       String?                  // JSON: AI-generated SignalData
+  status        String   @default("ready") // ready | no_ai | error
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
 }
