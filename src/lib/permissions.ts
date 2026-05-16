@@ -43,6 +43,10 @@ export const PERMISSIONS: Record<string, Record<UserRole, PermissionLevel>> = {
   },
 
   // SIGNALS
+  "product-feedback": {
+    admin: "full", supervisor: "own_outlet", staff: "own_outlet",
+    marketing: "read", content: "none", cs: "none", product: "full",
+  },
   "customer-input": {
     admin: "full", supervisor: "own_outlet", staff: "own_outlet",
     marketing: "read", content: "none", cs: "read", product: "read",

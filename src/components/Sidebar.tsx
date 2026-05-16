@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, MessageSquare, BarChart2, Video,
   Database, Sword, CheckSquare, Trophy, Settings, Zap, Store, ShieldCheck,
-  Menu, X, Users, Calendar, BookOpen, Star, Sliders, Medal, MapPin, Clapperboard, PieChart, LogOut,
+  Menu, X, Users, Calendar, BookOpen, Star, Sliders, Medal, MapPin, Clapperboard, PieChart, LogOut, ThumbsUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/context/LangContext";
@@ -34,6 +34,7 @@ const NAV: NavItem[] = [
   { href: "/strategy",          icon: Sliders,         labelKey: "nav_strategy",          group: "strategy",   moduleKey: "strategy-hub"     },
   { href: "/strategy-dashboard",icon: PieChart,        labelKey: "nav_strategy_dashboard",group: "strategy",   moduleKey: "strategy-dashboard"},
   // SIGNALS
+  { href: "/product-feedback",  icon: ThumbsUp,        labelKey: "nav_product_feedback",  group: "signals",    moduleKey: "product-feedback" },
   { href: "/customer-input",    icon: MessageSquare,   labelKey: "nav_customer_input",    group: "signals",    moduleKey: "customer-input"   },
   { href: "/sales-report",      icon: BarChart2,       labelKey: "nav_sales_report",      group: "signals",    moduleKey: "sales-report"     },
   { href: "/creator-insight",   icon: Video,           labelKey: "nav_creator_insight",   group: "signals",    moduleKey: "creator-insight"  },
