@@ -1351,7 +1351,7 @@ type TabId = typeof TABS[number];
 export default function StrategyDashboard() {
   const { lang } = useLang();
   const lk = L[lang as LangKey] ?? L.en;
-  const { isStaff, user } = useAuth();
+  const { isOutletUser, user } = useAuth();
 
   const [tab, setTab]             = useState<TabId>("overview");
   const [data, setData]           = useState<TargetsResponse | null>(null);
@@ -1386,7 +1386,7 @@ export default function StrategyDashboard() {
     }
   }
 
-  useEffect(() => { if (!isStaff) load(); }, [isStaff]);
+  useEffect(() => { if (!isOutletUser) load(); }, [isOutletUser]);
 
   async function handleKpiUpdate(perspective: string, kpiKey: string, status: string, note: string) {
     await fetch("/api/bsc/kpis", {
@@ -1399,8 +1399,8 @@ export default function StrategyDashboard() {
     setKpis(kRes.kpis ?? []);
   }
 
-  // Staff sees only their outlet's sales data
-  if (isStaff) return <StaffOutletView lk={lk} outletId={user?.outletId} />;
+  // Supervisor & Staff see only their outlet's sales data
+  if (isOutletUser) return <StaffOutletView lk={lk} outletId={user?.outletId} />;
 
   const tabLabels: Record<TabId, string> = {
     overview: lk.tab_overview,
