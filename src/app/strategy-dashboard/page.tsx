@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from "recharts";
 import { useLang } from "@/context/LangContext";
 import { useAuth } from "@/context/AuthContext";
+import { normalizeOutletName } from "@/lib/outlet-name-alias";
 import type { ChannelForecast } from "@/lib/ecomm-forecast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1197,6 +1198,151 @@ function TabOnline({ data, lk }: { data: OnlineResponse; lk: Record<string, stri
   );
 }
 
+// ─── Staff Outlet View ────────────────────────────────────────────────────────
+
+function StaffOutletView({ lk, outletId }: { lk: Record<string, string>; outletId?: string | null }) {
+  const [data, setData] = useState<TargetsResponse | null>(null);
+  const [outletName, setOutletName] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const year = 2026;
+
+  useEffect(() => {
+    async function load() {
+      const [outlets, tRes] = await Promise.all([
+        fetch("/api/outlets/public").then(r => r.json()),
+        fetch(`/api/bsc/targets?year=${year}`).then(r => r.json()),
+      ]);
+      const myOutlet = (outlets as { id: string; name: string }[]).find(o => o.id === outletId);
+      if (myOutlet) setOutletName(normalizeOutletName(myOutlet.name));
+      setData(tRes);
+      setLoading(false);
+    }
+    if (outletId) load();
+    else setLoading(false);
+  }, [outletId]);
+
+  if (loading) return <SkeletonOverview />;
+
+  if (!outletName || !data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#F8F7F4" }}>
+        <p className="text-sm text-gray-400">No outlet assigned. Please contact your supervisor.</p>
+      </div>
+    );
+  }
+
+  const myTargets = data.targets.filter(t => t.outlet.toUpperCase().trim() === outletName.toUpperCase().trim());
+  const myActuals = data.actuals[outletName] ?? {};
+
+  const annualTarget   = myTargets.reduce((s, t) => s + t.targetRm, 0);
+  const ytdTarget      = myTargets.filter(t => t.month <= data.currentMonth).reduce((s, t) => s + t.targetRm, 0);
+  const ytdActual      = Object.entries(myActuals).filter(([m]) => parseInt(m) <= data.currentMonth).reduce((s, [, v]) => s + v, 0);
+  const pctAchieved    = ytdTarget > 0 ? (ytdActual / ytdTarget) * 100 : 0;
+  const curMonthTarget = myTargets.find(t => t.month === data.currentMonth)?.targetRm ?? 0;
+  const curMonthActual = myActuals[data.currentMonth] ?? 0;
+  const achieveColor   = pctAchieved >= 100 ? "#4A7C59" : pctAchieved >= 70 ? BRAND : "#E53E3E";
+
+  const chartData = MONTHS_SHORT.map((m, i) => ({
+    name:   m,
+    target: Math.round(myTargets.find(t => t.month === i + 1)?.targetRm ?? 0),
+    actual: Math.round(myActuals[i + 1] ?? 0),
+  }));
+
+  return (
+    <div className="min-h-screen" style={{ background: "#F8F7F4", fontFamily: "'DM Sans', sans-serif" }}>
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-4 pt-4 pb-4">
+        <div className="max-w-xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base" style={{ background: BRAND }}>📊</div>
+            <div>
+              <p className="text-sm font-black" style={{ color: "#1A1A1A" }}>{lk.pageTitle ?? "Strategy Dashboard"}</p>
+              <p className="text-[11px]" style={{ color: "#999" }}>My Outlet · {year}</p>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold" style={{ background: "#ECFDF5", color: "#065F46" }}>🟢 {year}</span>
+        </div>
+      </div>
+
+      <div className="max-w-xl mx-auto px-4 py-5 pb-16 space-y-4">
+        {/* Summary card */}
+        <div className="rounded-2xl p-5" style={{ background: "#1A1A1A" }}>
+          <p className="text-[10px] font-black tracking-widest mb-1" style={{ color: "#888" }}>MY OUTLET · SALES TARGET {year}</p>
+          <p className="text-lg font-black text-white mb-1">{outletName}</p>
+          <div className="flex items-end justify-between mt-3">
+            <div>
+              <p className="text-2xl font-black" style={{ color: achieveColor }}>{pctAchieved.toFixed(1)}%</p>
+              <p className="text-xs mt-0.5" style={{ color: "#888" }}>YTD of Target</p>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-black text-white">{fmtRM(ytdActual)}</p>
+              <p className="text-[10px]" style={{ color: "#666" }}>YTD Actual</p>
+            </div>
+          </div>
+          <div className="h-2 rounded-full mt-3" style={{ background: "#333" }}>
+            <div className="h-2 rounded-full transition-all" style={{ width: `${Math.min(pctAchieved, 100)}%`, background: achieveColor }} />
+          </div>
+          <div className="flex justify-between text-[11px] mt-2" style={{ color: "#888" }}>
+            <span>Annual Target: {fmtRM(annualTarget)}</span>
+            <span>YTD Target: {fmtRM(ytdTarget)}</span>
+          </div>
+        </div>
+
+        {/* Current month */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm">
+          <p className="text-xs font-black mb-3" style={{ color: "#1A1A1A" }}>
+            {MONTHS_EN[data.currentMonth - 1]} {year} — Current Month
+          </p>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">Target</p>
+              <p className="text-xl font-black" style={{ color: "#1A1A1A" }}>{fmtRM(curMonthTarget)}</p>
+            </div>
+            <div className="flex-1">
+              <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">Actual</p>
+              <p className="text-xl font-black" style={{ color: curMonthActual >= curMonthTarget && curMonthTarget > 0 ? "#4A7C59" : BRAND }}>
+                {fmtRM(curMonthActual)}
+              </p>
+            </div>
+          </div>
+          {curMonthTarget > 0 && (
+            <div className="h-2 rounded-full mt-3" style={{ background: "#F0EDE8" }}>
+              <div className="h-2 rounded-full transition-all" style={{
+                width: `${Math.min((curMonthActual / curMonthTarget) * 100, 100)}%`,
+                background: curMonthActual >= curMonthTarget ? "#4A7C59" : BRAND,
+              }} />
+            </div>
+          )}
+        </div>
+
+        {/* Monthly chart */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm">
+          <p className="text-xs font-black mb-4" style={{ color: "#1A1A1A" }}>Monthly Target vs Actual</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={chartData} barCategoryGap="30%">
+              <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#999" }} axisLine={false} tickLine={false} />
+              <YAxis hide />
+              <Tooltip
+                formatter={(v: number) => [fmtRM(v)]}
+                contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #eee" }}
+              />
+              <Bar dataKey="target" name="Target" fill="#E8E0D4" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="actual" name="Actual" fill={BRAND} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+          <div className="flex gap-4 mt-2 justify-center">
+            {[["#E8E0D4", "Target"], [BRAND, "Actual"]].map(([c, lb]) => (
+              <div key={lb} className="flex items-center gap-1.5">
+                <div className="w-6 h-2 rounded" style={{ background: c }} />
+                <span className="text-[10px]" style={{ color: "#888" }}>{lb}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const TABS = ["overview", "outlets", "bsc", "online"] as const;
@@ -1205,6 +1351,7 @@ type TabId = typeof TABS[number];
 export default function StrategyDashboard() {
   const { lang } = useLang();
   const lk = L[lang as LangKey] ?? L.en;
+  const { isStaff, user } = useAuth();
 
   const [tab, setTab]             = useState<TabId>("overview");
   const [data, setData]           = useState<TargetsResponse | null>(null);
@@ -1239,7 +1386,7 @@ export default function StrategyDashboard() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { if (!isStaff) load(); }, [isStaff]);
 
   async function handleKpiUpdate(perspective: string, kpiKey: string, status: string, note: string) {
     await fetch("/api/bsc/kpis", {
@@ -1251,6 +1398,9 @@ export default function StrategyDashboard() {
     const kRes = await fetch("/api/bsc/kpis").then(r => r.json());
     setKpis(kRes.kpis ?? []);
   }
+
+  // Staff sees only their outlet's sales data
+  if (isStaff) return <StaffOutletView lk={lk} outletId={user?.outletId} />;
 
   const tabLabels: Record<TabId, string> = {
     overview: lk.tab_overview,

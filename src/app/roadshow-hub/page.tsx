@@ -6,7 +6,7 @@ import StrategyBar from "@/components/StrategyBar";
 import {
   MapPin, Plus, Pencil, Trash2, X, Loader2, Camera, FileText,
   Users, BarChart3, Check, ChevronDown, ChevronUp, Upload, Star,
-  TrendingUp, Package, Calendar,
+  TrendingUp, Package, Calendar, Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -100,7 +100,7 @@ function KpiBar({ list }: { list: Roadshow[] }) {
 }
 
 // ─── Roadshow Card ────────────────────────────────────────────────────────────
-function RoadshowCard({ r, canEdit, onEdit, onDelete }: { r: Roadshow; canEdit: boolean; onEdit: () => void; onDelete: () => void }) {
+function RoadshowCard({ r, canEdit, onEdit, onView, onDelete }: { r: Roadshow; canEdit: boolean; onEdit: () => void; onView: () => void; onDelete: () => void }) {
   const [open, setOpen] = useState(false);
   const mission = MISSION_CONFIG[r.mission as keyof typeof MISSION_CONFIG] ?? MISSION_CONFIG.conversion;
   const status  = STATUS_CONFIG[r.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.pending;
@@ -159,106 +159,105 @@ function RoadshowCard({ r, canEdit, onEdit, onDelete }: { r: Roadshow; canEdit: 
         {pm && <span className="flex items-center gap-1 text-[10px] bg-green-50 text-green-600 px-2 py-0.5 rounded-full font-semibold"><Check size={9} />Post Mortem</span>}
       </div>
 
-      {/* Expand button */}
-      <button onClick={() => setOpen(v => !v)} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors">
-        {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-        {open ? "Hide details" : "View details"}
-      </button>
-
-      {/* Expanded */}
-      {open && (
-        <div className="pt-3 border-t border-gray-100 space-y-4">
-          {/* Photo gallery */}
-          {photos.length > 0 && (
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Gallery</p>
-              <div className="flex gap-2 flex-wrap">
-                {photos.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt="" className="w-20 h-20 object-cover rounded-xl border border-gray-100 hover:opacity-80 transition-opacity" />
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Floor plans */}
-          {plans.length > 0 && (
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Floor Plans</p>
-              <div className="flex flex-col gap-1.5">
-                {plans.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-xs text-brand-600 hover:text-brand-700 bg-brand-50 px-3 py-2 rounded-lg transition-colors">
-                    <FileText size={12} /> Floor Plan {i + 1}
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Partners */}
-          {partners.length > 0 && (
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Partners</p>
-              <div className="space-y-1.5">
-                {partners.map((p, i) => (
-                  <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2 text-xs">
-                    <span className="font-bold text-gray-800 min-w-[80px]">{p.brandName}</span>
-                    {p.category && <span className="text-gray-400">{p.category}</span>}
-                    {p.attractionPower && <span className={cn("px-2 py-0.5 rounded-full font-semibold text-[10px]",
-                      p.attractionPower === "high" ? "bg-green-100 text-green-700" : p.attractionPower === "medium" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-500"
-                    )}>{p.attractionPower}</span>}
-                    {p.repeatWorthy && <span className="text-green-500 font-bold text-[10px]">✓ Repeat</span>}
+      {/* Expand (editors) / View button (staff) */}
+      {canEdit ? (
+        <>
+          <button onClick={() => setOpen(v => !v)} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors">
+            {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            {open ? "Hide details" : "View details"}
+          </button>
+          {open && (
+            <div className="pt-3 border-t border-gray-100 space-y-4">
+              {photos.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Gallery</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {photos.map((url, i) => (
+                      <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt="" className="w-20 h-20 object-cover rounded-xl border border-gray-100 hover:opacity-80 transition-opacity" />
+                      </a>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Post Mortem */}
-          {pm && (
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Post Mortem</p>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  ["Top Category", pm.topCategory], ["Weak Category", pm.weakCategory],
-                  ["Best Seller", pm.bestSeller], ["Traffic", pm.trafficObservation],
-                  ["Customer Behavior", pm.customerBehavior], ["Competitor", pm.competitorObservation],
-                ].filter(([, v]) => v).map(([k, v]) => (
-                  <div key={k as string} className="bg-gray-50 rounded-xl p-2.5">
-                    <div className="text-[10px] text-gray-400 font-semibold mb-0.5">{k as string}</div>
-                    <div className="text-xs text-gray-800 font-semibold">{v as string}</div>
+                </div>
+              )}
+              {plans.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Floor Plans</p>
+                  <div className="flex flex-col gap-1.5">
+                    {plans.map((url, i) => (
+                      <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-xs text-brand-600 hover:text-brand-700 bg-brand-50 px-3 py-2 rounded-lg transition-colors">
+                        <FileText size={12} /> Floor Plan {i + 1}
+                      </a>
+                    ))}
                   </div>
-                ))}
-                {pm.partnerPerformance && (
-                  <div className="col-span-2 bg-gray-50 rounded-xl p-2.5">
-                    <div className="text-[10px] text-gray-400 font-semibold mb-0.5">Partner Performance</div>
-                    <div className="text-xs text-gray-800">{pm.partnerPerformance}</div>
+                </div>
+              )}
+              {partners.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Partners</p>
+                  <div className="space-y-1.5">
+                    {partners.map((p, i) => (
+                      <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2 text-xs">
+                        <span className="font-bold text-gray-800 min-w-[80px]">{p.brandName}</span>
+                        {p.category && <span className="text-gray-400">{p.category}</span>}
+                        {p.attractionPower && <span className={cn("px-2 py-0.5 rounded-full font-semibold text-[10px]",
+                          p.attractionPower === "high" ? "bg-green-100 text-green-700" : p.attractionPower === "medium" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-500"
+                        )}>{p.attractionPower}</span>}
+                        {p.repeatWorthy && <span className="text-green-500 font-bold text-[10px]">✓ Repeat</span>}
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+              {pm && (
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Post Mortem</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      ["Top Category", pm.topCategory], ["Weak Category", pm.weakCategory],
+                      ["Best Seller", pm.bestSeller], ["Traffic", pm.trafficObservation],
+                      ["Customer Behavior", pm.customerBehavior], ["Competitor", pm.competitorObservation],
+                    ].filter(([, v]) => v).map(([k, v]) => (
+                      <div key={k as string} className="bg-gray-50 rounded-xl p-2.5">
+                        <div className="text-[10px] text-gray-400 font-semibold mb-0.5">{k as string}</div>
+                        <div className="text-xs text-gray-800 font-semibold">{v as string}</div>
+                      </div>
+                    ))}
+                    {pm.partnerPerformance && (
+                      <div className="col-span-2 bg-gray-50 rounded-xl p-2.5">
+                        <div className="text-[10px] text-gray-400 font-semibold mb-0.5">Partner Performance</div>
+                        <div className="text-xs text-gray-800">{pm.partnerPerformance}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {r.notes && (
+                <div className="bg-amber-50 rounded-xl p-3">
+                  <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-1">Notes</p>
+                  <p className="text-xs text-gray-700">{r.notes}</p>
+                </div>
+              )}
             </div>
           )}
-
-          {r.notes && (
-            <div className="bg-amber-50 rounded-xl p-3">
-              <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-1">Notes</p>
-              <p className="text-xs text-gray-700">{r.notes}</p>
-            </div>
-          )}
-        </div>
+        </>
+      ) : (
+        <button onClick={onView} className="flex items-center gap-1.5 text-xs text-brand-600 hover:text-brand-700 font-semibold transition-colors">
+          <Eye size={12} /> View Details
+        </button>
       )}
     </div>
   );
 }
 
 // ─── Create / Edit Modal ──────────────────────────────────────────────────────
-function RoadshowModal({ initial, onSave, onClose }: {
+function RoadshowModal({ initial, onSave, onClose, readOnly = false }: {
   initial?: Roadshow | null;
   onSave: (data: object) => Promise<void>;
   onClose: () => void;
+  readOnly?: boolean;
 }) {
   const [tab, setTab] = useState<"basic" | "gallery" | "partners" | "postmortem">("basic");
   const [form, setForm] = useState(initial ? {
@@ -340,7 +339,7 @@ function RoadshowModal({ initial, onSave, onClose }: {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="p-5 border-b border-gray-100 flex items-center justify-between shrink-0">
-          <h2 className="font-bold text-gray-900">{initial ? "Edit Roadshow" : "New Roadshow"}</h2>
+          <h2 className="font-bold text-gray-900">{readOnly ? "Roadshow Details" : initial ? "Edit Roadshow" : "New Roadshow"}</h2>
           <button onClick={onClose}><X size={18} className="text-gray-400 hover:text-gray-600" /></button>
         </div>
 
@@ -362,22 +361,22 @@ function RoadshowModal({ initial, onSave, onClose }: {
             <>
               <div>
                 <label className={labelCls}>Mall / Venue *</label>
-                <input className={inputCls} placeholder="e.g. Paradigm Mall" value={form.mallName} onChange={e => setForm(f => ({ ...f, mallName: e.target.value }))} />
+                <input className={inputCls} placeholder="e.g. Paradigm Mall" value={form.mallName} disabled={readOnly} onChange={e => setForm(f => ({ ...f, mallName: e.target.value }))} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Start Date *</label>
-                  <input type="date" className={inputCls} value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} />
+                  <input type="date" className={inputCls} value={form.startDate} disabled={readOnly} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} />
                 </div>
                 <div>
                   <label className={labelCls}>End Date *</label>
-                  <input type="date" className={inputCls} value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} />
+                  <input type="date" className={inputCls} value={form.endDate} disabled={readOnly} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Mission</label>
-                  <select className={inputCls} value={form.mission} onChange={e => setForm(f => ({ ...f, mission: e.target.value }))}>
+                  <select className={inputCls} value={form.mission} disabled={readOnly} onChange={e => setForm(f => ({ ...f, mission: e.target.value }))}>
                     <option value="branding">Branding</option>
                     <option value="conversion">Conversion</option>
                     <option value="clearance">Clearance</option>
@@ -385,7 +384,7 @@ function RoadshowModal({ initial, onSave, onClose }: {
                 </div>
                 <div>
                   <label className={labelCls}>Status</label>
-                  <select className={inputCls} value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+                  <select className={inputCls} value={form.status} disabled={readOnly} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
                     <option value="pending">Pending</option>
                     <option value="confirmed">Confirmed</option>
                     <option value="completed">Completed</option>
@@ -395,26 +394,26 @@ function RoadshowModal({ initial, onSave, onClose }: {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Sq Ft</label>
-                  <input type="number" className={inputCls} placeholder="e.g. 3200" value={form.sqFt} onChange={e => setForm(f => ({ ...f, sqFt: e.target.value }))} />
+                  <input type="number" className={inputCls} placeholder="e.g. 3200" value={form.sqFt} disabled={readOnly} onChange={e => setForm(f => ({ ...f, sqFt: e.target.value }))} />
                 </div>
                 <div>
                   <label className={labelCls}>PIC</label>
-                  <input className={inputCls} placeholder="Person in charge" value={form.pic} onChange={e => setForm(f => ({ ...f, pic: e.target.value }))} />
+                  <input className={inputCls} placeholder="Person in charge" value={form.pic} disabled={readOnly} onChange={e => setForm(f => ({ ...f, pic: e.target.value }))} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Expected Sales (RM)</label>
-                  <input type="number" className={inputCls} placeholder="optional" value={form.expectedSales} onChange={e => setForm(f => ({ ...f, expectedSales: e.target.value }))} />
+                  <input type="number" className={inputCls} placeholder="optional" value={form.expectedSales} disabled={readOnly} onChange={e => setForm(f => ({ ...f, expectedSales: e.target.value }))} />
                 </div>
                 <div>
                   <label className={labelCls}>Actual Sales (RM)</label>
-                  <input type="number" className={inputCls} placeholder="fill after event" value={form.actualSales} onChange={e => setForm(f => ({ ...f, actualSales: e.target.value }))} />
+                  <input type="number" className={inputCls} placeholder="fill after event" value={form.actualSales} disabled={readOnly} onChange={e => setForm(f => ({ ...f, actualSales: e.target.value }))} />
                 </div>
               </div>
               <div>
                 <label className={labelCls}>Notes</label>
-                <textarea rows={2} className={inputCls + " resize-none"} placeholder="Any notes…" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+                <textarea rows={2} className={inputCls + " resize-none"} placeholder="Any notes…" value={form.notes} disabled={readOnly} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
               </div>
             </>
           )}
@@ -424,42 +423,58 @@ function RoadshowModal({ initial, onSave, onClose }: {
             <div className="space-y-4">
               <div>
                 <label className={labelCls}>Event Photos</label>
-                <input ref={photoRef} type="file" accept="image/*" multiple className="hidden" onChange={e => handlePhotoUpload(e.target.files)} />
-                <button onClick={() => photoRef.current?.click()} disabled={uploading}
-                  className="btn-secondary w-full py-3 flex items-center justify-center gap-2 text-sm">
-                  {uploading ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
-                  {uploading ? "Uploading…" : "Upload Photos"}
-                </button>
+                {!readOnly && (
+                  <>
+                    <input ref={photoRef} type="file" accept="image/*" multiple className="hidden" onChange={e => handlePhotoUpload(e.target.files)} />
+                    <button onClick={() => photoRef.current?.click()} disabled={uploading}
+                      className="btn-secondary w-full py-3 flex items-center justify-center gap-2 text-sm">
+                      {uploading ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
+                      {uploading ? "Uploading…" : "Upload Photos"}
+                    </button>
+                  </>
+                )}
                 {photos.length > 0 && (
                   <div className="grid grid-cols-3 gap-2 mt-3">
                     {photos.map((url, i) => (
                       <div key={i} className="relative group">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={url} alt="" className="w-full h-24 object-cover rounded-xl" />
-                        <button onClick={() => setPhotos(p => p.filter((_, j) => j !== i))}
-                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <X size={10} />
-                        </button>
+                        {!readOnly && (
+                          <button onClick={() => setPhotos(p => p.filter((_, j) => j !== i))}
+                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <X size={10} />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
+                {photos.length === 0 && readOnly && (
+                  <p className="text-xs text-gray-400 mt-1">No photos uploaded.</p>
+                )}
               </div>
               <div>
                 <label className={labelCls}>Floor Plans (PDF / Image)</label>
-                <input ref={planRef} type="file" accept="image/*,.pdf" multiple className="hidden" onChange={e => handlePlanUpload(e.target.files)} />
-                <button onClick={() => planRef.current?.click()} disabled={uploading}
-                  className="btn-secondary w-full py-3 flex items-center justify-center gap-2 text-sm">
-                  {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                  {uploading ? "Uploading…" : "Upload Floor Plan"}
-                </button>
+                {!readOnly && (
+                  <>
+                    <input ref={planRef} type="file" accept="image/*,.pdf" multiple className="hidden" onChange={e => handlePlanUpload(e.target.files)} />
+                    <button onClick={() => planRef.current?.click()} disabled={uploading}
+                      className="btn-secondary w-full py-3 flex items-center justify-center gap-2 text-sm">
+                      {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                      {uploading ? "Uploading…" : "Upload Floor Plan"}
+                    </button>
+                  </>
+                )}
                 {plans.map((url, i) => (
                   <div key={i} className="flex items-center gap-2 mt-2 bg-gray-50 rounded-xl px-3 py-2">
                     <FileText size={12} className="text-gray-400" />
-                    <span className="text-xs text-gray-600 flex-1 truncate">Floor Plan {i + 1}</span>
-                    <button onClick={() => setPlans(p => p.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600"><X size={12} /></button>
+                    <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-600 flex-1 truncate hover:underline">Floor Plan {i + 1}</a>
+                    {!readOnly && <button onClick={() => setPlans(p => p.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600"><X size={12} /></button>}
                   </div>
                 ))}
+                {plans.length === 0 && readOnly && (
+                  <p className="text-xs text-gray-400 mt-1">No floor plans uploaded.</p>
+                )}
               </div>
             </div>
           )}
@@ -467,26 +482,28 @@ function RoadshowModal({ initial, onSave, onClose }: {
           {/* ── Partners ── */}
           {tab === "partners" && (
             <div className="space-y-4">
-              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Add Partner</p>
-                <input className={inputCls} placeholder="Brand name *" value={newPartner.brandName} onChange={e => setNewPartner(p => ({ ...p, brandName: e.target.value }))} />
-                <div className="grid grid-cols-2 gap-2">
-                  <input className={inputCls} placeholder="Category (Shoes…)" value={newPartner.category} onChange={e => setNewPartner(p => ({ ...p, category: e.target.value }))} />
-                  <select className={inputCls} value={newPartner.attractionPower} onChange={e => setNewPartner(p => ({ ...p, attractionPower: e.target.value }))}>
-                    <option value="high">High Attraction</option>
-                    <option value="medium">Medium</option>
-                    <option value="low">Low</option>
-                  </select>
+              {!readOnly && (
+                <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Add Partner</p>
+                  <input className={inputCls} placeholder="Brand name *" value={newPartner.brandName} onChange={e => setNewPartner(p => ({ ...p, brandName: e.target.value }))} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input className={inputCls} placeholder="Category (Shoes…)" value={newPartner.category} onChange={e => setNewPartner(p => ({ ...p, category: e.target.value }))} />
+                    <select className={inputCls} value={newPartner.attractionPower} onChange={e => setNewPartner(p => ({ ...p, attractionPower: e.target.value }))}>
+                      <option value="high">High Attraction</option>
+                      <option value="medium">Medium</option>
+                      <option value="low">Low</option>
+                    </select>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" checked={newPartner.repeatWorthy} onChange={e => setNewPartner(p => ({ ...p, repeatWorthy: e.target.checked }))} className="accent-brand-500" />
+                    Repeat Worthy
+                  </label>
+                  <button onClick={addPartner} disabled={!newPartner.brandName.trim()} className="btn-primary text-xs px-3 py-2 flex items-center gap-1.5 disabled:opacity-50">
+                    <Plus size={12} /> Add Partner
+                  </button>
                 </div>
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input type="checkbox" checked={newPartner.repeatWorthy} onChange={e => setNewPartner(p => ({ ...p, repeatWorthy: e.target.checked }))} className="accent-brand-500" />
-                  Repeat Worthy
-                </label>
-                <button onClick={addPartner} disabled={!newPartner.brandName.trim()} className="btn-primary text-xs px-3 py-2 flex items-center gap-1.5 disabled:opacity-50">
-                  <Plus size={12} /> Add Partner
-                </button>
-              </div>
-              {partners.length > 0 && (
+              )}
+              {partners.length > 0 ? (
                 <div className="space-y-2">
                   {partners.map((p, i) => (
                     <div key={i} className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-3 py-2.5 text-xs">
@@ -496,11 +513,13 @@ function RoadshowModal({ initial, onSave, onClose }: {
                         p.attractionPower === "high" ? "bg-green-100 text-green-700" : p.attractionPower === "medium" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-500"
                       )}>{p.attractionPower}</span>}
                       {p.repeatWorthy && <span className="text-green-500 font-bold">✓</span>}
-                      <button onClick={() => setPartners(ps => ps.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600 ml-1"><X size={11} /></button>
+                      {!readOnly && <button onClick={() => setPartners(ps => ps.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600 ml-1"><X size={11} /></button>}
                     </div>
                   ))}
                 </div>
-              )}
+              ) : readOnly ? (
+                <p className="text-xs text-gray-400">No partners recorded.</p>
+              ) : null}
             </div>
           )}
 
@@ -519,7 +538,7 @@ function RoadshowModal({ initial, onSave, onClose }: {
               ] as [keyof PM, string, string][]).map(([key, label, ph]) => (
                 <div key={key}>
                   <label className={labelCls}>{label}</label>
-                  <input className={inputCls} placeholder={ph} value={pm[key] ?? ""}
+                  <input className={inputCls} placeholder={ph} value={pm[key] ?? ""} disabled={readOnly}
                     onChange={e => setPm(p => ({ ...p, [key]: e.target.value }))} />
                 </div>
               ))}
@@ -529,12 +548,18 @@ function RoadshowModal({ initial, onSave, onClose }: {
 
         {/* Footer */}
         <div className="p-5 border-t border-gray-100 flex gap-3 shrink-0">
-          <button onClick={onClose} className="btn-secondary flex-1 py-2.5">Cancel</button>
-          <button onClick={handleSave} disabled={!valid || saving}
-            className="btn-primary flex-1 py-2.5 flex items-center justify-center gap-2 disabled:opacity-50">
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-            {initial ? "Save Changes" : "Create Roadshow"}
-          </button>
+          {readOnly ? (
+            <button onClick={onClose} className="btn-primary flex-1 py-2.5">Close</button>
+          ) : (
+            <>
+              <button onClick={onClose} className="btn-secondary flex-1 py-2.5">Cancel</button>
+              <button onClick={handleSave} disabled={!valid || saving}
+                className="btn-primary flex-1 py-2.5 flex items-center justify-center gap-2 disabled:opacity-50">
+                {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                {initial ? "Save Changes" : "Create Roadshow"}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -724,6 +749,7 @@ export default function RoadshowHubPage() {
   const { data, loading, refetch } = useData<Roadshow[]>("/api/roadshows");
   const [showModal, setShowModal] = useState(false);
   const [editTarget, setEditTarget] = useState<Roadshow | null>(null);
+  const [viewMode, setViewMode] = useState(false);
   const [tab, setTab] = useState<"all" | "upcoming" | "completed" | "calendar">("all");
 
   const canEdit = ["admin", "manager"].includes(user?.role ?? "");
@@ -813,7 +839,8 @@ export default function RoadshowHubPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map(r => (
             <RoadshowCard key={r.id} r={r} canEdit={canEdit}
-              onEdit={() => { setEditTarget(r); setShowModal(true); }}
+              onEdit={() => { setViewMode(false); setEditTarget(r); setShowModal(true); }}
+              onView={() => { setViewMode(true); setEditTarget(r); setShowModal(true); }}
               onDelete={() => handleDelete(r.id)} />
           ))}
         </div>
@@ -822,8 +849,9 @@ export default function RoadshowHubPage() {
       {showModal && (
         <RoadshowModal
           initial={editTarget}
+          readOnly={viewMode}
           onSave={handleSave}
-          onClose={() => { setShowModal(false); setEditTarget(null); }}
+          onClose={() => { setShowModal(false); setEditTarget(null); setViewMode(false); }}
         />
       )}
     </div>
